@@ -1,0 +1,150 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base: #08090A;
+  --bg-surface: #0F1012;
+  --bg-elevated: #16171A;
+  --bg-hover: #1E2024;
+  --bg-active: #26292E;
+  
+  --border-subtle: #1C1E22;
+  --border-default: #26292F;
+  --border-focus: #5E6AD2;
+
+  --text-primary: #F7F8F8;
+  --text-secondary: #8A8F98;
+  --text-tertiary: #5B616E;
+  --text-muted: #424651;
+
+  --accent: #5E6AD2;
+  --accent-hover: #707CE6;
+  --accent-subtle: rgba(94, 106, 210, 0.15);
+
+  --priority-urgent: #F75555;
+  --priority-high: #F09436;
+  --priority-medium: #F7C948;
+  --priority-low: #5E94E4;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Glassmorphism backdrop */
+.glass-panel {
+  background: rgba(15, 16, 18, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-default);
+}
+
+/* Focus styles for keyboard accessibility */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Keyframe animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* cmdk styles for command palette */
+[cmdk-root] {
+  max-width: 640px;
+  width: 100%;
+  background: #0F1012;
+  border-radius: 12px;
+  border: 1px solid #26292F;
+  box-shadow: 0 16px 70px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+[cmdk-input] {
+  width: 100%;
+  background: transparent;
+  padding: 16px;
+  font-size: 15px;
+  color: #F7F8F8;
+  border: none;
+  outline: none;
+  border-bottom: 1px solid #1C1E22;
+}
+
+[cmdk-item] {
+  content-visibility: auto;
+  cursor: pointer;
+  height: 40px;
+  border-radius: 6px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  color: #8A8F98;
+  user-select: none;
+  will-change: background, color;
+  transition: all 100ms ease;
+}
+
+[cmdk-item][data-selected='true'] {
+  background: #1E2024;
+  color: #F7F8F8;
+}
+
+[cmdk-group-heading] {
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #5B616E;
+  padding: 8px 12px 4px;
+}
