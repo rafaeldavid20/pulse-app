@@ -10,11 +10,13 @@ import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAuth } from '@/hooks/useAuth';
 import { IssueStatus, IssuePriority } from '@/types';
+import { AlertCircle } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
   const { user } = useAuth();
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const activeTeam = useAppStore((s) => s.activeTeam);
+  const teams = useAppStore((s) => s.teams);
   const isCreateIssueOpen = useAppStore((s) => s.isCreateIssueOpen);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
   const members = useAppStore((s) => s.members);
@@ -32,6 +34,7 @@ export const CreateIssueModal: React.FC = () => {
   const [projectId, setProjectId] = useState<string>('');
   const [selectedLabels, setSelectedLabels] = useState<string[]>(['feature']);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   // Sync defaultProjectId when modal opens
   useEffect(() => {
@@ -41,20 +44,33 @@ export const CreateIssueModal: React.FC = () => {
   }, [isCreateIssueOpen, defaultProjectId]);
 
   const handleClose = () => {
+    setErrorMsg('');
     setCreateIssueOpen(false);
     setDefaultProjectId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !user || !activeWorkspace || !activeTeam) return;
+    if (!title.trim() || !user) return;
+
+    const wsId = activeWorkspace?.id;
+    const currentTeam = activeTeam || teams[0];
+    const teamId = currentTeam?.id;
+    const teamKey = currentTeam?.key || 'ENG';
+
+    if (!wsId || !teamId) {
+      setErrorMsg('No hay un workspace o equipo activo cargado.');
+      return;
+    }
 
     setLoading(true);
+    setErrorMsg('');
+
     try {
       const created = await addIssue({
-        workspaceId: activeWorkspace.id,
-        teamId: activeTeam.id,
-        teamKey: activeTeam.key,
+        workspaceId: wsId,
+        teamId: teamId,
+        teamKey: teamKey,
         creatorId: user.uid,
         title: title.trim(),
         description: description.trim(),
@@ -71,8 +87,9 @@ export const CreateIssueModal: React.FC = () => {
       setSelectedLabels(['feature']);
       handleClose();
       if (created?.id) setPeekIssueId(created.id);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating issue:', err);
+      setErrorMsg(err?.message || 'Error al guardar el issue en Cloud Firestore.');
     } finally {
       setLoading(false);
     }
@@ -86,6 +103,13 @@ export const CreateIssueModal: React.FC = () => {
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {errorMsg && (
+          <div className="p-3 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         {/* Title Input */}
         <div>
           <Input

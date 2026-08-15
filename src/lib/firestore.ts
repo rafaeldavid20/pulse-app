@@ -4,18 +4,16 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  addDoc,
   updateDoc,
   deleteDoc,
   query,
   where,
   onSnapshot,
   arrayUnion,
-  serverTimestamp,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssueStatus, IssuePriority } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssuePriority } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -39,6 +37,17 @@ export interface InvitationDoc {
   createdAt: string;
 }
 
+// Helper to remove any `undefined` keys before sending to Cloud Firestore
+function cleanUndefined<T extends Record<string, any>>(obj: T): T {
+  const clean: Record<string, any> = {};
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== undefined) {
+      clean[key] = obj[key];
+    }
+  });
+  return clean as T;
+}
+
 // ===============================================================
 // 1. WORKSPACE & MEMBERSHIP SERVICES
 // ===============================================================
@@ -60,10 +69,8 @@ export async function createUserWorkspace(
     createdAt: new Date().toISOString(),
   };
 
-  // Create Workspace document
-  await setDoc(doc(db, 'workspaces', wsId), workspace);
+  await setDoc(doc(db, 'workspaces', wsId), cleanUndefined(workspace));
 
-  // Add workspaceId to User document
   const userRef = doc(db, 'users', userId);
   const userSnap = await getDoc(userRef);
   if (userSnap.exists()) {
@@ -71,16 +78,15 @@ export async function createUserWorkspace(
       workspaceIds: arrayUnion(wsId),
     });
   } else {
-    await setDoc(userRef, {
+    await setDoc(userRef, cleanUndefined({
       uid: userId,
       email: userEmail,
       displayName: userName,
       workspaceIds: [wsId],
       createdAt: new Date().toISOString(),
-    });
+    }));
   }
 
-  // Create Owner Membership
   const memberId = `${wsId}_${userId}`;
   const member: Member = {
     id: memberId,
@@ -91,9 +97,8 @@ export async function createUserWorkspace(
     role: 'owner',
     joinedAt: new Date().toISOString(),
   };
-  await setDoc(doc(db, 'members', memberId), member);
+  await setDoc(doc(db, 'members', memberId), cleanUndefined(member));
 
-  // Create Default Team ("Engineering", key: "ENG")
   const teamId = `team-${nanoid(8)}`;
   const team: Team = {
     id: teamId,
@@ -104,9 +109,8 @@ export async function createUserWorkspace(
     issueCount: 0,
     createdAt: new Date().toISOString(),
   };
-  await setDoc(doc(db, 'teams', teamId), team);
+  await setDoc(doc(db, 'teams', teamId), cleanUndefined(team));
 
-  // Create Default Labels
   const defaultLabels = [
     { name: 'feature', color: '#5E6AD2' },
     { name: 'bug', color: '#F75555' },
@@ -115,13 +119,13 @@ export async function createUserWorkspace(
   ];
   for (const l of defaultLabels) {
     const labelId = `lbl-${nanoid(8)}`;
-    await setDoc(doc(db, 'labels', labelId), {
+    await setDoc(doc(db, 'labels', labelId), cleanUndefined({
       id: labelId,
       workspaceId: wsId,
       teamId,
       name: l.name,
       color: l.color,
-    });
+    }));
   }
 
   return { workspace, team };
@@ -132,7 +136,6 @@ export function subscribeUserWorkspaces(
   userEmail: string,
   callback: (workspaces: Workspace[]) => void
 ): Unsubscribe {
-  // Query members collection where userId == userId or email == userEmail
   const q = query(collection(db, 'members'), where('userId', '==', userId));
 
   return onSnapshot(q, async (snap) => {
@@ -143,12 +146,15 @@ export function subscribeUserWorkspaces(
       return;
     }
 
-    // Fetch workspaces docs
     const workspaces: Workspace[] = [];
     for (const wsId of wsIds) {
-      const wsSnap = await getDoc(doc(db, 'workspaces', wsId));
-      if (wsSnap.exists()) {
-        workspaces.push(wsSnap.data() as Workspace);
+      try {
+        const wsSnap = await getDoc(doc(db, 'workspaces', wsId));
+        if (wsSnap.exists()) {
+          workspaces.push(wsSnap.data() as Workspace);
+        }
+      } catch (e) {
+        // Fallback
       }
     }
     callback(workspaces);
@@ -188,17 +194,15 @@ export async function inviteUserToWorkspace(
     createdAt: new Date().toISOString(),
   };
 
-  // 1. Save Invitation document to /invitations
-  await setDoc(doc(db, 'invitations', invId), invitation);
+  await setDoc(doc(db, 'invitations', invId), cleanUndefined(invitation));
 
-  // 2. Check if a user with this email already exists in /users
   try {
     const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
     const snap = await getDocs(q);
     if (!snap.empty) {
       const userDoc = snap.docs[0].data() as UserDoc;
       const memberId = `${workspaceId}_${userDoc.uid}`;
-      await setDoc(doc(db, 'members', memberId), {
+      await setDoc(doc(db, 'members', memberId), cleanUndefined({
         id: memberId,
         workspaceId,
         userId: userDoc.uid,
@@ -206,7 +210,7 @@ export async function inviteUserToWorkspace(
         displayName: userDoc.displayName || cleanEmail,
         role,
         joinedAt: new Date().toISOString(),
-      });
+      }));
 
       await updateDoc(doc(db, 'users', userDoc.uid), {
         workspaceIds: arrayUnion(workspaceId),
@@ -231,7 +235,7 @@ export async function processPendingInvitations(userId: string, email: string, d
     const inv = d.data() as InvitationDoc;
     const memberId = `${inv.workspaceId}_${userId}`;
 
-    await setDoc(doc(db, 'members', memberId), {
+    await setDoc(doc(db, 'members', memberId), cleanUndefined({
       id: memberId,
       workspaceId: inv.workspaceId,
       userId,
@@ -239,7 +243,7 @@ export async function processPendingInvitations(userId: string, email: string, d
       displayName,
       role: inv.role,
       joinedAt: new Date().toISOString(),
-    });
+    }));
 
     await updateDoc(doc(db, 'users', userId), {
       workspaceIds: arrayUnion(inv.workspaceId),
@@ -275,7 +279,7 @@ export async function createTeamInWorkspace(workspaceId: string, name: string, k
     issueCount: 0,
     createdAt: new Date().toISOString(),
   };
-  await setDoc(doc(db, 'teams', teamId), team);
+  await setDoc(doc(db, 'teams', teamId), cleanUndefined(team));
   return team;
 }
 
@@ -290,7 +294,6 @@ export function subscribeWorkspaceIssues(
   const q = query(collection(db, 'issues'), where('workspaceId', '==', workspaceId));
   return onSnapshot(q, (snap) => {
     const issues = snap.docs.map((d) => d.data() as Issue);
-    // Sort by createdAt desc
     issues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     callback(issues);
   });
@@ -301,33 +304,40 @@ export async function createRealIssue(
 ): Promise<Issue> {
   const issueId = `issue-${nanoid(8)}`;
   
-  // Count existing issues for identifier calculation
-  const q = query(
-    collection(db, 'issues'),
-    where('workspaceId', '==', data.workspaceId),
-    where('teamId', '==', data.teamId)
-  );
-  const snap = await getDocs(q);
-  const nextNum = snap.size + 101;
+  let nextNum = 101;
+  try {
+    const q = query(
+      collection(db, 'issues'),
+      where('workspaceId', '==', data.workspaceId),
+      where('teamId', '==', data.teamId)
+    );
+    const snap = await getDocs(q);
+    nextNum = snap.size + 101;
+  } catch (e) {
+    // Non-fatal query fallback
+  }
+
   const teamKey = (data as any).teamKey || 'ENG';
 
-  const issue: Issue = {
+  const rawIssueData = {
     id: issueId,
     workspaceId: data.workspaceId,
     teamId: data.teamId,
-    projectId: data.projectId || undefined,
+    projectId: data.projectId || null,
     identifier: `${teamKey}-${nextNum}`,
     number: nextNum,
     title: data.title || 'Nuevo Issue',
     description: data.description || '',
     status: data.status || 'todo',
     priority: (data.priority !== undefined ? data.priority : 3) as IssuePriority,
-    assigneeId: data.assigneeId || undefined,
+    assigneeId: data.assigneeId || null,
     creatorId: data.creatorId,
     labelIds: data.labelIds || ['feature'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  } as any;
+  };
+
+  const issue = cleanUndefined(rawIssueData) as unknown as Issue;
 
   await setDoc(doc(db, 'issues', issueId), issue);
   return issue;
@@ -335,10 +345,10 @@ export async function createRealIssue(
 
 export async function updateRealIssue(id: string, updates: Partial<Issue>) {
   const issueRef = doc(db, 'issues', id);
-  await updateDoc(issueRef, {
+  await updateDoc(issueRef, cleanUndefined({
     ...updates,
     updatedAt: new Date().toISOString(),
-  });
+  }));
 }
 
 export async function deleteRealIssue(id: string) {
@@ -364,29 +374,30 @@ export async function createRealProject(
   data: Partial<Project> & { workspaceId: string; teamId: string; name: string }
 ): Promise<Project> {
   const projId = `proj-${nanoid(8)}`;
-  const project: Project = {
+  const rawProject = {
     id: projId,
     workspaceId: data.workspaceId,
     teamId: data.teamId,
     name: data.name,
     description: data.description || '',
     status: data.status || 'in_progress',
-    leadId: data.leadId || undefined,
+    leadId: data.leadId || null,
     color: data.color || '#5E6AD2',
-    targetDate: data.targetDate || undefined,
+    targetDate: data.targetDate || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  } as any;
+  };
 
+  const project = cleanUndefined(rawProject) as unknown as Project;
   await setDoc(doc(db, 'projects', projId), project);
   return project;
 }
 
 export async function updateRealProject(id: string, updates: Partial<Project>) {
-  await updateDoc(doc(db, 'projects', id), {
+  await updateDoc(doc(db, 'projects', id), cleanUndefined({
     ...updates,
     updatedAt: new Date().toISOString(),
-  });
+  }));
 }
 
 // ===============================================================
@@ -417,6 +428,6 @@ export async function createRealLabel(
     name: name.trim().toLowerCase(),
     color,
   };
-  await setDoc(doc(db, 'labels', labelId), { ...label, workspaceId });
+  await setDoc(doc(db, 'labels', labelId), cleanUndefined({ ...label, workspaceId }));
   return label;
 }
