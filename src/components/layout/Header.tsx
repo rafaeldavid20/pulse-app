@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LayoutList, LayoutGrid, Plus, Filter, Search } from 'lucide-react';
+import { LayoutList, LayoutGrid, Plus, Search } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { Button } from '@/components/ui/Button';
 
@@ -18,26 +18,26 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const activeView = useAppStore((s) => s.activeView);
   const setActiveView = useAppStore((s) => s.setActiveView);
-  const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
+  const setCreateMenuOpen = useAppStore((s) => s.setCreateMenuOpen);
   const filterState = useAppStore((s) => s.filterState);
   const setFilterState = useAppStore((s) => s.setFilterState);
 
   return (
-    <header className="h-14 border-b border-[#1C1E22] bg-[#08090A] px-6 flex items-center justify-between shrink-0 select-none">
+    <header className="h-14 border-b border-[#1C1E22] bg-[#08090A] px-4 sm:px-6 flex items-center justify-between shrink-0 select-none">
       {/* Left: Title & Subtitle */}
-      <div className="flex items-center gap-3">
-        <h1 className="text-base font-semibold text-[#F7F8F8] tracking-tight">
+      <div className="flex items-center gap-3 min-w-0">
+        <h1 className="text-base font-semibold text-[#F7F8F8] tracking-tight truncate">
           {title}
         </h1>
         {subtitle && (
-          <span className="text-xs text-[#5B616E] font-medium hidden sm:inline">
+          <span className="text-xs text-[#5B616E] font-medium hidden sm:inline truncate">
             {subtitle}
           </span>
         )}
       </div>
 
       {/* Right: Controls & View Toggle */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Search Input */}
         <div className="relative flex items-center">
           <Search className="w-3.5 h-3.5 absolute left-2.5 text-[#5B616E]" />
@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
             placeholder="Filtrar..."
             value={filterState.search}
             onChange={(e) => setFilterState({ search: e.target.value })}
-            className="w-36 sm:w-48 bg-[#0F1012] border border-[#26292F] focus:border-[#5E6AD2] rounded-md pl-8 pr-2.5 py-1 text-xs text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors"
+            className="w-28 sm:w-48 bg-[#0F1012] border border-[#26292F] focus:border-[#5E6AD2] rounded-md pl-8 pr-2.5 py-1 text-xs text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors"
           />
         </div>
 
@@ -80,13 +80,14 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {/* Create Issue Action Button */}
+        {/* Create Dialog Trigger Button */}
         <Button
           size="sm"
           icon={<Plus className="w-3.5 h-3.5" />}
-          onClick={() => setCreateIssueOpen(true)}
+          onClick={() => setCreateMenuOpen(true)}
         >
-          Nuevo Issue
+          <span className="hidden sm:inline">+ Nuevo</span>
+          <span className="sm:hidden">+</span>
         </Button>
       </div>
     </header>

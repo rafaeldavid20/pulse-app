@@ -99,12 +99,15 @@ export async function createUserWorkspace(
   };
   await setDoc(doc(db, 'members', memberId), cleanUndefined(member));
 
+  // Derive team key from first 3 letters of workspace name (e.g. "Orden y Progreso" -> "ORD")
+  const wsKey = workspaceName.trim().substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'W') || 'PUL';
+
   const teamId = `team-${nanoid(8)}`;
   const team: Team = {
     id: teamId,
     workspaceId: wsId,
-    name: 'Engineering',
-    key: 'ENG',
+    name: workspaceName || 'Engineering',
+    key: wsKey,
     icon: '⚡',
     issueCount: 0,
     createdAt: new Date().toISOString(),
@@ -317,7 +320,7 @@ export async function createRealIssue(
     // Non-fatal query fallback
   }
 
-  const teamKey = (data as any).teamKey || 'ENG';
+  const teamKey = (data as any).teamKey || 'ORD';
 
   const rawIssueData = {
     id: issueId,

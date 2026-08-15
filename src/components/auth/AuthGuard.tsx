@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useKeyboard } from '@/hooks/useKeyboard';
@@ -21,6 +21,8 @@ import { ShortcutHelp } from '@/components/layout/ShortcutHelp';
 import { CreateIssueModal } from '@/components/issues/CreateIssueModal';
 import { IssuePeekPanel } from '@/components/issues/IssuePeekPanel';
 import { InviteMemberModal } from '@/components/workspace/InviteMemberModal';
+import { CreateMenuModal } from '@/components/layout/CreateMenuModal';
+import { ProjectModal } from '@/components/projects/ProjectModal';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -39,6 +41,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const setIssues = useIssueStore((s) => s.setIssues);
   const setProjects = useProjectStore((s) => s.setProjects);
   const setLabels = useLabelStore((s) => s.setLabels);
+
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   // Initialize global keyboard listener
   useKeyboard();
@@ -105,7 +109,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       {children}
       <CommandPalette />
       <ShortcutHelp />
+      <CreateMenuModal onOpenProjectModal={() => setIsProjectModalOpen(true)} />
       <CreateIssueModal />
+      <ProjectModal isOpen={isProjectModalOpen} onClose={() => setIsProjectModalOpen(false)} />
       <IssuePeekPanel />
       <InviteMemberModal />
     </>

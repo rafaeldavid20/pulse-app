@@ -73,7 +73,7 @@ export default function ProjectDetailPage({
         showViewToggle
       />
 
-      <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-6">
+      <div className="flex-1 p-4 sm:p-6 overflow-y-auto flex flex-col gap-5 sm:gap-6">
         {/* Back Link & Quick Actions */}
         <div className="flex items-center justify-between">
           <Link
@@ -81,7 +81,7 @@ export default function ProjectDetailPage({
             className="inline-flex items-center gap-1.5 text-xs text-[#8A8F98] hover:text-[#F7F8F8] transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Volver a la lista de proyectos</span>
+            <span>Lista de proyectos</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -91,7 +91,8 @@ export default function ProjectDetailPage({
               icon={<Edit3 className="w-3.5 h-3.5" />}
               onClick={() => setIsEditModalOpen(true)}
             >
-              Editar Proyecto
+              <span className="hidden sm:inline">Editar Proyecto</span>
+              <span className="sm:hidden">Editar</span>
             </Button>
 
             <button
@@ -101,12 +102,12 @@ export default function ProjectDetailPage({
               {isHeaderCollapsed ? (
                 <>
                   <ChevronDown className="w-3.5 h-3.5" />
-                  <span>Mostrar resumen</span>
+                  <span className="hidden sm:inline">Mostrar resumen</span>
                 </>
               ) : (
                 <>
                   <ChevronUp className="w-3.5 h-3.5" />
-                  <span>Ocultar resumen</span>
+                  <span className="hidden sm:inline">Ocultar resumen</span>
                 </>
               )}
             </button>
@@ -115,7 +116,7 @@ export default function ProjectDetailPage({
 
         {/* Collapsible Project Detail Header Card */}
         {!isHeaderCollapsed && (
-          <div className="flex flex-col gap-5 p-6 bg-[#0F1012] border border-[#26292F] rounded-2xl relative overflow-hidden shadow-xl animate-fade-in-scale">
+          <div className="flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 bg-[#0F1012] border border-[#26292F] rounded-2xl relative overflow-hidden shadow-xl animate-fade-in-scale">
             {/* Top Color Strip */}
             <div
               className="absolute top-0 left-0 right-0 h-1.5"
@@ -125,7 +126,7 @@ export default function ProjectDetailPage({
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold text-[#F7F8F8] tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold text-[#F7F8F8] tracking-tight">
                     {project.name}
                   </h1>
                   <select
@@ -144,7 +145,7 @@ export default function ProjectDetailPage({
                 </div>
 
                 {project.description && (
-                  <p className="text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
+                  <p className="text-xs sm:text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
                     {project.description}
                   </p>
                 )}
@@ -155,6 +156,7 @@ export default function ProjectDetailPage({
                 size="sm"
                 icon={<Plus className="w-4 h-4" />}
                 onClick={handleCreateIssueInProject}
+                className="hidden sm:inline-flex"
               >
                 Nuevo Issue en este Proyecto
               </Button>
@@ -203,19 +205,11 @@ export default function ProjectDetailPage({
         )}
 
         {/* Project Issues Section */}
-        <div className="flex flex-col gap-4 mt-2">
+        <div className="flex flex-col gap-4 mt-1">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-[#F7F8F8]">
               Issues del Proyecto ({totalCount})
             </h3>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Plus className="w-3.5 h-3.5" />}
-              onClick={handleCreateIssueInProject}
-            >
-              Crear Issue
-            </Button>
           </div>
 
           {activeView === 'list' ? (

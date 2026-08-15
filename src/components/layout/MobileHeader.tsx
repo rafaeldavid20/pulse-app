@@ -7,7 +7,7 @@ import { useAppStore } from '@/stores/appStore';
 export const MobileHeader: React.FC = () => {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const setCmdKOpen = useAppStore((s) => s.setCmdKOpen);
-  const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
+  const setCreateMenuOpen = useAppStore((s) => s.setCreateMenuOpen);
 
   return (
     <header className="flex md:hidden items-center justify-between px-4 py-2.5 bg-[#08090A] border-b border-[#1C1E22] sticky top-0 z-30 select-none">
@@ -32,11 +32,11 @@ export const MobileHeader: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setCreateIssueOpen(true)}
+          onClick={() => setCreateMenuOpen(true)}
           className="flex items-center gap-1 px-3 py-1.5 bg-[#5E6AD2] hover:bg-[#4E5AC0] text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
         >
           <Plus className="w-4 h-4" />
-          <span>Issue</span>
+          <span>Nuevo</span>
         </button>
       </div>
     </header>

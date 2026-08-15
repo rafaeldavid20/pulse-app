@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Pulse — Jira Killer',
+  title: 'Pulse — Orden y Progreso',
   description: 'Gestión de proyectos ultra-rápida, keyboard-first y diseño premium',
 };
 

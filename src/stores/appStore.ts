@@ -11,6 +11,7 @@ interface AppState {
   isSidebarOpen: boolean;
   isCmdKOpen: boolean;
   isShortcutHelpOpen: boolean;
+  isCreateMenuOpen: boolean;
   isCreateIssueOpen: boolean;
   isCreateWorkspaceOpen: boolean;
   isInviteMemberOpen: boolean;
@@ -27,6 +28,7 @@ interface AppState {
   toggleSidebar: () => void;
   setCmdKOpen: (open: boolean) => void;
   setShortcutHelpOpen: (open: boolean) => void;
+  setCreateMenuOpen: (open: boolean) => void;
   setCreateIssueOpen: (open: boolean) => void;
   setCreateWorkspaceOpen: (open: boolean) => void;
   setInviteMemberOpen: (open: boolean) => void;
@@ -52,6 +54,7 @@ export const useAppStore = create<AppState>((set) => ({
   isSidebarOpen: true,
   isCmdKOpen: false,
   isShortcutHelpOpen: false,
+  isCreateMenuOpen: false,
   isCreateIssueOpen: false,
   isCreateWorkspaceOpen: false,
   isInviteMemberOpen: false,
@@ -60,7 +63,6 @@ export const useAppStore = create<AppState>((set) => ({
 
   setUserWorkspaces: (userWorkspaces) =>
     set((state) => {
-      // Auto-set activeWorkspace if null or not in userWorkspaces
       let active = state.activeWorkspace;
       if (!active || !userWorkspaces.some((w) => w.id === active?.id)) {
         active = userWorkspaces[0] || null;
@@ -83,6 +85,7 @@ export const useAppStore = create<AppState>((set) => ({
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setCmdKOpen: (isCmdKOpen) => set({ isCmdKOpen }),
   setShortcutHelpOpen: (isShortcutHelpOpen) => set({ isShortcutHelpOpen }),
+  setCreateMenuOpen: (isCreateMenuOpen) => set({ isCreateMenuOpen }),
   setCreateIssueOpen: (isCreateIssueOpen) => set({ isCreateIssueOpen }),
   setCreateWorkspaceOpen: (isCreateWorkspaceOpen) => set({ isCreateWorkspaceOpen }),
   setInviteMemberOpen: (isInviteMemberOpen) => set({ isInviteMemberOpen }),

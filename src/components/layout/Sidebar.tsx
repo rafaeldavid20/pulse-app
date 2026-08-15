@@ -9,7 +9,6 @@ import {
   Layers,
   FolderKanban,
   Settings,
-  Plus,
   Search,
   HelpCircle,
   LogOut,
@@ -26,10 +25,10 @@ export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
 
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const activeTeam = useAppStore((s) => s.activeTeam);
   const isSidebarOpen = useAppStore((s) => s.isSidebarOpen);
   const setCmdKOpen = useAppStore((s) => s.setCmdKOpen);
-  const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
   const setShortcutHelpOpen = useAppStore((s) => s.setShortcutHelpOpen);
   const { user } = useAuth();
 
@@ -37,14 +36,19 @@ export const Sidebar: React.FC = () => {
 
   if (!isSidebarOpen) return null;
 
+  const defaultKey = activeWorkspace?.name ? activeWorkspace.name.trim().substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'W') : 'PUL';
+  const teamName = activeTeam?.name || activeWorkspace?.name || 'Orden y Progreso';
+  const teamKey = activeTeam?.key || defaultKey;
+  const teamId = activeTeam?.id || 'eng';
+
   const navItems = [
     { label: 'Inbox', icon: Inbox, href: '/inbox', shortcut: 'G I' },
     { label: 'Mis Issues', icon: UserCheck, href: '/my-issues', shortcut: 'G M' },
   ];
 
   const teamNavItems = [
-    { label: 'Issues', icon: Layers, href: `/team/${activeTeam?.id || 'eng'}/issues`, shortcut: 'G B' },
-    { label: 'Proyectos', icon: FolderKanban, href: `/team/${activeTeam?.id || 'eng'}/projects`, shortcut: 'G P' },
+    { label: 'Issues', icon: Layers, href: `/team/${teamId}/issues`, shortcut: 'G B' },
+    { label: 'Proyectos', icon: FolderKanban, href: `/team/${teamId}/projects`, shortcut: 'G P' },
     { label: 'Configuración', icon: Settings, href: '/settings', shortcut: '' },
   ];
 
@@ -109,9 +113,9 @@ export const Sidebar: React.FC = () => {
         {/* Team Section */}
         <div className="flex flex-col px-2 pt-6">
           <div className="flex items-center justify-between px-2.5 pb-2 text-[11px] font-semibold text-[#5B616E] uppercase tracking-wider">
-            <span>{activeTeam?.name || 'Engineering'}</span>
-            <span className="text-[10px] font-mono font-normal text-[#424651]">
-              {activeTeam?.key || 'ENG'}
+            <span className="truncate max-w-[120px]">{teamName}</span>
+            <span className="text-[10px] font-mono font-normal text-[#424651] shrink-0">
+              {teamKey}
             </span>
           </div>
 
