@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +21,8 @@ export const CreateIssueModal: React.FC = () => {
   const projects = useProjectStore((s) => s.projects);
   const addIssue = useIssueStore((s) => s.addIssue);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
+  const defaultProjectId = useIssueStore((s) => s.defaultProjectId);
+  const setDefaultProjectId = useIssueStore((s) => s.setDefaultProjectId);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -30,6 +32,18 @@ export const CreateIssueModal: React.FC = () => {
   const [projectId, setProjectId] = useState<string>('');
   const [selectedLabels, setSelectedLabels] = useState<string[]>(['feature']);
   const [loading, setLoading] = useState(false);
+
+  // Sync defaultProjectId when modal opens
+  useEffect(() => {
+    if (isCreateIssueOpen && defaultProjectId) {
+      setProjectId(defaultProjectId);
+    }
+  }, [isCreateIssueOpen, defaultProjectId]);
+
+  const handleClose = () => {
+    setCreateIssueOpen(false);
+    setDefaultProjectId(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +69,7 @@ export const CreateIssueModal: React.FC = () => {
       setTitle('');
       setDescription('');
       setSelectedLabels(['feature']);
-      setCreateIssueOpen(false);
+      handleClose();
       if (created?.id) setPeekIssueId(created.id);
     } catch (err) {
       console.error('Error creating issue:', err);
@@ -67,7 +81,7 @@ export const CreateIssueModal: React.FC = () => {
   return (
     <Modal
       isOpen={isCreateIssueOpen}
-      onClose={() => setCreateIssueOpen(false)}
+      onClose={handleClose}
       title={`Crear nuevo issue (${activeTeam?.name || 'Engineering'})`}
       maxWidth="lg"
     >
@@ -180,7 +194,7 @@ export const CreateIssueModal: React.FC = () => {
             Tip: Presiona <kbd className="bg-[#1E2024] px-1 rounded text-[#F7F8F8]">Cmd+Enter</kbd> para guardar
           </span>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" type="button" onClick={() => setCreateIssueOpen(false)}>
+            <Button variant="ghost" size="sm" type="button" onClick={handleClose}>
               Cancelar
             </Button>
             <Button variant="primary" size="sm" type="submit" disabled={!title.trim() || loading}>

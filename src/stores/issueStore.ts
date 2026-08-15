@@ -7,10 +7,12 @@ interface IssueState {
   selectedIssueId: string | null;
   peekIssueId: string | null;
   selectedIssueIds: string[];
+  defaultProjectId: string | null;
 
   setIssues: (issues: Issue[]) => void;
   setSelectedIssueId: (id: string | null) => void;
   setPeekIssueId: (id: string | null) => void;
+  setDefaultProjectId: (id: string | null) => void;
   toggleIssueSelection: (id: string) => void;
   clearSelection: () => void;
 
@@ -22,15 +24,17 @@ interface IssueState {
   bulkUpdateStatus: (ids: string[], status: IssueStatus) => Promise<void>;
 }
 
-export const useIssueStore = create<IssueState>((set, get) => ({
+export const useIssueStore = create<IssueState>((set) => ({
   issues: [],
   selectedIssueId: null,
   peekIssueId: null,
   selectedIssueIds: [],
+  defaultProjectId: null,
 
   setIssues: (issues) => set({ issues }),
   setSelectedIssueId: (selectedIssueId) => set({ selectedIssueId }),
   setPeekIssueId: (peekIssueId) => set({ peekIssueId }),
+  setDefaultProjectId: (defaultProjectId) => set({ defaultProjectId }),
 
   toggleIssueSelection: (id) =>
     set((state) => {
@@ -45,28 +49,23 @@ export const useIssueStore = create<IssueState>((set, get) => ({
   clearSelection: () => set({ selectedIssueIds: [] }),
 
   addIssue: async (data) => {
-    // Write directly to Cloud Firestore
     const newIssue = await createRealIssue(data as any);
     return newIssue;
   },
 
   updateIssue: async (id, updates) => {
-    // Optimistic local update
     set((state) => ({
       issues: state.issues.map((iss) => (iss.id === id ? { ...iss, ...updates } : iss)),
     }));
-    // Persist to Cloud Firestore
     await updateRealIssue(id, updates);
   },
 
   deleteIssue: async (id) => {
-    // Optimistic local update
     set((state) => ({
       issues: state.issues.filter((iss) => iss.id !== id),
       peekIssueId: state.peekIssueId === id ? null : state.peekIssueId,
       selectedIssueId: state.selectedIssueId === id ? null : state.selectedIssueId,
     }));
-    // Persist to Cloud Firestore
     await deleteRealIssue(id);
   },
 

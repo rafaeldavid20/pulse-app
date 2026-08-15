@@ -8,10 +8,9 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { Avatar } from '@/components/ui/Avatar';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { formatDate, cn } from '@/lib/utils';
-import { Calendar, CheckCircle2, ArrowLeft, Plus, Settings } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
+import { Calendar, ArrowLeft, Plus, FolderKanban } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ProjectDetailPage({
@@ -25,30 +24,42 @@ export default function ProjectDetailPage({
   const issues = useIssueStore((s) => s.issues);
   const activeView = useAppStore((s) => s.activeView);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
+  const setDefaultProjectId = useIssueStore((s) => s.setDefaultProjectId);
   const members = useAppStore((s) => s.members);
 
-  const project = projects.find((p) => p.id === resolvedParams.projectId) || projects[0];
-
-  // Filter issues belonging to this project
-  const projectIssues = issues.filter(
-    (i) => i.projectId === project?.id || project?.id === 'proj-1'
-  );
-  const completedCount = projectIssues.filter((i) => i.status === 'done').length;
-  const totalCount = projectIssues.length;
-  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-
-  const lead = members.find((m) => m.userId === project?.leadId);
+  const project = projects.find((p) => p.id === resolvedParams.projectId);
 
   if (!project) {
     return (
-      <div className="p-8 text-center text-[#8A8F98]">
-        Proyecto no encontrado.{' '}
-        <Link href="/team/eng/projects" className="text-[#5E6AD2] underline">
-          Volver a proyectos
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#8A8F98] gap-4">
+        <FolderKanban className="w-10 h-10 text-[#5E6AD2]" />
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-bold text-[#F7F8F8]">Proyecto no encontrado</h2>
+          <p className="text-xs text-[#8A8F98]">El proyecto solicitado no existe o fue eliminado.</p>
+        </div>
+        <Link
+          href={`/team/${resolvedParams.teamId}/projects`}
+          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#5E6AD2] text-white text-xs font-semibold rounded-md hover:bg-[#4E5AC0] transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Volver a la lista de proyectos</span>
         </Link>
       </div>
     );
   }
+
+  // Filter issues belonging strictly to this project
+  const projectIssues = issues.filter((i) => i.projectId === project.id);
+  const completedCount = projectIssues.filter((i) => i.status === 'done').length;
+  const totalCount = projectIssues.length;
+  const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  const lead = members.find((m) => m.userId === project.leadId);
+
+  const handleCreateIssueInProject = () => {
+    setDefaultProjectId(project.id);
+    setCreateIssueOpen(true);
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -89,24 +100,28 @@ export default function ProjectDetailPage({
                   }
                   className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs font-semibold rounded-md px-2.5 py-1 outline-none cursor-pointer capitalize"
                 >
-                  <option value="planned">Planned</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="paused">Paused</option>
-                  <option value="completed">Completed</option>
+                  <option value="planned">Planificado</option>
+                  <option value="in_progress">En Progreso</option>
+                  <option value="paused">Pausado</option>
+                  <option value="completed">Completado</option>
+                  <option value="canceled">Cancelado</option>
                 </select>
               </div>
 
-              <p className="text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
-                {project.description}
-              </p>
+              {project.description && (
+                <p className="text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
+                  {project.description}
+                </p>
+              )}
             </div>
 
             <Button
+              variant="primary"
               size="sm"
-              icon={<Plus className="w-3.5 h-3.5" />}
-              onClick={() => setCreateIssueOpen(true)}
+              icon={<Plus className="w-4 h-4" />}
+              onClick={handleCreateIssueInProject}
             >
-              Nuevo Issue en Proyecto
+              Nuevo Issue en este Proyecto
             </Button>
           </div>
 
@@ -157,6 +172,14 @@ export default function ProjectDetailPage({
             <h3 className="text-base font-semibold text-[#F7F8F8]">
               Issues del Proyecto ({totalCount})
             </h3>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus className="w-3.5 h-3.5" />}
+              onClick={handleCreateIssueInProject}
+            >
+              Crear Issue
+            </Button>
           </div>
 
           {activeView === 'list' ? (
