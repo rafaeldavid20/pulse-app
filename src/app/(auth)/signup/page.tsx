@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { signUpWithEmail, signInWithGoogle } from '@/lib/auth';
+import { signUpWithEmail, signInWithGoogle, getFirebaseErrorMessage } from '@/lib/auth';
 
 export default function SignupPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [workspaceName, setWorkspaceName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,10 +22,11 @@ export default function SignupPage() {
     setError('');
 
     try {
-      await signUpWithEmail(email, password, name);
+      await signUpWithEmail(email.trim(), password, name.trim(), workspaceName.trim());
       router.push('/team/eng/issues');
     } catch (err: any) {
-      setError(err.message || 'Error al crear la cuenta');
+      const msg = getFirebaseErrorMessage(err?.code || err?.message);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -32,11 +34,13 @@ export default function SignupPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setError('');
     try {
       await signInWithGoogle();
       router.push('/team/eng/issues');
     } catch (err: any) {
-      setError(err.message || 'Error con Google');
+      const msg = getFirebaseErrorMessage(err?.code || err?.message);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -53,12 +57,12 @@ export default function SignupPage() {
             Crear cuenta en Pulse
           </h1>
           <p className="text-xs text-[#8A8F98]">
-            Únete a tu equipo y gestiona proyectos a máxima velocidad
+            Crea tu workspace y empieza a gestionar proyectos con tu equipo
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555]">
+          <div className="p-3.5 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555] font-medium leading-relaxed">
             {error}
           </div>
         )}
@@ -76,7 +80,7 @@ export default function SignupPage() {
         <div className="relative flex items-center justify-center my-1">
           <hr className="w-full border-[#1C1E22]" />
           <span className="absolute bg-[#0F1012] px-3 text-[11px] text-[#5B616E] uppercase font-mono">
-            o con email
+            o con tu email
           </span>
         </div>
 
@@ -93,7 +97,7 @@ export default function SignupPage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Email laboral</label>
+            <label className="text-xs font-semibold text-[#8A8F98]">Correo electrónico</label>
             <Input
               type="email"
               placeholder="tu@empresa.com"
@@ -114,8 +118,18 @@ export default function SignupPage() {
             />
           </div>
 
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#8A8F98]">Nombre de tu Workspace (opcional)</label>
+            <Input
+              type="text"
+              placeholder="e.g. Acme Studio, Startup Dev"
+              value={workspaceName}
+              onChange={(e) => setWorkspaceName(e.target.value)}
+            />
+          </div>
+
           <Button type="submit" variant="primary" className="w-full py-2.5 mt-2" disabled={loading}>
-            {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+            {loading ? 'Creando cuenta y workspace...' : 'Crear Cuenta y Workspace'}
           </Button>
         </form>
 

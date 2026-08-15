@@ -5,13 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { signInWithEmail, signInWithGoogle } from '@/lib/auth';
-import { LogIn, Sparkles } from 'lucide-react';
+import { signInWithEmail, signInWithGoogle, getFirebaseErrorMessage } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('rafaeldavidrodriguez.93@gmail.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -21,10 +20,11 @@ export default function LoginPage() {
     setError('');
 
     try {
-      await signInWithEmail(email, password);
+      await signInWithEmail(email.trim(), password);
       router.push('/team/eng/issues');
     } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+      const msg = getFirebaseErrorMessage(err?.code || err?.message);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -32,11 +32,13 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
+    setError('');
     try {
       await signInWithGoogle();
       router.push('/team/eng/issues');
     } catch (err: any) {
-      setError(err.message || 'Error con Google Sign In');
+      const msg = getFirebaseErrorMessage(err?.code || err?.message);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -51,15 +53,15 @@ export default function LoginPage() {
             🫀
           </div>
           <h1 className="text-2xl font-bold text-[#F7F8F8] tracking-tight">
-            Bienvenido a Pulse
+            Iniciar Sesión en Pulse
           </h1>
           <p className="text-xs text-[#8A8F98]">
-            El Jira Killer con UX ultra-rápida tipo Linear
+            Gestión de proyectos ultra-rápida y keyboard-first
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555]">
+          <div className="p-3.5 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555] font-medium leading-relaxed">
             {error}
           </div>
         )}
@@ -96,14 +98,14 @@ export default function LoginPage() {
         <div className="relative flex items-center justify-center my-1">
           <hr className="w-full border-[#1C1E22]" />
           <span className="absolute bg-[#0F1012] px-3 text-[11px] text-[#5B616E] uppercase font-mono">
-            o con email
+            o con tu email
           </span>
         </div>
 
         {/* Email Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Email</label>
+            <label className="text-xs font-semibold text-[#8A8F98]">Correo electrónico</label>
             <Input
               type="email"
               placeholder="tu@empresa.com"
@@ -117,7 +119,7 @@ export default function LoginPage() {
             <label className="text-xs font-semibold text-[#8A8F98]">Contraseña</label>
             <Input
               type="password"
-              placeholder="••••••••"
+              placeholder="Ingresa tu contraseña"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -125,7 +127,7 @@ export default function LoginPage() {
           </div>
 
           <Button type="submit" variant="primary" className="w-full py-2.5 mt-2" disabled={loading}>
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            {loading ? 'Verificando credenciales...' : 'Iniciar Sesión'}
           </Button>
         </form>
 

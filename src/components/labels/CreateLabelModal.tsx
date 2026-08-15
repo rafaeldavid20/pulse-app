@@ -5,12 +5,13 @@ import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { useLabelStore } from '@/stores/labelStore';
+import { useAppStore } from '@/stores/appStore';
 import { Tag } from 'lucide-react';
 
 interface CreateLabelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated?: (labelId: string) => void;
+  onCreated?: (labelName: string) => void;
 }
 
 const PRESET_COLORS = [
@@ -30,18 +31,35 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
   onClose,
   onCreated,
 }) => {
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const activeTeam = useAppStore((s) => s.activeTeam);
   const addLabel = useLabelStore((s) => s.addLabel);
+
   const [name, setName] = useState('');
   const [color, setColor] = useState('#5E6AD2');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !activeWorkspace || !activeTeam) return;
 
-    const created = addLabel({ name, color });
-    setName('');
-    onClose();
-    if (onCreated) onCreated(created.name);
+    setLoading(true);
+    try {
+      const created = await addLabel({
+        workspaceId: activeWorkspace.id,
+        teamId: activeTeam.id,
+        name: name.trim(),
+        color,
+      });
+
+      setName('');
+      onClose();
+      if (onCreated && created?.name) onCreated(created.name);
+    } catch (err) {
+      console.error('Error creating label:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -97,8 +115,8 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
           <Button variant="ghost" size="sm" type="button" onClick={onClose}>
             Cancelar
           </Button>
-          <Button variant="primary" size="sm" type="submit" disabled={!name.trim()}>
-            Crear Etiqueta
+          <Button variant="primary" size="sm" type="submit" disabled={!name.trim() || loading}>
+            {loading ? 'Creando...' : 'Crear Etiqueta'}
           </Button>
         </div>
       </form>

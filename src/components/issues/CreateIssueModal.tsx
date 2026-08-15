@@ -8,9 +8,13 @@ import { LabelPicker } from '@/components/labels/LabelPicker';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useAuth } from '@/hooks/useAuth';
 import { IssueStatus, IssuePriority } from '@/types';
 
 export const CreateIssueModal: React.FC = () => {
+  const { user } = useAuth();
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const activeTeam = useAppStore((s) => s.activeTeam);
   const isCreateIssueOpen = useAppStore((s) => s.isCreateIssueOpen);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
   const members = useAppStore((s) => s.members);
@@ -22,37 +26,49 @@ export const CreateIssueModal: React.FC = () => {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<IssueStatus>('todo');
   const [priority, setPriority] = useState<IssuePriority>(3);
-  const [assigneeId, setAssigneeId] = useState<string>('demo-user-123');
-  const [projectId, setProjectId] = useState<string>('proj-1');
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
   const [selectedLabels, setSelectedLabels] = useState<string[]>(['feature']);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || !user || !activeWorkspace || !activeTeam) return;
 
-    const created = addIssue({
-      title: title.trim(),
-      description: description.trim(),
-      status,
-      priority,
-      projectId: projectId || undefined,
-      assigneeId: assigneeId || undefined,
-      labelIds: selectedLabels.length > 0 ? selectedLabels : ['feature'],
-    });
+    setLoading(true);
+    try {
+      const created = await addIssue({
+        workspaceId: activeWorkspace.id,
+        teamId: activeTeam.id,
+        teamKey: activeTeam.key,
+        creatorId: user.uid,
+        title: title.trim(),
+        description: description.trim(),
+        status,
+        priority,
+        projectId: projectId || undefined,
+        assigneeId: assigneeId || undefined,
+        labelIds: selectedLabels.length > 0 ? selectedLabels : ['feature'],
+      });
 
-    // Reset fields & close modal
-    setTitle('');
-    setDescription('');
-    setSelectedLabels(['feature']);
-    setCreateIssueOpen(false);
-    setPeekIssueId(created.id);
+      // Reset fields & close modal
+      setTitle('');
+      setDescription('');
+      setSelectedLabels(['feature']);
+      setCreateIssueOpen(false);
+      if (created?.id) setPeekIssueId(created.id);
+    } catch (err) {
+      console.error('Error creating issue:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <Modal
       isOpen={isCreateIssueOpen}
       onClose={() => setCreateIssueOpen(false)}
-      title="Crear nuevo issue"
+      title={`Crear nuevo issue (${activeTeam?.name || 'Engineering'})`}
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -167,8 +183,8 @@ export const CreateIssueModal: React.FC = () => {
             <Button variant="ghost" size="sm" type="button" onClick={() => setCreateIssueOpen(false)}>
               Cancelar
             </Button>
-            <Button variant="primary" size="sm" type="submit" disabled={!title.trim()}>
-              Crear Issue
+            <Button variant="primary" size="sm" type="submit" disabled={!title.trim() || loading}>
+              {loading ? 'Guardando...' : 'Crear Issue'}
             </Button>
           </div>
         </div>

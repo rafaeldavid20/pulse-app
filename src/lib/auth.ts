@@ -8,160 +8,110 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
+import { createUserWorkspace, processPendingInvitations, UserDoc } from './firestore';
 
 export interface UserProfile {
   uid: string;
   email: string;
   displayName: string;
   photoURL?: string;
-  role?: 'owner' | 'admin' | 'member';
   createdAt?: string;
 }
 
-export const DEMO_USERS: UserProfile[] = [
-  {
-    uid: 'demo-user-123',
-    email: 'rafaeldavidrodriguez.93@gmail.com',
-    displayName: 'Rafael Rodriguez',
-    photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    role: 'owner',
-  },
-  {
-    uid: 'user-2',
-    email: 'sofia@pulse.dev',
-    displayName: 'Sofia Chen',
-    photoURL: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80',
-    role: 'admin',
-  },
-  {
-    uid: 'user-3',
-    email: 'lucas@pulse.dev',
-    displayName: 'Lucas Mateo',
-    photoURL: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    role: 'member',
-  },
-];
+export async function signUpWithEmail(
+  email: string,
+  pass: string,
+  displayName: string,
+  workspaceName?: string
+): Promise<User> {
+  const cred = await createUserWithEmailAndPassword(auth, email, pass);
+  const user = cred.user;
 
-const LOCAL_STORAGE_KEY = 'pulse_active_user';
+  const finalName = displayName || email.split('@')[0];
+  const wsName = workspaceName?.trim() || `Workspace de ${finalName}`;
 
-export function getStoredUser(): UserProfile | null {
-  if (typeof window === 'undefined') return DEMO_USERS[0];
-  try {
-    const item = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (item) return JSON.parse(item);
-  } catch (e) {
-    console.error('Error reading stored user:', e);
-  }
-  return DEMO_USERS[0]; // Default initial session for quick demo
+  // 1. Create Workspace, Member & Team in Firestore
+  await createUserWorkspace(user.uid, user.email || email, finalName, wsName);
+
+  // 2. Process any pending workspace invitations matching email
+  await processPendingInvitations(user.uid, user.email || email, finalName);
+
+  return user;
 }
 
-export function setStoredUser(user: UserProfile | null) {
-  if (typeof window === 'undefined') return;
-  if (user) {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
-  }
-  // Dispatch custom event for reactive tab/component updates
-  window.dispatchEvent(new Event('pulse_auth_changed'));
+export async function signInWithEmail(email: string, pass: string): Promise<User> {
+  const cred = await signInWithEmailAndPassword(auth, email, pass);
+  return cred.user;
 }
 
-export async function signUpWithEmail(email: string, pass: string, displayName: string) {
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    const user = cred.user;
-    
-    const profile: UserProfile = {
-      uid: user.uid,
-      email: user.email || email,
-      displayName: displayName || email.split('@')[0],
-      role: 'owner',
-    };
+export async function signInWithGoogle(): Promise<User> {
+  const cred = await signInWithPopup(auth, googleProvider);
+  const user = cred.user;
 
-    try {
-      await setDoc(doc(db, 'members', user.uid), {
-        userId: user.uid,
-        email: user.email,
-        displayName: profile.displayName,
-        role: 'owner',
-        joinedAt: new Date().toISOString(),
+  // Check if User document exists in Firestore
+  const userRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    const finalName = user.displayName || user.email?.split('@')[0] || 'User';
+    const wsName = `Workspace de ${finalName}`;
+    await createUserWorkspace(user.uid, user.email || '', finalName, wsName);
+    await processPendingInvitations(user.uid, user.email || '', finalName);
+  }
+
+  return user;
+}
+
+export async function logoutUser(): Promise<void> {
+  await firebaseSignOut(auth);
+}
+
+export function subscribeAuthState(callback: (user: UserProfile | null) => void) {
+  return firebaseOnAuthStateChanged(auth, async (firebaseUser: User | null) => {
+    if (firebaseUser) {
+      // Fetch displayName from Firestore user doc if missing
+      let name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario';
+      try {
+        const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+        if (userSnap.exists()) {
+          const data = userSnap.data() as UserDoc;
+          if (data.displayName) name = data.displayName;
+        }
+      } catch (e) {
+        // Fallback
+      }
+
+      callback({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email || '',
+        displayName: name,
+        photoURL: firebaseUser.photoURL || undefined,
       });
-    } catch {
-      // Ignore if offline
+    } else {
+      callback(null);
     }
-
-    setStoredUser(profile);
-    return profile;
-  } catch (error) {
-    // Custom user registration fallback
-    const customUser: UserProfile = {
-      uid: `usr-${Date.now()}`,
-      email,
-      displayName: displayName || email.split('@')[0],
-      role: 'member',
-    };
-    setStoredUser(customUser);
-    return customUser;
-  }
+  });
 }
 
-export async function signInWithEmail(email: string, pass: string) {
-  try {
-    const cred = await signInWithEmailAndPassword(auth, email, pass);
-    const user = cred.user;
-    const profile: UserProfile = {
-      uid: user.uid,
-      email: user.email || email,
-      displayName: user.displayName || email.split('@')[0],
-      photoURL: user.photoURL || undefined,
-    };
-    setStoredUser(profile);
-    return profile;
-  } catch (error) {
-    // Check if matching any demo user or create custom session
-    const matched = DEMO_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
-    const profile: UserProfile = matched || {
-      uid: `usr-${Date.now()}`,
-      email,
-      displayName: email.split('@')[0],
-      role: 'member',
-    };
-    setStoredUser(profile);
-    return profile;
+// Error translator helper
+export function getFirebaseErrorMessage(errorCode: string): string {
+  switch (errorCode) {
+    case 'auth/invalid-email':
+      return 'El correo electrónico ingresado no es válido.';
+    case 'auth/user-disabled':
+      return 'Esta cuenta de usuario ha sido deshabilitada.';
+    case 'auth/user-not-found':
+      return 'No existe una cuenta registrada con este correo electrónico.';
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'La contraseña ingresada es incorrecta.';
+    case 'auth/email-already-in-use':
+      return 'Ya existe una cuenta registrada con este correo electrónico.';
+    case 'auth/weak-password':
+      return 'La contraseña debe tener al menos 6 caracteres.';
+    case 'auth/popup-closed-by-user':
+      return 'La ventana de inicio de sesión con Google fue cerrada.';
+    default:
+      return 'Ocurrió un error en la autenticación. Por favor intente nuevamente.';
   }
-}
-
-export async function signInWithGoogle() {
-  try {
-    const cred = await signInWithPopup(auth, googleProvider);
-    const user = cred.user;
-
-    const profile: UserProfile = {
-      uid: user.uid,
-      email: user.email || '',
-      displayName: user.displayName || user.email?.split('@')[0] || 'User',
-      photoURL: user.photoURL || undefined,
-      role: 'member',
-    };
-
-    setStoredUser(profile);
-    return profile;
-  } catch (error) {
-    const profile = DEMO_USERS[0];
-    setStoredUser(profile);
-    return profile;
-  }
-}
-
-export async function logoutUser() {
-  try {
-    await firebaseSignOut(auth);
-  } catch (e) {
-    // Ignore offline signOut error
-  }
-  setStoredUser(null);
-}
-
-export function switchActiveUser(user: UserProfile) {
-  setStoredUser(user);
 }
