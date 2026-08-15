@@ -1,4 +1,17 @@
 {
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "Pulse",
+        "supportEmail": "rafaeldavidrodriguez.93@gmail.com",
+        "authorizedRedirectUris": [
+          "https://pulse-app--pulse-app-93.us-east4.hosted.app",
+          "https://pulse-app-93.firebaseapp.com"
+        ]
+      }
+    }
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
