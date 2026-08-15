@@ -62,7 +62,7 @@ export const IssueBoard: React.FC = () => {
   };
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-6 pt-2 min-h-[calc(100vh-140px)]">
+    <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory flex-nowrap pb-6 pt-2 min-h-[calc(100vh-140px)] scrollbar-none px-1">
       {COLUMNS.map((status) => {
         const columnIssues = issuesByStatus[status] || [];
         const isDragTarget = dragOverColumn === status;
@@ -74,7 +74,7 @@ export const IssueBoard: React.FC = () => {
             onDragLeave={(e) => handleDragLeave(e, status)}
             onDrop={(e) => handleDrop(e, status)}
             className={cn(
-              'w-72 shrink-0 flex flex-col bg-[#0F1012] border rounded-xl overflow-hidden max-h-[calc(100vh-160px)] transition-all duration-150',
+              'w-[85vw] sm:w-72 shrink-0 snap-center flex flex-col bg-[#0F1012] border rounded-xl overflow-hidden max-h-[calc(100vh-160px)] transition-all duration-150',
               isDragTarget
                 ? 'border-[#5E6AD2] bg-[#5E6AD2]/5 shadow-lg shadow-[#5E6AD2]/10 scale-[1.01]'
                 : 'border-[#1C1E22]'
@@ -130,7 +130,7 @@ export const IssueBoard: React.FC = () => {
                         setPeekIssueId(issue.id);
                       }}
                       className={cn(
-                        'group flex flex-col gap-2 p-3 bg-[#16171A] hover:bg-[#1E2024] border border-[#26292F] hover:border-[#32363F] rounded-lg cursor-grab active:cursor-grabbing transition-all shadow-sm select-none',
+                        'group flex flex-col gap-2 p-3.5 sm:p-3 bg-[#16171A] hover:bg-[#1E2024] border border-[#26292F] hover:border-[#32363F] rounded-lg cursor-grab active:cursor-grabbing transition-all shadow-sm select-none',
                         isBeingDragged && 'opacity-30 border-dashed border-[#5E6AD2]'
                       )}
                     >
@@ -149,7 +149,7 @@ export const IssueBoard: React.FC = () => {
                               e.stopPropagation();
                               deleteIssue(issue.id);
                             }}
-                            className="p-1 text-[#5B616E] hover:text-[#F75555] opacity-0 group-hover:opacity-100 hover:bg-[#F75555]/10 rounded transition-all"
+                            className="p-1 text-[#5B616E] hover:text-[#F75555] opacity-100 sm:opacity-0 group-hover:opacity-100 hover:bg-[#F75555]/10 rounded transition-all"
                             title="Eliminar issue"
                           >
                             <Trash2 className="w-3 h-3" />

@@ -55,7 +55,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-60 bg-[#08090A] border-r border-[#1C1E22] flex flex-col justify-between shrink-0 h-screen select-none font-sans relative">
+    <aside className="hidden md:flex w-60 bg-[#08090A] border-r border-[#1C1E22] flex-col justify-between shrink-0 h-screen select-none font-sans relative">
       {/* Top Header & Search */}
       <div className="flex flex-col">
         {/* Real Workspace Selector Dropdown */}
