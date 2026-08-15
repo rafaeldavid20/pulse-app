@@ -174,45 +174,48 @@ export async function inviteUserToWorkspace(
   inviterId: string,
   inviterName: string
 ) {
+  const cleanEmail = email.trim().toLowerCase();
   const invId = `inv-${nanoid(8)}`;
   const invitation: InvitationDoc = {
     id: invId,
     workspaceId,
-    workspaceName,
-    email: email.trim().toLowerCase(),
+    workspaceName: workspaceName || 'Workspace',
+    email: cleanEmail,
     role,
     inviterId,
-    inviterName,
+    inviterName: inviterName || 'Un miembro',
     status: 'pending',
     createdAt: new Date().toISOString(),
   };
 
+  // 1. Save Invitation document to /invitations
   await setDoc(doc(db, 'invitations', invId), invitation);
 
-  // Check if a user with this email already exists
-  const q = query(collection(db, 'users'), where('email', '==', email.trim().toLowerCase()));
-  const snap = await getDocs(q);
-  if (!snap.empty) {
-    const userDoc = snap.docs[0].data() as UserDoc;
-    // Add member doc immediately
-    const memberId = `${workspaceId}_${userDoc.uid}`;
-    await setDoc(doc(db, 'members', memberId), {
-      id: memberId,
-      workspaceId,
-      userId: userDoc.uid,
-      email: userDoc.email,
-      displayName: userDoc.displayName,
-      role,
-      joinedAt: new Date().toISOString(),
-    });
+  // 2. Check if a user with this email already exists in /users
+  try {
+    const q = query(collection(db, 'users'), where('email', '==', cleanEmail));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const userDoc = snap.docs[0].data() as UserDoc;
+      const memberId = `${workspaceId}_${userDoc.uid}`;
+      await setDoc(doc(db, 'members', memberId), {
+        id: memberId,
+        workspaceId,
+        userId: userDoc.uid,
+        email: userDoc.email,
+        displayName: userDoc.displayName || cleanEmail,
+        role,
+        joinedAt: new Date().toISOString(),
+      });
 
-    // Update user's workspaceIds
-    await updateDoc(doc(db, 'users', userDoc.uid), {
-      workspaceIds: arrayUnion(workspaceId),
-    });
+      await updateDoc(doc(db, 'users', userDoc.uid), {
+        workspaceIds: arrayUnion(workspaceId),
+      });
 
-    // Mark invitation accepted
-    await updateDoc(doc(db, 'invitations', invId), { status: 'accepted' });
+      await updateDoc(doc(db, 'invitations', invId), { status: 'accepted' });
+    }
+  } catch (err) {
+    console.warn('Non-fatal warning when querying existing users for invitation:', err);
   }
 }
 

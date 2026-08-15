@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/appStore';
 import { inviteUserToWorkspace } from '@/lib/firestore';
 import { MemberRole } from '@/types';
-import { UserPlus, Check } from 'lucide-react';
+import { Check, AlertCircle } from 'lucide-react';
 
 export const InviteMemberModal: React.FC = () => {
   const { user } = useAuth();
@@ -20,13 +20,20 @@ export const InviteMemberModal: React.FC = () => {
   const [role, setRole] = useState<MemberRole>('member');
   const [loading, setLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !user || !activeWorkspace) return;
+    if (!email.trim() || !user) return;
+
+    if (!activeWorkspace) {
+      setErrorMsg('No hay un workspace activo seleccionado.');
+      return;
+    }
 
     setLoading(true);
     setSuccessMsg('');
+    setErrorMsg('');
 
     try {
       await inviteUserToWorkspace(
@@ -35,17 +42,19 @@ export const InviteMemberModal: React.FC = () => {
         email.trim(),
         role,
         user.uid,
-        user.displayName
+        user.displayName || user.email
       );
 
-      setSuccessMsg(`¡Invitación enviada a ${email.trim()}!`);
+      setSuccessMsg(`¡Invitación enviada exitosamente a ${email.trim()}!`);
       setEmail('');
       setTimeout(() => {
         setSuccessMsg('');
+        setErrorMsg('');
         setInviteMemberOpen(false);
-      }, 1800);
-    } catch (err) {
+      }, 2000);
+    } catch (err: any) {
       console.error('Error inviting member:', err);
+      setErrorMsg(err?.message || 'Error al enviar la invitación. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -54,11 +63,22 @@ export const InviteMemberModal: React.FC = () => {
   return (
     <Modal
       isOpen={isInviteMemberOpen}
-      onClose={() => setInviteMemberOpen(false)}
+      onClose={() => {
+        setErrorMsg('');
+        setSuccessMsg('');
+        setInviteMemberOpen(false);
+      }}
       title={`Invitar miembro a ${activeWorkspace?.name || 'Workspace'}`}
       maxWidth="md"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {errorMsg && (
+          <div className="p-3 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555] flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
+
         {successMsg ? (
           <div className="p-4 bg-[#10B981]/15 border border-[#10B981]/30 rounded-lg text-xs text-[#10B981] flex items-center gap-2">
             <Check className="w-4 h-4 shrink-0" />
@@ -93,11 +113,20 @@ export const InviteMemberModal: React.FC = () => {
             </div>
 
             <p className="text-[11px] text-[#5B616E]">
-              Si el usuario ya tiene cuenta en Pulse, se unirá automáticamente a tu workspace. Si no, al registrarse con este email verá tu invitación.
+              Si el usuario ya se ha registrado en Pulse, se unirá inmediatamente a tu workspace. Si aún no tiene cuenta, verá la invitación al registrarse.
             </p>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-[#1C1E22] mt-2">
-              <Button variant="ghost" size="sm" type="button" onClick={() => setInviteMemberOpen(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => {
+                  setErrorMsg('');
+                  setSuccessMsg('');
+                  setInviteMemberOpen(false);
+                }}
+              >
                 Cancelar
               </Button>
               <Button variant="primary" size="sm" type="submit" disabled={!email.trim() || loading}>
