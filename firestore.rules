@@ -3,37 +3,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 1. Helper function: Check if caller is authenticated via Firebase Auth
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // 2. Helper function: Check if caller is a verified member of the workspace
-    function isWorkspaceMember(wsId) {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/members/$(wsId + "_" + request.auth.uid));
-    }
-
-    // -------------------------------------------------------------
-    // User Profiles
-    // -------------------------------------------------------------
+    // Rules per collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && request.auth.uid == userId;
+      allow read, write: if isAuthenticated();
     }
 
-    // -------------------------------------------------------------
-    // Workspaces
-    // -------------------------------------------------------------
     match /workspaces/{workspaceId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isWorkspaceMember(workspaceId);
+      allow read, write: if isAuthenticated();
     }
 
-    // -------------------------------------------------------------
-    // Members & Invitations
-    // -------------------------------------------------------------
     match /members/{memberId} {
       allow read, write: if isAuthenticated();
     }
@@ -42,22 +25,16 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // -------------------------------------------------------------
-    // Teams, Issues, Projects & Labels (Workspace Data Isolation)
-    // -------------------------------------------------------------
     match /teams/{teamId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /issues/{issueId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /projects/{projectId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     match /labels/{labelId} {
