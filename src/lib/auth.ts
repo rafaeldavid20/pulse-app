@@ -6,7 +6,7 @@ import {
   onAuthStateChanged as firebaseOnAuthStateChanged,
   User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { createUserWorkspace, processPendingInvitations, UserDoc } from './firestore';
 
@@ -30,8 +30,12 @@ export async function signUpWithEmail(
   const finalName = displayName || email.split('@')[0];
   const wsName = workspaceName?.trim() || `Workspace de ${finalName}`;
 
-  await createUserWorkspace(user.uid, user.email || email, finalName, wsName);
-  await processPendingInvitations(user.uid, user.email || email, finalName);
+  try {
+    await createUserWorkspace(user.uid, user.email || email, finalName, wsName);
+    await processPendingInvitations(user.uid, user.email || email, finalName);
+  } catch (err) {
+    console.warn('Warning: Firestore workspace creation failed (check database rules):', err);
+  }
 
   return user;
 }
@@ -45,14 +49,18 @@ export async function signInWithGoogle(): Promise<User> {
   const cred = await signInWithPopup(auth, googleProvider);
   const user = cred.user;
 
-  const userRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userRef);
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    const userSnap = await getDoc(userRef);
 
-  if (!userSnap.exists()) {
-    const finalName = user.displayName || user.email?.split('@')[0] || 'User';
-    const wsName = `Workspace de ${finalName}`;
-    await createUserWorkspace(user.uid, user.email || '', finalName, wsName);
-    await processPendingInvitations(user.uid, user.email || '', finalName);
+    if (!userSnap.exists()) {
+      const finalName = user.displayName || user.email?.split('@')[0] || 'User';
+      const wsName = `Workspace de ${finalName}`;
+      await createUserWorkspace(user.uid, user.email || '', finalName, wsName);
+      await processPendingInvitations(user.uid, user.email || '', finalName);
+    }
+  } catch (err) {
+    console.warn('Warning: Firestore check failed on Google Sign-In:', err);
   }
 
   return user;
@@ -73,7 +81,7 @@ export function subscribeAuthState(callback: (user: UserProfile | null) => void)
           if (data.displayName) name = data.displayName;
         }
       } catch (e) {
-        // Fallback
+        console.warn('Warning: Could not fetch user profile from Firestore:', e);
       }
 
       callback({
@@ -92,6 +100,8 @@ export function subscribeAuthState(callback: (user: UserProfile | null) => void)
 export function getFirebaseErrorMessage(errorCode: string): string {
   console.error('Firebase Auth Exception Code:', errorCode);
   switch (errorCode) {
+    case 'permission-denied':
+      return 'Base de datos no iniciada: Falta crear la base de datos Firestore o actualizar las Reglas de Seguridad en la consola de Firebase.';
     case 'auth/unauthorized-domain':
       return 'Dominio no autorizado: El dominio pulse-app--pulse-app-93.us-east4.hosted.app debe agregarse en Firebase Console (Authentication > Settings > Authorized Domains).';
     case 'auth/operation-not-allowed':
@@ -116,6 +126,6 @@ export function getFirebaseErrorMessage(errorCode: string): string {
     case 'auth/network-request-failed':
       return 'Error de conexión de red. Verifica tu conexión a internet.';
     default:
-      return `Error de autenticación (${errorCode}). Por favor verifica la configuración de Firebase Auth.`;
+      return `Error de autenticación (${errorCode}). Por favor verifica la configuración en Firebase Console.`;
   }
 }
