@@ -35,23 +35,37 @@ export const CreateIssueModal: React.FC = () => {
   const [selectedLabels, setSelectedLabels] = useState<string[]>(['feature']);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [titleError, setTitleError] = useState(false);
 
   // Sync defaultProjectId when modal opens
   useEffect(() => {
     if (isCreateIssueOpen && defaultProjectId) {
       setProjectId(defaultProjectId);
     }
+    setTitleError(false);
   }, [isCreateIssueOpen, defaultProjectId]);
 
   const handleClose = () => {
     setErrorMsg('');
+    setTitleError(false);
     setCreateIssueOpen(false);
     setDefaultProjectId(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !user) return;
+
+    if (!title.trim()) {
+      setTitleError(true);
+      return;
+    }
+
+    setTitleError(false);
+
+    if (!user) {
+      setErrorMsg('No hay una sesión activa de usuario.');
+      return;
+    }
 
     const wsId = activeWorkspace?.id;
     const currentTeam = activeTeam || teams[0];
@@ -111,19 +125,33 @@ export const CreateIssueModal: React.FC = () => {
         )}
 
         {/* Title Input */}
-        <div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-[#8A8F98]">
+            Título del issue <span className="text-[#F75555]">*</span>
+          </label>
           <Input
             placeholder="Título del issue..."
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (e.target.value.trim()) setTitleError(false);
+            }}
             autoFocus
-            required
-            className="text-base font-medium py-2.5"
+            className={`text-base font-medium py-2.5 ${
+              titleError ? 'border-[#F75555] focus:border-[#F75555]' : ''
+            }`}
           />
+          {titleError && (
+            <div className="flex items-center gap-1.5 text-[11px] text-[#F75555] font-medium mt-0.5">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>El título del issue es obligatorio.</span>
+            </div>
+          )}
         </div>
 
         {/* Description Textarea */}
-        <div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-[#8A8F98]">Descripción</label>
           <textarea
             placeholder="Añade una descripción (Markdown soportado)..."
             value={description}
@@ -170,7 +198,7 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* Project */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Proyecto</label>
+            <label className="text-xs font-semibold text-[#8A8F98]">Proyecto (Opcional)</label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
@@ -221,7 +249,7 @@ export const CreateIssueModal: React.FC = () => {
             <Button variant="ghost" size="sm" type="button" onClick={handleClose}>
               Cancelar
             </Button>
-            <Button variant="primary" size="sm" type="submit" disabled={!title.trim() || loading}>
+            <Button variant="primary" size="sm" type="submit" disabled={loading}>
               {loading ? 'Guardando...' : 'Crear Issue'}
             </Button>
           </div>

@@ -7,7 +7,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useAppStore } from '@/stores/appStore';
 import { Button } from '@/components/ui/Button';
 import { Plus, FolderKanban } from 'lucide-react';
-import { CreateProjectModal } from '@/components/projects/CreateProjectModal';
+import { ProjectModal } from '@/components/projects/ProjectModal';
 
 export default function TeamProjectsPage() {
   const projects = useProjectStore((s) => s.projects);
@@ -73,7 +73,7 @@ export default function TeamProjectsPage() {
         )}
       </div>
 
-      <CreateProjectModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
+      <ProjectModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use } from 'react';
+import React, { use, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
@@ -10,8 +10,9 @@ import { useAppStore } from '@/stores/appStore';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils';
-import { Calendar, ArrowLeft, Plus, FolderKanban } from 'lucide-react';
+import { Calendar, ArrowLeft, Plus, FolderKanban, ChevronUp, ChevronDown, Edit3 } from 'lucide-react';
 import Link from 'next/link';
+import { ProjectModal } from '@/components/projects/ProjectModal';
 
 export default function ProjectDetailPage({
   params,
@@ -26,6 +27,9 @@ export default function ProjectDetailPage({
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
   const setDefaultProjectId = useIssueStore((s) => s.setDefaultProjectId);
   const members = useAppStore((s) => s.members);
+
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const project = projects.find((p) => p.id === resolvedParams.projectId);
 
@@ -70,101 +74,133 @@ export default function ProjectDetailPage({
       />
 
       <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-6">
-        {/* Back Link */}
-        <Link
-          href={`/team/${resolvedParams.teamId}/projects`}
-          className="inline-flex items-center gap-1.5 text-xs text-[#8A8F98] hover:text-[#F7F8F8] transition-colors"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Volver a la lista de proyectos</span>
-        </Link>
+        {/* Back Link & Quick Actions */}
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/team/${resolvedParams.teamId}/projects`}
+            className="inline-flex items-center gap-1.5 text-xs text-[#8A8F98] hover:text-[#F7F8F8] transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Volver a la lista de proyectos</span>
+          </Link>
 
-        {/* Project Detail Header Card */}
-        <div className="flex flex-col gap-5 p-6 bg-[#0F1012] border border-[#26292F] rounded-2xl relative overflow-hidden shadow-xl">
-          {/* Top Color Strip */}
-          <div
-            className="absolute top-0 left-0 right-0 h-1.5"
-            style={{ backgroundColor: project.color || '#5E6AD2' }}
-          />
-
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-2xl font-bold text-[#F7F8F8] tracking-tight">
-                  {project.name}
-                </h1>
-                <select
-                  value={project.status}
-                  onChange={(e) =>
-                    updateProject(project.id, { status: e.target.value as any })
-                  }
-                  className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs font-semibold rounded-md px-2.5 py-1 outline-none cursor-pointer capitalize"
-                >
-                  <option value="planned">Planificado</option>
-                  <option value="in_progress">En Progreso</option>
-                  <option value="paused">Pausado</option>
-                  <option value="completed">Completado</option>
-                  <option value="canceled">Cancelado</option>
-                </select>
-              </div>
-
-              {project.description && (
-                <p className="text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
-                  {project.description}
-                </p>
-              )}
-            </div>
-
+          <div className="flex items-center gap-2">
             <Button
-              variant="primary"
+              variant="ghost"
               size="sm"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={handleCreateIssueInProject}
+              icon={<Edit3 className="w-3.5 h-3.5" />}
+              onClick={() => setIsEditModalOpen(true)}
             >
-              Nuevo Issue en este Proyecto
+              Editar Proyecto
             </Button>
-          </div>
 
-          {/* Progress Bar & Metadata Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-[#1C1E22] text-xs">
-            {/* Progress */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[#8A8F98]">
-                <span>Progreso del Proyecto</span>
-                <span className="text-[#F7F8F8] font-mono font-semibold">{percent}%</span>
-              </div>
-              <div className="w-full bg-[#1E2024] h-2 rounded-full overflow-hidden">
-                <div
-                  className="h-full transition-all duration-300 rounded-full"
-                  style={{
-                    width: `${percent}%`,
-                    backgroundColor: project.color || '#5E6AD2',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Target Date */}
-            <div className="flex items-center gap-2 text-[#8A8F98]">
-              <Calendar className="w-4 h-4 text-[#5E6AD2]" />
-              <div>
-                <span className="block text-[10px] uppercase text-[#5B616E]">Fecha objetivo</span>
-                <span className="text-[#F7F8F8] font-medium">
-                  {project.targetDate ? formatDate(project.targetDate) : 'Sin fecha definida'}
-                </span>
-              </div>
-            </div>
-
-            {/* Project Lead */}
-            <div className="flex items-center gap-2 text-[#8A8F98]">
-              <Avatar name={lead?.displayName} src={lead?.photoURL} size="md" />
-              <div>
-                <span className="block text-[10px] uppercase text-[#5B616E]">Líder de Proyecto</span>
-                <span className="text-[#F7F8F8] font-medium">{lead?.displayName || 'Sin asignar'}</span>
-              </div>
-            </div>
+            <button
+              onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-[#16171A] hover:bg-[#1E2024] border border-[#26292F] text-[#8A8F98] hover:text-[#F7F8F8] text-xs rounded-md transition-colors"
+            >
+              {isHeaderCollapsed ? (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span>Mostrar resumen</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span>Ocultar resumen</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
+
+        {/* Collapsible Project Detail Header Card */}
+        {!isHeaderCollapsed && (
+          <div className="flex flex-col gap-5 p-6 bg-[#0F1012] border border-[#26292F] rounded-2xl relative overflow-hidden shadow-xl animate-fade-in-scale">
+            {/* Top Color Strip */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1.5"
+              style={{ backgroundColor: project.color || '#5E6AD2' }}
+            />
+
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-2xl font-bold text-[#F7F8F8] tracking-tight">
+                    {project.name}
+                  </h1>
+                  <select
+                    value={project.status}
+                    onChange={(e) =>
+                      updateProject(project.id, { status: e.target.value as any })
+                    }
+                    className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs font-semibold rounded-md px-2.5 py-1 outline-none cursor-pointer capitalize"
+                  >
+                    <option value="planned">Planificado</option>
+                    <option value="in_progress">En Progreso</option>
+                    <option value="paused">Pausado</option>
+                    <option value="completed">Completado</option>
+                    <option value="canceled">Cancelado</option>
+                  </select>
+                </div>
+
+                {project.description && (
+                  <p className="text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
+                    {project.description}
+                  </p>
+                )}
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus className="w-4 h-4" />}
+                onClick={handleCreateIssueInProject}
+              >
+                Nuevo Issue en este Proyecto
+              </Button>
+            </div>
+
+            {/* Progress Bar & Metadata Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-[#1C1E22] text-xs">
+              {/* Progress */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between text-[#8A8F98]">
+                  <span>Progreso del Proyecto</span>
+                  <span className="text-[#F7F8F8] font-mono font-semibold">{percent}%</span>
+                </div>
+                <div className="w-full bg-[#1E2024] h-2 rounded-full overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-300 rounded-full"
+                    style={{
+                      width: `${percent}%`,
+                      backgroundColor: project.color || '#5E6AD2',
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Target Date */}
+              <div className="flex items-center gap-2 text-[#8A8F98]">
+                <Calendar className="w-4 h-4 text-[#5E6AD2]" />
+                <div>
+                  <span className="block text-[10px] uppercase text-[#5B616E]">Fecha objetivo</span>
+                  <span className="text-[#F7F8F8] font-medium">
+                    {project.targetDate ? formatDate(project.targetDate) : 'Sin fecha definida'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Project Lead */}
+              <div className="flex items-center gap-2 text-[#8A8F98]">
+                <Avatar name={lead?.displayName} src={lead?.photoURL} size="md" />
+                <div>
+                  <span className="block text-[10px] uppercase text-[#5B616E]">Líder de Proyecto</span>
+                  <span className="text-[#F7F8F8] font-medium">{lead?.displayName || 'Sin asignar'}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Project Issues Section */}
         <div className="flex flex-col gap-4 mt-2">
@@ -189,6 +225,13 @@ export default function ProjectDetailPage({
           )}
         </div>
       </div>
+
+      {/* Edit Project Modal */}
+      <ProjectModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        projectToEdit={project}
+      />
     </div>
   );
 }
