@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyAINMPrTeemW6gsIOnHzsHicY9JedL7BVc',
@@ -16,6 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const functions = getFunctions(app, 'us-east4');
 export const googleProvider = new GoogleAuthProvider();
 
 export default app;

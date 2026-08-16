@@ -12,7 +12,8 @@ import {
   arrayUnion,
   Unsubscribe,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from './firebase';
 import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssuePriority } from '@/types';
 import { nanoid } from 'nanoid';
 
@@ -49,6 +50,27 @@ function cleanUndefined<T extends Record<string, any>>(obj: T): T {
 }
 
 // ===============================================================
+// PLATFORM ACTION CALLABLE WRAPPER
+// ===============================================================
+export async function callPlatformAction<T = any>(
+  actionCode: string,
+  data: Record<string, any>
+): Promise<T | null> {
+  try {
+    const pulsePlatformAction = httpsCallable(functions, 'pulsePlatformAction');
+    const result = await pulsePlatformAction({ actionCode, data });
+    const payload = result.data as any;
+    if (payload && payload.success) {
+      return payload.data as T;
+    }
+    return null;
+  } catch (error) {
+    console.warn(`[PlatformAction] Fallback to direct client mutation for '${actionCode}':`, error);
+    return null;
+  }
+}
+
+// ===============================================================
 // 1. WORKSPACE & MEMBERSHIP SERVICES
 // ===============================================================
 
@@ -58,6 +80,17 @@ export async function createUserWorkspace(
   userName: string,
   workspaceName: string
 ): Promise<{ workspace: Workspace; team: Team }> {
+  // Attempt Cloud Function Platform Action execution
+  const actionRes = await callPlatformAction<{ workspace: Workspace; team: Team }>(
+    'workspaces.create',
+    { userId, userEmail, userName, name: workspaceName }
+  );
+
+  if (actionRes && actionRes.workspace && actionRes.team) {
+    return actionRes;
+  }
+
+  // Direct client fallback
   const wsId = `ws-${nanoid(8)}`;
   const slug = workspaceName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
 
@@ -99,7 +132,6 @@ export async function createUserWorkspace(
   };
   await setDoc(doc(db, 'members', memberId), cleanUndefined(member));
 
-  // Derive team key from first 3 letters of workspace name (e.g. "Orden y Progreso" -> "ORD")
   const wsKey = workspaceName.trim().substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'W') || 'PUL';
 
   const teamId = `team-${nanoid(8)}`;
@@ -183,6 +215,18 @@ export async function inviteUserToWorkspace(
   inviterId: string,
   inviterName: string
 ) {
+  // Attempt Cloud Function Platform Action
+  const actionRes = await callPlatformAction('workspaces.inviteMember', {
+    workspaceId,
+    workspaceName,
+    email,
+    role,
+    inviterId,
+    inviterName,
+  });
+
+  if (actionRes) return actionRes;
+
   const cleanEmail = email.trim().toLowerCase();
   const invId = `inv-${nanoid(8)}`;
   const invitation: InvitationDoc = {
@@ -305,6 +349,10 @@ export function subscribeWorkspaceIssues(
 export async function createRealIssue(
   data: Partial<Issue> & { workspaceId: string; teamId: string; creatorId: string }
 ): Promise<Issue> {
+  // Attempt Platform Action execution
+  const actionRes = await callPlatformAction<Issue>('issues.create', data);
+  if (actionRes && actionRes.id) return actionRes;
+
   const issueId = `issue-${nanoid(8)}`;
   
   let nextNum = 101;
@@ -347,6 +395,9 @@ export async function createRealIssue(
 }
 
 export async function updateRealIssue(id: string, updates: Partial<Issue>) {
+  const actionRes = await callPlatformAction('issues.update', { id, ...updates });
+  if (actionRes) return;
+
   const issueRef = doc(db, 'issues', id);
   await updateDoc(issueRef, cleanUndefined({
     ...updates,
@@ -355,6 +406,9 @@ export async function updateRealIssue(id: string, updates: Partial<Issue>) {
 }
 
 export async function deleteRealIssue(id: string) {
+  const actionRes = await callPlatformAction('issues.delete', { id });
+  if (actionRes) return;
+
   await deleteDoc(doc(db, 'issues', id));
 }
 
@@ -376,6 +430,9 @@ export function subscribeWorkspaceProjects(
 export async function createRealProject(
   data: Partial<Project> & { workspaceId: string; teamId: string; name: string }
 ): Promise<Project> {
+  const actionRes = await callPlatformAction<Project>('projects.create', data);
+  if (actionRes && actionRes.id) return actionRes;
+
   const projId = `proj-${nanoid(8)}`;
   const rawProject = {
     id: projId,
@@ -397,6 +454,9 @@ export async function createRealProject(
 }
 
 export async function updateRealProject(id: string, updates: Partial<Project>) {
+  const actionRes = await callPlatformAction('projects.update', { id, ...updates });
+  if (actionRes) return;
+
   await updateDoc(doc(db, 'projects', id), cleanUndefined({
     ...updates,
     updatedAt: new Date().toISOString(),
