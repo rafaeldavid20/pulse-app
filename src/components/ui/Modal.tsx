@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,16 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = 'lg',
 }) => {
+  // Portal target isn't available during SSR; useSyncExternalStore (rather
+  // than a `useState` + effect) reports false on the server and during the
+  // first client render, then true after hydration — no client/server
+  // markup mismatch, and no setState-in-effect.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -29,7 +40,7 @@ export const Modal: React.FC<ModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const maxWidthClasses = {
     sm: 'max-w-sm',
@@ -39,7 +50,13 @@ export const Modal: React.FC<ModalProps> = ({
     '2xl': 'max-w-2xl',
   };
 
-  return (
+  // Rendered via a portal into `document.body` rather than in place: a
+  // modal opened from inside another modal's <form> (e.g. "Crear
+  // etiqueta" from within "Crear issue") would otherwise nest a <form>
+  // inside a <form>. Nested forms share form-owner resolution in ways
+  // that make the inner submit bubble into the outer form's submit
+  // handler, closing/resetting both modals instead of just the inner one.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in-scale">
       <div
         className={cn(
@@ -61,6 +78,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
         <div className="p-5 overflow-y-auto max-h-[80vh]">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
