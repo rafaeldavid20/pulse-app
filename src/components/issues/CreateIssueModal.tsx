@@ -10,6 +10,7 @@ import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAuth } from '@/hooks/useAuth';
 import { IssueStatus, IssuePriority } from '@/types';
+import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { AlertCircle } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
@@ -171,12 +172,11 @@ export const CreateIssueModal: React.FC = () => {
               onChange={(e) => setStatus(e.target.value as IssueStatus)}
               className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer"
             >
-              <option value="backlog">Backlog</option>
-              <option value="todo">Por hacer</option>
-              <option value="in_progress">En progreso</option>
-              <option value="in_review">En revisión</option>
-              <option value="done">Completado</option>
-              <option value="canceled">Cancelado</option>
+              {ISSUE_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -188,11 +188,11 @@ export const CreateIssueModal: React.FC = () => {
               onChange={(e) => setPriority(parseInt(e.target.value, 10) as IssuePriority)}
               className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer"
             >
-              <option value={1}>1 - Urgente</option>
-              <option value={2}>2 - Alta</option>
-              <option value={3}>3 - Media</option>
-              <option value={4}>4 - Baja</option>
-              <option value={0}>0 - Sin prioridad</option>
+              {ISSUE_PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.value} - {p.label}
+                </option>
+              ))}
             </select>
           </div>
 

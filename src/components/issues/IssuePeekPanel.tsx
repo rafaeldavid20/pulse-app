@@ -1,57 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Trash2, Calendar, UserCheck, Tag, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Trash2 } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
-import { PriorityBadge } from './PriorityBadge';
-import { Avatar } from '@/components/ui/Avatar';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { LabelPicker } from '@/components/labels/LabelPicker';
-import { IssueStatus, IssuePriority } from '@/types';
-import { formatTimeAgo, getPriorityLabel, getStatusLabel } from '@/lib/utils';
+import { Issue, IssueStatus, IssuePriority, Member } from '@/types';
+import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
+import { formatTimeAgo } from '@/lib/utils';
 
-export const IssuePeekPanel: React.FC = () => {
-  const peekIssueId = useIssueStore((s) => s.peekIssueId);
-  const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
-  const issues = useIssueStore((s) => s.issues);
-  const updateIssue = useIssueStore((s) => s.updateIssue);
-  const deleteIssue = useIssueStore((s) => s.deleteIssue);
-  const members = useAppStore((s) => s.members);
+interface IssuePeekBodyProps {
+  issue: Issue;
+  members: Member[];
+  updateIssue: (id: string, updates: Partial<Issue>) => void;
+  deleteIssue: (id: string) => void;
+  onClose: () => void;
+}
 
-  const [commentText, setCommentText] = useState('');
-  const [comments, setComments] = useState<Array<{ id: string; author: string; text: string; date: string }>>([
-    {
-      id: 'c-1',
-      author: 'Rafael Rodriguez',
-      text: 'Revisé la configuración de Firebase Auth y los tokens se refrescan correctamente.',
-      date: new Date(Date.now() - 3600000 * 4).toISOString(),
-    },
-  ]);
+/**
+ * Keyed by `issue.id` from the parent so switching to a different issue
+ * remounts this component and resets `titleDraft` from the new issue's
+ * title — avoids syncing prop -> state via a `useEffect` (which
+ * react-hooks/set-state-in-effect flags, since it can cascade renders).
+ */
+const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose }) => {
+  // Local draft for the title input, debounced against Firestore writes —
+  // without this, every keystroke fired a Platform Action / direct write.
+  const [titleDraft, setTitleDraft] = useState(issue.title);
 
-  if (!peekIssueId) return null;
-
-  const issue = issues.find((i) => i.id === peekIssueId);
-  if (!issue) return null;
-
-  const assignee = members.find((m) => m.userId === issue.assigneeId);
-
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    setComments((prev) => [
-      ...prev,
-      {
-        id: `c-${Date.now()}`,
-        author: 'Rafael Rodriguez',
-        text: commentText.trim(),
-        date: new Date().toISOString(),
-      },
-    ]);
-    setCommentText('');
-  };
+  useEffect(() => {
+    if (titleDraft === issue.title) return;
+    const handle = setTimeout(() => {
+      if (titleDraft.trim()) {
+        updateIssue(issue.id, { title: titleDraft });
+      }
+    }, 500);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [titleDraft]);
 
   return (
     <div className="fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-[#0F1012] border-l border-[#26292F] shadow-2xl flex flex-col animate-slide-in-right glass-panel">
@@ -68,7 +55,7 @@ export const IssuePeekPanel: React.FC = () => {
           <button
             onClick={() => {
               deleteIssue(issue.id);
-              setPeekIssueId(null);
+              onClose();
             }}
             className="p-1.5 text-[#5B616E] hover:text-[#F75555] hover:bg-[#F75555]/10 rounded transition-colors"
             title="Eliminar issue"
@@ -77,7 +64,7 @@ export const IssuePeekPanel: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setPeekIssueId(null)}
+            onClick={onClose}
             className="p-1.5 text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-[#1E2024] rounded transition-colors"
             title="Cerrar (Esc)"
           >
@@ -88,11 +75,11 @@ export const IssuePeekPanel: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-        {/* Title Input */}
+        {/* Title Input — local draft, debounced 500ms before writing (see effect above) */}
         <input
           type="text"
-          value={issue.title}
-          onChange={(e) => updateIssue(issue.id, { title: e.target.value })}
+          value={titleDraft}
+          onChange={(e) => setTitleDraft(e.target.value)}
           className="text-xl font-bold text-[#F7F8F8] bg-transparent border-none outline-none focus:ring-0 p-0"
         />
 
@@ -106,12 +93,11 @@ export const IssuePeekPanel: React.FC = () => {
               onChange={(e) => updateIssue(issue.id, { status: e.target.value as IssueStatus })}
               className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer"
             >
-              <option value="backlog">Backlog</option>
-              <option value="todo">Por hacer</option>
-              <option value="in_progress">En progreso</option>
-              <option value="in_review">En revisión</option>
-              <option value="done">Completado</option>
-              <option value="canceled">Cancelado</option>
+              {ISSUE_STATUSES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {s.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -125,11 +111,11 @@ export const IssuePeekPanel: React.FC = () => {
               }
               className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer"
             >
-              <option value={1}>1 - Urgente</option>
-              <option value={2}>2 - Alta</option>
-              <option value={3}>3 - Media</option>
-              <option value={4}>4 - Baja</option>
-              <option value={0}>0 - Sin prioridad</option>
+              {ISSUE_PRIORITIES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.value} - {p.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -184,38 +170,39 @@ export const IssuePeekPanel: React.FC = () => {
 
         <hr className="border-[#1C1E22]" />
 
-        {/* Activity & Comments */}
+        {/* Activity & Comments — real comments (collection + MCP tool) land
+            in a later phase; this used to be a fake local useState with a
+            hardcoded example comment that was lost on close. */}
         <div className="flex flex-col gap-4">
           <h3 className="text-sm font-semibold text-[#F7F8F8]">Actividad y Comentarios</h3>
-
-          <form onSubmit={handleAddComment} className="flex flex-col gap-2">
-            <textarea
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Escribe un comentario..."
-              rows={2}
-              className="w-full bg-[#16171A] border border-[#26292F] focus:border-[#5E6AD2] rounded-lg p-3 text-sm text-[#F7F8F8] placeholder-[#5B616E] outline-none resize-none"
-            />
-            <div className="flex justify-end">
-              <Button type="submit" size="sm" disabled={!commentText.trim()}>
-                Comentar
-              </Button>
-            </div>
-          </form>
-
-          <div className="flex flex-col gap-3 mt-2">
-            {comments.map((c) => (
-              <div key={c.id} className="p-3 bg-[#16171A] border border-[#1C1E22] rounded-lg text-xs flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[#F7F8F8]">{c.author}</span>
-                  <span className="text-[#5B616E]">{formatTimeAgo(c.date)}</span>
-                </div>
-                <p className="text-[#8A8F98] leading-relaxed">{c.text}</p>
-              </div>
-            ))}
-          </div>
+          <p className="text-xs text-[#5B616E]">Los comentarios estarán disponibles próximamente.</p>
         </div>
       </div>
     </div>
+  );
+};
+
+export const IssuePeekPanel: React.FC = () => {
+  const peekIssueId = useIssueStore((s) => s.peekIssueId);
+  const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
+  const issues = useIssueStore((s) => s.issues);
+  const updateIssue = useIssueStore((s) => s.updateIssue);
+  const deleteIssue = useIssueStore((s) => s.deleteIssue);
+  const members = useAppStore((s) => s.members);
+
+  if (!peekIssueId) return null;
+
+  const issue = issues.find((i) => i.id === peekIssueId);
+  if (!issue) return null;
+
+  return (
+    <IssuePeekBody
+      key={issue.id}
+      issue={issue}
+      members={members}
+      updateIssue={updateIssue}
+      deleteIssue={deleteIssue}
+      onClose={() => setPeekIssueId(null)}
+    />
   );
 };

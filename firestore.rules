@@ -40,5 +40,10 @@ service cloud.firestore {
     match /labels/{labelId} {
       allow read, write: if isAuthenticated();
     }
+
+    // Atomic issue-numbering counters (workspaceId_teamId -> value).
+    match /counters/{counterId} {
+      allow read, write: if isAuthenticated();
+    }
   }
 }

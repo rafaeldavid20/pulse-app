@@ -2,6 +2,11 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import {
+  getPriorityLabel as getPriorityLabelFromConstants,
+  getStatusLabel as getStatusLabelFromConstants,
+} from '@/lib/constants/issue';
+import type { IssuePriority } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -40,36 +45,13 @@ export function generateIdentifier(teamKey: string, issueNumber: number): string
   return `${teamKey.toUpperCase()}-${issueNumber}`;
 }
 
+// Re-exported for backwards compatibility with existing imports from
+// '@/lib/utils' — the actual status/priority list lives in
+// '@/lib/constants/issue' as the single source of truth.
 export function getPriorityLabel(priority: number): string {
-  switch (priority) {
-    case 1:
-      return 'Urgente';
-    case 2:
-      return 'Alta';
-    case 3:
-      return 'Media';
-    case 4:
-      return 'Baja';
-    default:
-      return 'Sin prioridad';
-  }
+  return getPriorityLabelFromConstants(priority as IssuePriority);
 }
 
 export function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'backlog':
-      return 'Backlog';
-    case 'todo':
-      return 'Por hacer';
-    case 'in_progress':
-      return 'En progreso';
-    case 'in_review':
-      return 'En revisión';
-    case 'done':
-      return 'Completado';
-    case 'canceled':
-      return 'Cancelado';
-    default:
-      return status;
-  }
+  return getStatusLabelFromConstants(status);
 }

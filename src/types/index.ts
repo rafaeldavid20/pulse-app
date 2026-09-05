@@ -58,6 +58,7 @@ export interface Member {
 
 export interface Issue {
   id: string;
+  workspaceId: string;
   teamId: string;
   projectId?: string;
   identifier: string; // e.g. "ENG-142"

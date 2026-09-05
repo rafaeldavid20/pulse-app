@@ -10,11 +10,13 @@ import {
   where,
   onSnapshot,
   arrayUnion,
+  runTransaction,
   Unsubscribe,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
 import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssuePriority } from '@/types';
+import { ISSUE_WRITABLE_FIELDS } from '@/lib/constants/issue';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -38,20 +40,53 @@ export interface InvitationDoc {
   createdAt: string;
 }
 
-// Helper to remove any `undefined` keys before sending to Cloud Firestore
-function cleanUndefined<T extends Record<string, any>>(obj: T): T {
-  const clean: Record<string, any> = {};
-  Object.keys(obj).forEach((key) => {
-    if (obj[key] !== undefined) {
-      clean[key] = obj[key];
-    }
-  });
-  return clean as T;
+// Helper to remove any `undefined` keys before sending to Cloud Firestore.
+// Deep: recurses into plain objects and arrays (mirrors
+// pulse-backend/functions/src/common/utils/clean.ts — keep both in sync).
+function cleanUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => cleanUndefined(item)) as unknown as T;
+  }
+
+  if (value !== null && typeof value === 'object' && value.constructor === Object) {
+    const source = value as Record<string, unknown>;
+    const clean: Record<string, unknown> = {};
+    Object.keys(source).forEach((key) => {
+      const v = source[key];
+      if (v !== undefined) {
+        clean[key] = cleanUndefined(v);
+      }
+    });
+    return clean as T;
+  }
+
+  return value;
 }
 
 // ===============================================================
 // PLATFORM ACTION CALLABLE WRAPPER
 // ===============================================================
+
+/**
+ * Logs every time a mutation falls back from the `pulsePlatformAction`
+ * Cloud Function to a direct client-side Firestore write. This fallback is
+ * meant to be a safety net, not a load-bearing code path — before any
+ * authorization is added to Platform Actions (which the client fallback
+ * would silently bypass), we need evidence from real usage that the
+ * fallback essentially never triggers. Grep browser console logs for
+ * `[PlatformAction:fallback]` to check.
+ */
+function logPlatformActionFallback(actionCode: string, reason: 'error' | 'unsuccessful', detail: unknown) {
+  console.warn(
+    `[PlatformAction:fallback] '${actionCode}' fell back to a direct client write (reason: ${reason}). ` +
+      `This should be rare — if it happens often, the Cloud Function path has a bug that needs fixing ` +
+      `before Platform Actions can be locked down with real authorization.`,
+    detail
+  );
+}
+
 export async function callPlatformAction<T = any>(
   actionCode: string,
   data: Record<string, any>
@@ -63,9 +98,10 @@ export async function callPlatformAction<T = any>(
     if (payload && payload.success) {
       return payload.data as T;
     }
+    logPlatformActionFallback(actionCode, 'unsuccessful', payload);
     return null;
   } catch (error) {
-    console.warn(`[PlatformAction] Fallback to direct client mutation for '${actionCode}':`, error);
+    logPlatformActionFallback(actionCode, 'error', error);
     return null;
   }
 }
@@ -346,6 +382,49 @@ export function subscribeWorkspaceIssues(
   });
 }
 
+/**
+ * Atomically reserves the next sequential issue number for a
+ * workspace/team, mirroring the Cloud Function's counter logic
+ * (`pulse-backend/functions/src/common/utils/counters.ts`) so both write
+ * paths share the same `counters/{workspaceId}_{teamId}` doc and never mint
+ * duplicate identifiers, even if one create goes through the callable and a
+ * concurrent one falls back to this client path.
+ */
+async function nextIssueNumber(workspaceId: string, teamId: string): Promise<number> {
+  const counterRef = doc(db, 'counters', `${workspaceId}_${teamId}`);
+
+  // Firestore transactions require all reads before any writes, so the
+  // backfill query (only needed the first time this team's counter is
+  // created) runs outside the transaction. There's a small race window if
+  // two clients hit an uninitialized counter simultaneously — acceptable
+  // for the client-side fallback path, whose main job is not colliding
+  // with the Cloud Function's own (transactional) counter reservations.
+  const counterSnapBeforeTx = await getDoc(counterRef);
+  let seed = 101;
+  if (!counterSnapBeforeTx.exists()) {
+    const existing = await getDocs(
+      query(collection(db, 'issues'), where('workspaceId', '==', workspaceId), where('teamId', '==', teamId))
+    );
+    let maxNumber = 100;
+    existing.forEach((d) => {
+      const n = (d.data() as Issue).number;
+      if (typeof n === 'number' && n > maxNumber) maxNumber = n;
+    });
+    seed = maxNumber + 1;
+  }
+
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(counterRef);
+    if (!snap.exists()) {
+      tx.set(counterRef, { workspaceId, teamId, value: seed, updatedAt: new Date().toISOString() });
+      return seed;
+    }
+    const next = (snap.data().value ?? 100) + 1;
+    tx.update(counterRef, { value: next, updatedAt: new Date().toISOString() });
+    return next;
+  });
+}
+
 export async function createRealIssue(
   data: Partial<Issue> & { workspaceId: string; teamId: string; creatorId: string }
 ): Promise<Issue> {
@@ -354,23 +433,22 @@ export async function createRealIssue(
   if (actionRes && actionRes.id) return actionRes;
 
   const issueId = `issue-${nanoid(8)}`;
-  
-  let nextNum = 101;
-  try {
-    const q = query(
-      collection(db, 'issues'),
-      where('workspaceId', '==', data.workspaceId),
-      where('teamId', '==', data.teamId)
-    );
-    const snap = await getDocs(q);
-    nextNum = snap.size + 101;
-  } catch (e) {
-    // Non-fatal query fallback
-  }
-
+  const nextNum = await nextIssueNumber(data.workspaceId, data.teamId);
   const teamKey = (data as any).teamKey || 'ORD';
 
+  // Whitelist, not a spread of `data`: fields not in ISSUE_WRITABLE_FIELDS
+  // (e.g. estimate, dueDate, parentId) used to be silently dropped here
+  // because this object only listed a hardcoded subset of Issue's fields.
+  const writable: Record<string, unknown> = {};
+  const dataRecord = data as Record<string, unknown>;
+  for (const field of ISSUE_WRITABLE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(dataRecord, field)) {
+      writable[field] = dataRecord[field];
+    }
+  }
+
   const rawIssueData = {
+    ...writable,
     id: issueId,
     workspaceId: data.workspaceId,
     teamId: data.teamId,

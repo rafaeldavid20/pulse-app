@@ -1,7 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getFunctions } from 'firebase/functions';
+import { connectAuthEmulator, getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyAINMPrTeemW6gsIOnHzsHicY9JedL7BVc',
@@ -19,5 +19,21 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const functions = getFunctions(app, 'us-east4');
 export const googleProvider = new GoogleAuthProvider();
+
+// Point the client SDK at local emulators instead of production Firebase.
+// Guarded by a global flag so hot-reloads in dev don't try to reconnect
+// (each of these throws if called more than once per app instance) and so
+// this never accidentally runs against production.
+declare global {
+  var __pulseEmulatorsConnected: boolean | undefined;
+}
+
+if (process.env.NEXT_PUBLIC_USE_EMULATORS === 'true' && !globalThis.__pulseEmulatorsConnected) {
+  globalThis.__pulseEmulatorsConnected = true;
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+  console.info('[Firebase] Connected to local emulators (auth:9099, firestore:8080, functions:5001).');
+}
 
 export default app;

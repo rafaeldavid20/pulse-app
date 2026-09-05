@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { Issue } from '@/types';
+import { ISSUE_STATUSES } from '@/lib/constants/issue';
 
 export function useIssues() {
   const issues = useIssueStore((s) => s.issues);
@@ -46,14 +47,10 @@ export function useIssues() {
 
   // Group issues by status for Kanban Board
   const issuesByStatus = useMemo(() => {
-    const map: Record<string, Issue[]> = {
-      backlog: [],
-      todo: [],
-      in_progress: [],
-      in_review: [],
-      done: [],
-      canceled: [],
-    };
+    const map: Record<string, Issue[]> = {};
+    ISSUE_STATUSES.forEach((s) => {
+      map[s.value] = [];
+    });
 
     filteredIssues.forEach((issue) => {
       if (map[issue.status]) {
