@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Send } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
 import { LabelPicker } from '@/components/labels/LabelPicker';
-import { Issue, IssueStatus, IssuePriority, Member } from '@/types';
+import { Issue, IssueStatus, IssuePriority, Member, Comment } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { formatTimeAgo } from '@/lib/utils';
+import { subscribeIssueComments, createComment } from '@/lib/firestore';
 
 interface IssuePeekBodyProps {
   issue: Issue;
@@ -24,6 +25,74 @@ interface IssuePeekBodyProps {
  * title — avoids syncing prop -> state via a `useEffect` (which
  * react-hooks/set-state-in-effect flags, since it can cascade renders).
  */
+function CommentsSection({ issueId, members }: { issueId: string; members: Member[] }) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeIssueComments(issueId, setComments);
+    return unsub;
+  }, [issueId]);
+
+  const authorName = (authorId: string) => members.find((m) => m.userId === authorId)?.displayName || authorId;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const body = draft.trim();
+    if (!body || sending) return;
+    setSending(true);
+    setDraft('');
+    try {
+      await createComment(issueId, body);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Error al publicar el comentario.');
+      setDraft(body);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h3 className="text-sm font-semibold text-[#F7F8F8]">Actividad y Comentarios</h3>
+
+      {comments.length === 0 ? (
+        <p className="text-xs text-[#5B616E]">Todavía no hay comentarios.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {comments.map((c) => (
+            <div key={c.id} className="flex flex-col gap-1 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#F7F8F8]">{authorName(c.authorId)}</span>
+                <span className="text-[10px] text-[#5B616E]">{formatTimeAgo(c.createdAt)}</span>
+              </div>
+              <p className="text-sm text-[#C4C7CD] whitespace-pre-wrap">{c.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Escribí un comentario..."
+          className="flex-1 bg-[#16171A] border border-[#26292F] focus:border-[#5E6AD2] rounded-lg px-3 py-2 text-sm text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors"
+        />
+        <button
+          type="submit"
+          disabled={!draft.trim() || sending}
+          className="p-2 rounded-lg bg-[#5E6AD2] hover:bg-[#707CE6] text-white disabled:opacity-50 disabled:pointer-events-none transition-colors"
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      </form>
+    </div>
+  );
+}
+
 const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose }) => {
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
@@ -170,13 +239,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <hr className="border-[#1C1E22]" />
 
-        {/* Activity & Comments — real comments (collection + MCP tool) land
-            in a later phase; this used to be a fake local useState with a
-            hardcoded example comment that was lost on close. */}
-        <div className="flex flex-col gap-4">
-          <h3 className="text-sm font-semibold text-[#F7F8F8]">Actividad y Comentarios</h3>
-          <p className="text-xs text-[#5B616E]">Los comentarios estarán disponibles próximamente.</p>
-        </div>
+        <CommentsSection issueId={issue.id} members={members} />
       </div>
     </div>
   );

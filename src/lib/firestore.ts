@@ -8,6 +8,7 @@ import {
   deleteDoc,
   query,
   where,
+  orderBy,
   onSnapshot,
   arrayUnion,
   runTransaction,
@@ -15,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssuePriority } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssuePriority, Comment } from '@/types';
 import { ISSUE_WRITABLE_FIELDS } from '@/lib/constants/issue';
 import { nanoid } from 'nanoid';
 
@@ -617,4 +618,27 @@ export async function createApiKey(
 export async function revokeApiKey(id: string): Promise<void> {
   const actionRes = await callPlatformAction('apikeys.revoke', { id });
   if (!actionRes) throw new Error('No se pudo revocar la clave de API.');
+}
+
+// ===============================================================
+// 7. COMMENTS SERVICES
+// ===============================================================
+// No client-side fallback for creating comments: `comments.create`
+// authorizes against the issue's real workspaceId (see the backend action),
+// and a silent client fallback would let that check be bypassed entirely.
+
+export function subscribeIssueComments(
+  issueId: string,
+  callback: (comments: Comment[]) => void
+): Unsubscribe {
+  const q = query(collection(db, 'comments'), where('issueId', '==', issueId), orderBy('createdAt', 'asc'));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => d.data() as Comment));
+  });
+}
+
+export async function createComment(issueId: string, body: string): Promise<Comment> {
+  const actionRes = await callPlatformAction<Comment>('comments.create', { issueId, body, source: 'web' });
+  if (!actionRes) throw new Error('No se pudo publicar el comentario.');
+  return actionRes;
 }

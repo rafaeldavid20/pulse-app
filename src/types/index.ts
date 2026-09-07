@@ -54,6 +54,23 @@ export interface Member {
   email: string;
   photoURL?: string;
   joinedAt: string;
+  isAgent?: boolean;
+  agentKind?: 'claude' | 'chatgpt';
+}
+
+export type AgentIssueState = 'idle' | 'claimed' | 'working' | 'pr_open' | 'blocked';
+
+export interface Agent {
+  id: string;
+  workspaceId: string;
+  kind: 'claude' | 'chatgpt';
+  displayName: string;
+  defaultRepo?: string;
+  defaultTeamId?: string;
+  maxConcurrentIssues?: number;
+  enabled: boolean;
+  autonomousMode: boolean;
+  createdAt: string;
 }
 
 export interface Issue {
@@ -73,17 +90,25 @@ export interface Issue {
   parentId?: string;
   dueDate?: string;
   estimate?: number;
+  agent?: {
+    claimedBy?: string;
+    claimedAt?: string;
+    state?: AgentIssueState;
+    blockedReason?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Comment {
   id: string;
+  workspaceId: string;
   issueId: string;
   authorId: string;
   body: string;
+  source: 'web' | 'mcp' | 'github';
+  githubCommentId?: string;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface Activity {
