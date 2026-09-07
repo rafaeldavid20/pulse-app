@@ -5,19 +5,16 @@ import {
   getDocs,
   setDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
   onSnapshot,
   arrayUnion,
-  runTransaction,
   Unsubscribe,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, IssuePriority, Comment } from '@/types';
-import { ISSUE_WRITABLE_FIELDS } from '@/lib/constants/issue';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -383,112 +380,22 @@ export function subscribeWorkspaceIssues(
   });
 }
 
-/**
- * Atomically reserves the next sequential issue number for a
- * workspace/team, mirroring the Cloud Function's counter logic
- * (`pulse-backend/functions/src/common/utils/counters.ts`) so both write
- * paths share the same `counters/{workspaceId}_{teamId}` doc and never mint
- * duplicate identifiers, even if one create goes through the callable and a
- * concurrent one falls back to this client path.
- */
-async function nextIssueNumber(workspaceId: string, teamId: string): Promise<number> {
-  const counterRef = doc(db, 'counters', `${workspaceId}_${teamId}`);
-
-  // Firestore transactions require all reads before any writes, so the
-  // backfill query (only needed the first time this team's counter is
-  // created) runs outside the transaction. There's a small race window if
-  // two clients hit an uninitialized counter simultaneously — acceptable
-  // for the client-side fallback path, whose main job is not colliding
-  // with the Cloud Function's own (transactional) counter reservations.
-  const counterSnapBeforeTx = await getDoc(counterRef);
-  let seed = 101;
-  if (!counterSnapBeforeTx.exists()) {
-    const existing = await getDocs(
-      query(collection(db, 'issues'), where('workspaceId', '==', workspaceId), where('teamId', '==', teamId))
-    );
-    let maxNumber = 100;
-    existing.forEach((d) => {
-      const n = (d.data() as Issue).number;
-      if (typeof n === 'number' && n > maxNumber) maxNumber = n;
-    });
-    seed = maxNumber + 1;
-  }
-
-  return runTransaction(db, async (tx) => {
-    const snap = await tx.get(counterRef);
-    if (!snap.exists()) {
-      tx.set(counterRef, { workspaceId, teamId, value: seed, updatedAt: new Date().toISOString() });
-      return seed;
-    }
-    const next = (snap.data().value ?? 100) + 1;
-    tx.update(counterRef, { value: next, updatedAt: new Date().toISOString() });
-    return next;
-  });
-}
-
 export async function createRealIssue(
   data: Partial<Issue> & { workspaceId: string; teamId: string; creatorId: string }
 ): Promise<Issue> {
-  // Attempt Platform Action execution
   const actionRes = await callPlatformAction<Issue>('issues.create', data);
-  if (actionRes && actionRes.id) return actionRes;
-
-  const issueId = `issue-${nanoid(8)}`;
-  const nextNum = await nextIssueNumber(data.workspaceId, data.teamId);
-  const teamKey = (data as any).teamKey || 'ORD';
-
-  // Whitelist, not a spread of `data`: fields not in ISSUE_WRITABLE_FIELDS
-  // (e.g. estimate, dueDate, parentId) used to be silently dropped here
-  // because this object only listed a hardcoded subset of Issue's fields.
-  const writable: Record<string, unknown> = {};
-  const dataRecord = data as Record<string, unknown>;
-  for (const field of ISSUE_WRITABLE_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(dataRecord, field)) {
-      writable[field] = dataRecord[field];
-    }
-  }
-
-  const rawIssueData = {
-    ...writable,
-    id: issueId,
-    workspaceId: data.workspaceId,
-    teamId: data.teamId,
-    projectId: data.projectId || null,
-    identifier: `${teamKey}-${nextNum}`,
-    number: nextNum,
-    title: data.title || 'Nuevo Issue',
-    description: data.description || '',
-    status: data.status || 'todo',
-    priority: (data.priority !== undefined ? data.priority : 3) as IssuePriority,
-    assigneeId: data.assigneeId || null,
-    creatorId: data.creatorId,
-    labelIds: data.labelIds || ['feature'],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const issue = cleanUndefined(rawIssueData) as unknown as Issue;
-
-  await setDoc(doc(db, 'issues', issueId), issue);
-  return issue;
+  if (!actionRes?.id) throw new Error('No se pudo crear el issue.');
+  return actionRes;
 }
 
 export async function updateRealIssue(id: string, updates: Partial<Issue>) {
   const actionRes = await callPlatformAction('issues.update', { id, ...updates });
-  if (actionRes) return;
-
-  const issueRef = doc(db, 'issues', id);
-  await updateDoc(issueRef, cleanUndefined({
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  }));
+  if (!actionRes) throw new Error('No se pudo actualizar el issue.');
 }
 
 export async function deleteRealIssue(id: string) {
   const actionRes = await callPlatformAction('issues.delete', { id });
-  if (actionRes) return;
-
-  await deleteDoc(doc(db, 'issues', id));
+  if (!actionRes) throw new Error('No se pudo eliminar el issue.');
 }
 
 // ===============================================================
@@ -510,36 +417,13 @@ export async function createRealProject(
   data: Partial<Project> & { workspaceId: string; teamId: string; name: string }
 ): Promise<Project> {
   const actionRes = await callPlatformAction<Project>('projects.create', data);
-  if (actionRes && actionRes.id) return actionRes;
-
-  const projId = `proj-${nanoid(8)}`;
-  const rawProject = {
-    id: projId,
-    workspaceId: data.workspaceId,
-    teamId: data.teamId,
-    name: data.name,
-    description: data.description || '',
-    status: data.status || 'in_progress',
-    leadId: data.leadId || null,
-    color: data.color || '#5E6AD2',
-    targetDate: data.targetDate || null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const project = cleanUndefined(rawProject) as unknown as Project;
-  await setDoc(doc(db, 'projects', projId), project);
-  return project;
+  if (!actionRes?.id) throw new Error('No se pudo crear el proyecto.');
+  return actionRes;
 }
 
 export async function updateRealProject(id: string, updates: Partial<Project>) {
   const actionRes = await callPlatformAction('projects.update', { id, ...updates });
-  if (actionRes) return;
-
-  await updateDoc(doc(db, 'projects', id), cleanUndefined({
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  }));
+  if (!actionRes) throw new Error('No se pudo actualizar el proyecto.');
 }
 
 // ===============================================================
@@ -563,15 +447,9 @@ export async function createRealLabel(
   name: string,
   color: string
 ): Promise<Label> {
-  const labelId = `lbl-${nanoid(8)}`;
-  const label: Label = {
-    id: labelId,
-    teamId,
-    name: name.trim().toLowerCase(),
-    color,
-  };
-  await setDoc(doc(db, 'labels', labelId), cleanUndefined({ ...label, workspaceId }));
-  return label;
+  const actionRes = await callPlatformAction<Label>('labels.create', { workspaceId, teamId, name, color });
+  if (!actionRes?.id) throw new Error('No se pudo crear la etiqueta.');
+  return actionRes;
 }
 
 // ===============================================================
