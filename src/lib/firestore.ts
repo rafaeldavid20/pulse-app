@@ -642,3 +642,34 @@ export async function createComment(issueId: string, body: string): Promise<Comm
   if (!actionRes) throw new Error('No se pudo publicar el comentario.');
   return actionRes;
 }
+
+// ===============================================================
+// 8. GITHUB SERVICES
+// ===============================================================
+// No client-side fallback: `github_installations` is Admin-SDK-only, these
+// all go through Platform Actions.
+
+export interface GithubStatus {
+  connected: boolean;
+  accountLogin?: string;
+  repositories?: string[];
+  connectedAt?: string;
+}
+
+export async function getGithubStatus(workspaceId: string): Promise<GithubStatus> {
+  const actionRes = await callPlatformAction<GithubStatus>('github.status', { workspaceId });
+  if (!actionRes) throw new Error('No se pudo consultar el estado de GitHub.');
+  return actionRes;
+}
+
+export async function getGithubInstallUrl(workspaceId: string): Promise<string> {
+  const actionRes = await callPlatformAction<{ installUrl: string }>('github.createInstallUrl', { workspaceId });
+  if (!actionRes) throw new Error('No se pudo generar el link de instalación de GitHub.');
+  return actionRes.installUrl;
+}
+
+export async function createIssueBranch(issueId: string, repoFullName?: string): Promise<Issue['git']> {
+  const actionRes = await callPlatformAction<Issue['git']>('github.createBranch', { issueId, repoFullName });
+  if (!actionRes) throw new Error('No se pudo crear la rama en GitHub.');
+  return actionRes;
+}

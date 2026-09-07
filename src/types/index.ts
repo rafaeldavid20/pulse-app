@@ -96,6 +96,16 @@ export interface Issue {
     state?: AgentIssueState;
     blockedReason?: string;
   };
+  git?: {
+    repoFullName?: string;
+    branch?: string;
+    branchUrl?: string;
+    baseBranch?: string;
+    prNumber?: number;
+    prUrl?: string;
+    prState?: 'open' | 'draft' | 'merged' | 'closed';
+    lastSyncedAt?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { X, Trash2, Send } from 'lucide-react';
+import { X, Trash2, Send, GitBranch, ExternalLink, Loader2 } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
@@ -9,7 +9,7 @@ import { LabelPicker } from '@/components/labels/LabelPicker';
 import { Issue, IssueStatus, IssuePriority, Member, Comment } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { formatTimeAgo } from '@/lib/utils';
-import { subscribeIssueComments, createComment } from '@/lib/firestore';
+import { subscribeIssueComments, createComment, createIssueBranch } from '@/lib/firestore';
 
 interface IssuePeekBodyProps {
   issue: Issue;
@@ -89,6 +89,64 @@ function CommentsSection({ issueId, members }: { issueId: string; members: Membe
           <Send className="w-4 h-4" />
         </button>
       </form>
+    </div>
+  );
+}
+
+function GitSection({ issue }: { issue: Issue }) {
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCreateBranch = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      await createIssueBranch(issue.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear la rama.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">Git</label>
+      {issue.git?.branch ? (
+        <div className="flex flex-col gap-1.5 p-3 bg-[#16171A] border border-[#26292F] rounded-lg text-xs">
+          <a
+            href={issue.git.branchUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-[#F7F8F8] hover:text-[#5E6AD2] font-mono"
+          >
+            <GitBranch className="w-3.5 h-3.5 shrink-0" />
+            {issue.git.branch}
+            <ExternalLink className="w-3 h-3 shrink-0" />
+          </a>
+          {issue.git.prUrl && (
+            <a
+              href={issue.git.prUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 text-[#8A8F98] hover:text-[#5E6AD2]"
+            >
+              PR #{issue.git.prNumber} · {issue.git.prState}
+              <ExternalLink className="w-3 h-3 shrink-0" />
+            </a>
+          )}
+        </div>
+      ) : (
+        <button
+          onClick={handleCreateBranch}
+          disabled={creating}
+          className="self-start flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-[#1E2024] hover:bg-[#26292E] text-[#F7F8F8] border border-[#26292F] rounded-md disabled:opacity-50 transition-colors"
+        >
+          {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
+          Crear rama
+        </button>
+      )}
+      {error && <p className="text-xs text-[#F75555]">{error}</p>}
     </div>
   );
 }
@@ -238,6 +296,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         </div>
 
         <hr className="border-[#1C1E22]" />
+
+        <GitSection issue={issue} />
 
         <CommentsSection issueId={issue.id} members={members} />
       </div>
