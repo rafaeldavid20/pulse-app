@@ -26,7 +26,9 @@ jobs:
       - name: Build Next.js Application
         run: npm run build
 
-      - name: Deploy Firestore Rules to Firebase
-        run: npx firebase-tools deploy --only firestore:rules --token "${{ secrets.FIREBASE_TOKEN }}" --project pulse-app-93
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+      # Firestore rules are no longer deployed from this repo. Both repos
+      # deploying to the same rules file — whichever push landed last winning
+      # — was a real, previously-documented footgun (a pulse-app-only push
+      # could silently revert hardening done in pulse-backend). pulse-backend
+      # is now the single source of truth; see its firestore.rules and
+      # deploy.yml.
