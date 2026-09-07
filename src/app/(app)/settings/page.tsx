@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/stores/appStore';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { ApiKeysSection } from '@/components/settings/ApiKeysSection';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -53,6 +54,8 @@ export default function SettingsPage() {
             <Button size="sm">Actualizar Perfil</Button>
           </div>
         </div>
+
+        <ApiKeysSection />
       </div>
     </div>
   );

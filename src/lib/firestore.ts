@@ -572,3 +572,49 @@ export async function createRealLabel(
   await setDoc(doc(db, 'labels', labelId), cleanUndefined({ ...label, workspaceId }));
   return label;
 }
+
+// ===============================================================
+// 6. API KEYS SERVICES (MCP)
+// ===============================================================
+// No client-side fallback for these: `api_keys` is `allow read, write: if false`
+// in Firestore rules on purpose — Admin SDK only, via Platform Actions.
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  agentId: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface CreatedApiKey extends Omit<ApiKeySummary, 'agentId' | 'lastUsedAt' | 'revokedAt'> {
+  fullKey: string;
+}
+
+export async function listApiKeys(workspaceId: string): Promise<ApiKeySummary[]> {
+  const actionRes = await callPlatformAction<{ keys: ApiKeySummary[] }>('apikeys.list', { workspaceId });
+  if (!actionRes) throw new Error('No se pudieron cargar las claves de API.');
+  return actionRes.keys;
+}
+
+export async function createApiKey(
+  workspaceId: string,
+  name: string,
+  scopes?: string[]
+): Promise<CreatedApiKey> {
+  const actionRes = await callPlatformAction<CreatedApiKey>('apikeys.create', {
+    workspaceId,
+    name,
+    scopes,
+  });
+  if (!actionRes) throw new Error('No se pudo crear la clave de API.');
+  return actionRes;
+}
+
+export async function revokeApiKey(id: string): Promise<void> {
+  const actionRes = await callPlatformAction('apikeys.revoke', { id });
+  if (!actionRes) throw new Error('No se pudo revocar la clave de API.');
+}
