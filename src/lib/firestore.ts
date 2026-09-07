@@ -499,6 +499,42 @@ export async function revokeApiKey(id: string): Promise<void> {
 }
 
 // ===============================================================
+// 6b. AGENTS SERVICES
+// ===============================================================
+// No client-side fallback for these either: `agents` is `allow read, write:
+// if false` in Firestore rules — Admin SDK only, via Platform Actions.
+
+export interface AgentSummary {
+  id: string;
+  workspaceId: string;
+  kind: string;
+  displayName: string;
+  defaultRepo?: string;
+  defaultTeamId?: string;
+  maxConcurrentIssues: number;
+  enabled: boolean;
+  autonomousMode: boolean;
+}
+
+export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
+  const actionRes = await callPlatformAction<{ agents: AgentSummary[] }>('agents.list', { workspaceId });
+  if (!actionRes) throw new Error('No se pudieron cargar los agentes.');
+  return actionRes.agents;
+}
+
+export async function updateAgent(
+  agentId: string,
+  data: Partial<Pick<AgentSummary, 'autonomousMode' | 'enabled' | 'maxConcurrentIssues' | 'defaultRepo' | 'defaultTeamId'>>
+): Promise<AgentSummary> {
+  const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.update', {
+    agentId,
+    ...data,
+  });
+  if (!actionRes) throw new Error('No se pudo actualizar el agente.');
+  return actionRes.agent;
+}
+
+// ===============================================================
 // 7. COMMENTS SERVICES
 // ===============================================================
 // No client-side fallback for creating comments: `comments.create`

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { ApiKeysSection } from '@/components/settings/ApiKeysSection';
 import { GitHubSection } from '@/components/settings/GitHubSection';
+import { AgentsSection } from '@/components/settings/AgentsSection';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -57,6 +58,8 @@ export default function SettingsPage() {
         </div>
 
         <GitHubSection />
+
+        <AgentsSection />
 
         <ApiKeysSection />
       </div>
