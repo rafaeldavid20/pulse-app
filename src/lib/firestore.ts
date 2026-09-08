@@ -536,6 +536,25 @@ export async function updateAgent(
   return actionRes.agent;
 }
 
+export async function createAgent(
+  workspaceId: string,
+  data: {
+    agentId: string;
+    kind: string;
+    displayName: string;
+    defaultRepo?: string;
+    defaultTeamId?: string;
+    maxConcurrentIssues?: number;
+  }
+): Promise<AgentSummary> {
+  const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.create', {
+    workspaceId,
+    ...data,
+  });
+  if (!actionRes) throw new Error('No se pudo crear el agente.');
+  return actionRes.agent;
+}
+
 // ===============================================================
 // 7. COMMENTS SERVICES
 // ===============================================================

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { auth } from '@/lib/firebase';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
@@ -61,11 +62,25 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   }, [user, loading, pathname, router]);
 
   // 2. Subscribe to User Workspaces
+  const seenWorkspaceIds = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!user) return;
 
     const unsub = subscribeUserWorkspaces(user.uid, user.email, (workspaces) => {
       setUserWorkspaces(workspaces);
+
+      // A workspace id we haven't seen before means a `members` doc was just
+      // created for this user — syncMemberClaimsTrigger needs a moment to
+      // run before the custom claim actually reflects it, so this is
+      // best-effort: worst case the user reloads or the token refreshes on
+      // its own within ~1h (Firebase's normal cadence).
+      const newIds = workspaces.map((w) => w.id).filter((id) => !seenWorkspaceIds.current.has(id));
+      workspaces.forEach((w) => seenWorkspaceIds.current.add(w.id));
+      if (newIds.length > 0) {
+        setTimeout(() => {
+          auth.currentUser?.getIdToken(true).catch(() => {});
+        }, 2000);
+      }
     });
 
     return () => unsub();
