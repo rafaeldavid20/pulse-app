@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAppStore } from '@/stores/appStore';
 import {
+  AgentSummary,
   ApiKeySummary,
   CreatedApiKey,
   createApiKey,
+  listAgents,
   listApiKeys,
   revokeApiKey,
 } from '@/lib/firestore';
@@ -44,20 +46,24 @@ function CreateKeyModal({
   isOpen,
   onClose,
   workspaceId,
+  agents,
   onCreated,
 }: {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
+  agents: AgentSummary[];
   onCreated: (key: ApiKeySummary) => void;
 }) {
   const [name, setName] = useState('');
+  const [agentId, setAgentId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
 
   const reset = useCallback(() => {
     setName('');
+    setAgentId('');
     setSubmitting(false);
     setError(null);
     setCreated(null);
@@ -74,14 +80,14 @@ function CreateKeyModal({
     setSubmitting(true);
     setError(null);
     try {
-      const key = await createApiKey(workspaceId, name.trim());
+      const key = await createApiKey(workspaceId, name.trim(), agentId || null);
       setCreated(key);
       onCreated({
         id: key.id,
         name: key.name,
         prefix: key.prefix,
         scopes: key.scopes,
-        agentId: null,
+        agentId: agentId || null,
         createdAt: key.createdAt,
         lastUsedAt: null,
         revokedAt: null,
@@ -109,6 +115,25 @@ function CreateKeyModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#8A8F98]">Vincular a un agente (opcional)</label>
+            <select
+              value={agentId}
+              onChange={(e) => setAgentId(e.target.value)}
+              className="bg-[#0F1012] border border-[#26292F] rounded-md px-3 py-2 text-sm text-[#F7F8F8]"
+            >
+              <option value="">Ninguno — clave personal</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.displayName}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-[#5B616E] pt-1">
+              Una clave vinculada a un agente actúa como ese agente (asigna, comenta y reclama issues
+              en su nombre) en vez de como tu usuario — necesario para el disparo autónomo.
+            </p>
           </div>
           {error && <p className="text-xs text-[#F75555]">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
@@ -163,6 +188,7 @@ function CreateKeyModal({
 export function ApiKeysSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const [keys, setKeys] = useState<ApiKeySummary[]>([]);
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -175,8 +201,9 @@ export function ApiKeysSection() {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await listApiKeys(workspaceId);
+      const [result, agentResult] = await Promise.all([listApiKeys(workspaceId), listAgents(workspaceId)]);
       setKeys(result);
+      setAgents(agentResult);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Error al cargar las claves.');
     } finally {
@@ -233,6 +260,7 @@ export function ApiKeysSection() {
         <div className="flex flex-col gap-1">
           {keys.map((key) => {
             const revoked = !!key.revokedAt;
+            const linkedAgent = key.agentId ? agents.find((a) => a.id === key.agentId) : null;
             return (
               <div
                 key={key.id}
@@ -241,6 +269,14 @@ export function ApiKeysSection() {
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-[#F7F8F8] truncate">{key.name}</span>
+                    {key.agentId && (
+                      <span
+                        className="text-[10px] uppercase tracking-wide font-semibold text-[#8A8F98] bg-[#1E2024] px-1.5 py-0.5 rounded"
+                        title={`Actúa como el agente '${key.agentId}'`}
+                      >
+                        {linkedAgent?.displayName ?? key.agentId}
+                      </span>
+                    )}
                     {revoked && (
                       <span className="text-[10px] uppercase tracking-wide font-semibold text-[#F75555] bg-[#F75555]/10 px-1.5 py-0.5 rounded">
                         Revocada
@@ -275,6 +311,7 @@ export function ApiKeysSection() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         workspaceId={workspaceId}
+        agents={agents}
         onCreated={(key) => setKeys((prev) => [key, ...prev])}
       />
     </div>

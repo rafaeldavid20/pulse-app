@@ -482,11 +482,13 @@ export async function listApiKeys(workspaceId: string): Promise<ApiKeySummary[]>
 export async function createApiKey(
   workspaceId: string,
   name: string,
+  agentId?: string | null,
   scopes?: string[]
 ): Promise<CreatedApiKey> {
   const actionRes = await callPlatformAction<CreatedApiKey>('apikeys.create', {
     workspaceId,
     name,
+    agentId: agentId || undefined,
     scopes,
   });
   if (!actionRes) throw new Error('No se pudo crear la clave de API.');
