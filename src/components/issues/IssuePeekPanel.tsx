@@ -5,6 +5,7 @@ import { X, Trash2, Send, GitBranch, ExternalLink, Loader2 } from 'lucide-react'
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
+import { AgentBadge } from './AgentBadge';
 import { LabelPicker } from '@/components/labels/LabelPicker';
 import { Issue, IssueStatus, IssuePriority, Member, Comment } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
@@ -248,18 +249,34 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           {/* Assignee Picker */}
           <div className="flex items-center justify-between">
-            <span className="text-[#8A8F98]">Asignado a</span>
+            <span className="text-[#8A8F98] flex items-center gap-1.5">
+              Asignado a
+              {issue.agent?.state && issue.agent.state !== 'idle' && <AgentBadge state={issue.agent.state} />}
+            </span>
             <select
               value={issue.assigneeId || ''}
               onChange={(e) => updateIssue(issue.id, { assigneeId: e.target.value || undefined })}
               className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer"
             >
               <option value="">Sin asignar</option>
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.displayName}
-                </option>
-              ))}
+              <optgroup label="Humanos">
+                {members
+                  .filter((m) => !m.isAgent)
+                  .map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.displayName}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Agentes">
+                {members
+                  .filter((m) => m.isAgent)
+                  .map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.displayName}
+                    </option>
+                  ))}
+              </optgroup>
             </select>
           </div>
 

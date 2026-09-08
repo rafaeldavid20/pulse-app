@@ -222,11 +222,24 @@ export const CreateIssueModal: React.FC = () => {
               className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer truncate"
             >
               <option value="">Sin asignar</option>
-              {members.map((m) => (
-                <option key={m.userId} value={m.userId}>
-                  {m.displayName}
-                </option>
-              ))}
+              <optgroup label="Humanos">
+                {members
+                  .filter((m) => !m.isAgent)
+                  .map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.displayName}
+                    </option>
+                  ))}
+              </optgroup>
+              <optgroup label="Agentes">
+                {members
+                  .filter((m) => m.isAgent)
+                  .map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.displayName}
+                    </option>
+                  ))}
+              </optgroup>
             </select>
           </div>
         </div>
