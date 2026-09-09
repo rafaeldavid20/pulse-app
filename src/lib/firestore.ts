@@ -536,6 +536,7 @@ export interface AgentSummary {
   maxConcurrentIssues: number;
   enabled: boolean;
   autonomousMode: boolean;
+  connectedRepos?: ConnectedRepo[];
 }
 
 export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
@@ -630,6 +631,62 @@ export interface GithubStatus {
   accountLogin?: string;
   repositories?: string[];
   connectedAt?: string;
+  /** Permisos que le faltan a la instalación para poder conectar repos. */
+  missingPermissions?: string[];
+  canConnectRepos?: boolean;
+}
+
+export interface ConnectedRepo {
+  repoFullName: string;
+  apiKeyId: string;
+  workflowSha?: string;
+  workflowVersion?: number;
+  connectedAt: string;
+}
+
+export interface ConnectRepoResult {
+  repoFullName: string;
+  workflowCreated: boolean;
+  anthropicSecretPresent: boolean;
+  anthropicSecretName: string;
+  /** Comando a copiar para el secret que Pulse deliberadamente no gestiona. */
+  manualStep: string | null;
+}
+
+/**
+ * Deja un repo listo para recibir dispatches: crea una key de MCP dedicada, la
+ * escribe como secret y commitea el workflow en la rama por defecto.
+ *
+ * No toca el token de Anthropic — es del usuario y Pulse no lo guarda ni lo
+ * transporta. El resultado dice si ya está puesto y, si no, con qué comando.
+ */
+export async function connectAgentRepo(
+  workspaceId: string,
+  agentId: string,
+  repoFullName: string
+): Promise<ConnectRepoResult> {
+  const res = await callPlatformAction<ConnectRepoResult>('agents.connectRepo', {
+    workspaceId,
+    agentId,
+    repoFullName,
+  });
+  if (!res) throw new Error('No se pudo conectar el repo.');
+  return res;
+}
+
+export async function disconnectAgentRepo(
+  workspaceId: string,
+  agentId: string,
+  repoFullName: string,
+  removeWorkflow = false
+): Promise<void> {
+  const res = await callPlatformAction('agents.disconnectRepo', {
+    workspaceId,
+    agentId,
+    repoFullName,
+    removeWorkflow,
+  });
+  if (!res) throw new Error('No se pudo desconectar el repo.');
 }
 
 export async function getGithubStatus(workspaceId: string): Promise<GithubStatus> {
