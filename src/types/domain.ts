@@ -93,6 +93,13 @@ export interface Project {
   name: string;
   description: string;
   status: ProjectStatus;
+  /**
+   * Repos en los que se puede trabajar este proyecto. Es el límite: al crear una
+   * rama, tanto una persona como un agente eligen libremente *dentro* de este
+   * conjunto. Vacío o ausente significa "cualquiera de la instalación", para no
+   * romper los proyectos anteriores a este campo.
+   */
+  repoFullNames?: string[];
   leadId?: string;
   color?: string;
   targetDate?: string;
@@ -165,6 +172,25 @@ export interface IssueGitState {
   lastSyncedStatus?: IssueStatus;
 }
 
+/**
+ * Una rama (y su PR, si existe) de un issue en un repo concreto.
+ *
+ * Existe porque un issue puede tocar más de un repo: el modelo de dominio vive
+ * en pulse-app y sus consumidores en pulse-backend, así que un cambio de tipos
+ * necesita una rama en cada uno. `Issue.git`, que es un objeto único, no puede
+ * representar eso — la segunda rama pisaba a la primera.
+ */
+export interface IssueGitRef {
+  repoFullName: string;
+  branch?: string;
+  branchUrl?: string;
+  baseBranch?: string;
+  prNumber?: number;
+  prUrl?: string;
+  prState?: 'open' | 'draft' | 'merged' | 'closed';
+  lastSyncedAt?: string;
+}
+
 export interface Issue {
   id: string;
   workspaceId: string;
@@ -204,7 +230,17 @@ export interface Issue {
    */
   defaultAssigneeId?: string;
   agent?: IssueAgentState;
+  /**
+   * La rama "principal": la del repo donde corre el job del agente. Se mantiene
+   * por compatibilidad con los issues anteriores a `gitRefs` y porque el ruteo
+   * del dispatch la sigue usando.
+   */
   git?: IssueGitState;
+  /**
+   * Todas las ramas del issue, una por repo. `git` es la primera de estas; el
+   * resto se suma cuando el trabajo abarca varios repos.
+   */
+  gitRefs?: IssueGitRef[];
   createdAt: string;
   updatedAt: string;
 }
@@ -398,6 +434,7 @@ export const PROJECT_WRITABLE_FIELDS = [
   'name',
   'description',
   'status',
+  'repoFullNames',
   'leadId',
   'color',
   'targetDate',
