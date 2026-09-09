@@ -582,11 +582,32 @@ export async function createAgent(
 // authorizes against the issue's real workspaceId (see the backend action),
 // and a silent client fallback would let that check be bypassed entirely.
 
+/**
+ * El filtro por `workspaceId` no es redundante con el de `issueId`: es lo que
+ * hace que la query pase las security rules.
+ *
+ * La regla de `comments` es `allow read: if isMember(resource.data.workspaceId)`.
+ * En una operación `list`, Firestore no evalúa la regla documento por documento
+ * — exige que la *query* garantice que todo lo que puede devolver la cumple. Con
+ * solo `where issueId == X`, no puede garantizarlo y rechaza la query entera con
+ * permission-denied. Por eso las de issues/projects/labels, que filtran por
+ * `workspaceId`, sí funcionaban y esta no.
+ *
+ * El síntoma era engañoso: la sección de comentarios mostraba "Todavía no hay
+ * comentarios" en vez de un error, así que todo lo que escribían los agentes y
+ * el sync de GitHub era invisible.
+ */
 export function subscribeIssueComments(
+  workspaceId: string,
   issueId: string,
   callback: (comments: Comment[]) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'comments'), where('issueId', '==', issueId), orderBy('createdAt', 'asc'));
+  const q = query(
+    collection(db, 'comments'),
+    where('workspaceId', '==', workspaceId),
+    where('issueId', '==', issueId),
+    orderBy('createdAt', 'asc')
+  );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => d.data() as Comment));
   });

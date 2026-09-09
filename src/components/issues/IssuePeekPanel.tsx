@@ -33,15 +33,15 @@ interface IssuePeekBodyProps {
  * title — avoids syncing prop -> state via a `useEffect` (which
  * react-hooks/set-state-in-effect flags, since it can cascade renders).
  */
-function CommentsSection({ issueId, members }: { issueId: string; members: Member[] }) {
+function CommentsSection({ workspaceId, issueId, members }: { workspaceId: string; issueId: string; members: Member[] }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    const unsub = subscribeIssueComments(issueId, setComments);
+    const unsub = subscribeIssueComments(workspaceId, issueId, setComments);
     return unsub;
-  }, [issueId]);
+  }, [workspaceId, issueId]);
 
   const authorName = (authorId: string) => members.find((m) => m.userId === authorId)?.displayName || authorId;
 
@@ -676,7 +676,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <GitSection issue={issue} />
 
-        <CommentsSection issueId={issue.id} members={members} />
+        <CommentsSection workspaceId={issue.workspaceId} issueId={issue.id} members={members} />
       </div>
     </div>
   );
