@@ -1,21 +1,28 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { X, Trash2, Send, GitBranch, ExternalLink, Loader2 } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
 import { LabelPicker } from '@/components/labels/LabelPicker';
-import { Issue, IssueStatus, IssuePriority, Member, Comment } from '@/types';
-import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
-import { formatTimeAgo } from '@/lib/utils';
+import { Issue, IssueStatus, IssuePriority, IssueType, Member, Comment } from '@/types';
+import { ISSUE_PRIORITIES, ISSUE_STATUSES, canBeChild, canHaveChildren, isCompletedStatus } from '@/lib/constants/issue';
+import { formatTimeAgo, cn } from '@/lib/utils';
+import { IssueTypeBadge } from './IssueTypeBadge';
+import { EpicProgress } from './EpicProgress';
+import { ancestorsOf, childrenOf, progressOf, validParentsFor } from '@/lib/hierarchy';
+import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
+import { resolveRepo, describeRepoSource } from '@/lib/repo';
 import { subscribeIssueComments, createComment, createIssueBranch } from '@/lib/firestore';
 
 interface IssuePeekBodyProps {
   issue: Issue;
   members: Member[];
   updateIssue: (id: string, updates: Partial<Issue>) => void;
+  onOpenIssue: (id: string) => void;
   deleteIssue: (id: string) => void;
   onClose: () => void;
 }
@@ -26,15 +33,15 @@ interface IssuePeekBodyProps {
  * title — avoids syncing prop -> state via a `useEffect` (which
  * react-hooks/set-state-in-effect flags, since it can cascade renders).
  */
-function CommentsSection({ issueId, members }: { issueId: string; members: Member[] }) {
+function CommentsSection({ workspaceId, issueId, members }: { workspaceId: string; issueId: string; members: Member[] }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    const unsub = subscribeIssueComments(issueId, setComments);
+    const unsub = subscribeIssueComments(workspaceId, issueId, setComments);
     return unsub;
-  }, [issueId]);
+  }, [workspaceId, issueId]);
 
   const authorName = (authorId: string) => members.find((m) => m.userId === authorId)?.displayName || authorId;
 
@@ -152,7 +159,356 @@ function GitSection({ issue }: { issue: Issue }) {
   );
 }
 
-const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose }) => {
+/**
+ * Ubicación del issue en el árbol: dónde está y qué cuelga de él.
+ *
+ * El breadcrumb y la lista de hijos se calculan del store (que tiene el
+ * workspace entero suscrito), no de `subIssueCount` — así el panel no puede
+ * mostrar "3/8" mientras la lista de abajo tiene 7 filas.
+ */
+function HierarchySection({
+  issue,
+  onOpenIssue,
+}: {
+  issue: Issue;
+  onOpenIssue: (id: string) => void;
+}) {
+  const issues = useIssueStore((s) => s.issues);
+  const moveIssue = useIssueStore((s) => s.moveIssue);
+  const addIssue = useIssueStore((s) => s.addIssue);
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const { user } = useAuth();
+
+  const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+
+  const type = issue.type ?? 'task';
+  const ancestors = useMemo(() => ancestorsOf(issues, issue), [issues, issue]);
+  const children = useMemo(() => childrenOf(issues, issue.id), [issues, issue.id]);
+  const progress = useMemo(() => progressOf(issues, issue), [issues, issue]);
+  const parentOptions = useMemo(
+    () => validParentsFor(issues, type, issue.id),
+    [issues, type, issue.id]
+  );
+
+  // El tipo de los hijos que se crean inline: una épica recibe historias, una
+  // historia o tarea recibe sub-tareas.
+  const childType: IssueType = type === 'epic' ? 'story' : 'subtask';
+  const canAddChildren = canHaveChildren(type);
+
+  const handleReparent = async (parentId: string) => {
+    setError('');
+    try {
+      await moveIssue(issue.id, parentId || null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo mover el issue.');
+    }
+  };
+
+  const handleCreateChild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const title = newTitle.trim();
+    if (!title || !user || !activeWorkspace) return;
+
+    setCreating(true);
+    setError('');
+    try {
+      await addIssue({
+        workspaceId: activeWorkspace.id,
+        teamId: issue.teamId,
+        creatorId: user.uid,
+        title,
+        type: childType,
+        parentId: issue.id,
+        projectId: issue.projectId,
+        status: 'todo',
+        priority: issue.priority,
+      });
+      setNewTitle('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el sub-issue.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          Jerarquía
+        </label>
+        <IssueTypeBadge type={type} showLabel />
+      </div>
+
+      {/* Breadcrumb hacia la raíz */}
+      {ancestors.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap text-xs">
+          {ancestors.map((a) => (
+            <React.Fragment key={a.id}>
+              <button
+                onClick={() => onOpenIssue(a.id)}
+                className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#16171A] border border-[#26292F] text-[#8A8F98] hover:text-[#F7F8F8] hover:border-[#5E6AD2]/40 transition-colors max-w-[200px]"
+              >
+                <IssueTypeBadge type={a.type ?? 'task'} />
+                <span className="font-mono text-[10px] text-[#5B616E]">{a.identifier}</span>
+                <span className="truncate">{a.title}</span>
+              </button>
+              <ChevronRight className="w-3 h-3 text-[#424651] shrink-0" />
+            </React.Fragment>
+          ))}
+          <span className="px-2 py-1 font-mono text-[10px] text-[#5B616E]">
+            {issue.identifier}
+          </span>
+        </div>
+      )}
+
+      {/* Selector de padre */}
+      {canBeChild(type) && (
+        <div className="flex items-center justify-between gap-3 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
+          <span className="text-xs text-[#8A8F98] shrink-0">
+            {type === 'subtask' ? 'Historia padre' : 'Épica'}
+          </span>
+          <select
+            value={issue.parentId || ''}
+            onChange={(e) => handleReparent(e.target.value)}
+            disabled={parentOptions.length === 0}
+            className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[60%] truncate disabled:opacity-50"
+          >
+            <option value="">
+              {parentOptions.length === 0 ? 'No hay padres disponibles' : 'Sin asignar'}
+            </option>
+            {parentOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.identifier} · {p.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Hijos */}
+      {canAddChildren && (
+        <div className="flex flex-col gap-2">
+          {children.length > 0 && (
+            <>
+              <EpicProgress progress={progress} />
+              <div className="flex flex-col rounded-lg border border-[#26292F] overflow-hidden">
+                {children.map((child) => (
+                  <button
+                    key={child.id}
+                    onClick={() => onOpenIssue(child.id)}
+                    className="flex items-center gap-2.5 px-3 py-2 bg-[#16171A] hover:bg-[#1E2024] border-b border-[#1C1E22] last:border-b-0 text-left transition-colors"
+                  >
+                    <StatusBadge status={child.status} />
+                    <span className="font-mono text-[10px] text-[#5B616E] shrink-0">
+                      {child.identifier}
+                    </span>
+                    <span
+                      className={cn(
+                        'text-xs truncate flex-1',
+                        isCompletedStatus(child.status)
+                          ? 'text-[#5B616E] line-through'
+                          : 'text-[#F7F8F8]'
+                      )}
+                    >
+                      {child.title}
+                    </span>
+                    <IssueTypeBadge type={child.type ?? 'task'} />
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <form onSubmit={handleCreateChild} className="flex items-center gap-2">
+            <Plus className="w-3.5 h-3.5 text-[#5B616E] shrink-0" />
+            <input
+              type="text"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder={
+                childType === 'story' ? 'Añadir historia a la épica…' : 'Añadir sub-tarea…'
+              }
+              className="flex-1 bg-transparent border-none outline-none text-xs text-[#F7F8F8] placeholder-[#5B616E] py-1.5"
+            />
+            {newTitle.trim() && (
+              <button
+                type="submit"
+                disabled={creating}
+                className="px-2.5 py-1 text-[11px] rounded bg-[#5E6AD2] hover:bg-[#707CE6] text-white disabled:opacity-50 transition-colors shrink-0"
+              >
+                {creating ? 'Creando…' : 'Crear'}
+              </button>
+            )}
+          </form>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-[#F75555]">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Repo del issue y, si es una épica, su agente por defecto.
+ *
+ * En una épica los dos campos son "defaults que heredan los hijos"; en
+ * cualquier otro issue el repo es un override de lo que ya heredó. La UI dice
+ * cuál de los dos casos es, porque la diferencia importa: cambiar el repo de
+ * una épica mueve el trabajo de todos sus issues.
+ */
+function RepoSection({ issue }: { issue: Issue }) {
+  const issues = useIssueStore((s) => s.issues);
+  const updateIssue = useIssueStore((s) => s.updateIssue);
+  const setIssueRepo = useIssueStore((s) => s.setIssueRepo);
+  const members = useAppStore((s) => s.members);
+  const { repos, agents, connected, loading } = useWorkspaceInfra();
+  const [error, setError] = useState('');
+
+  const isEpicIssue = (issue.type ?? 'task') === 'epic';
+
+  const agentDefaults = useMemo(
+    () => Object.fromEntries(agents.map((a) => [a.id, a.defaultRepo])),
+    [agents]
+  );
+  const resolved = useMemo(
+    () => resolveRepo(issues, issue, agentDefaults),
+    [issues, issue, agentDefaults]
+  );
+
+  const own = issue.git?.repoFullName ?? '';
+
+  const handleRepo = async (value: string) => {
+    setError('');
+    try {
+      // Cadena vacía borra el campo en el backend, que es cómo se vuelve a
+      // heredar de la épica.
+      await setIssueRepo(issue.id, value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el repo.');
+    }
+  };
+
+  const handleDefaultAssignee = async (value: string) => {
+    setError('');
+    try {
+      await updateIssue(issue.id, { defaultAssigneeId: value || undefined });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el agente.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          Repositorio
+        </label>
+        <div className="h-9 rounded-lg bg-[#16171A] border border-[#26292F] animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!connected) {
+    return (
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          Repositorio
+        </label>
+        <p className="text-xs text-[#5B616E]">
+          Este workspace no tiene GitHub conectado. Conectalo en Configuración → GitHub para que
+          los agentes puedan crear ramas.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+        {isEpicIssue ? 'Defaults de la épica' : 'Repositorio'}
+      </label>
+
+      <div className="flex flex-col gap-2 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-[#8A8F98] shrink-0 flex items-center gap-1.5">
+            <GitBranch className="w-3.5 h-3.5" />
+            {isEpicIssue ? 'Repo por defecto' : 'Repo'}
+          </span>
+          <select
+            value={own}
+            onChange={(e) => handleRepo(e.target.value)}
+            className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
+          >
+            <option value="">
+              {isEpicIssue
+                ? 'Sin definir'
+                : resolved.source === 'issue'
+                  ? 'Heredar'
+                  : `Heredar (${resolved.repo ?? 'sin repo'})`}
+            </option>
+            {repos.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <p
+          className={cn(
+            'text-[11px]',
+            resolved.source === 'none' ? 'text-[#F09436]' : 'text-[#5B616E]'
+          )}
+        >
+          {resolved.repo ? (
+            <>
+              <span className="font-mono text-[#8A8F98]">{resolved.repo}</span>
+              {' · '}
+              {describeRepoSource(resolved)}
+            </>
+          ) : (
+            describeRepoSource(resolved)
+          )}
+        </p>
+
+        {isEpicIssue && (
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#26292F]">
+            <span className="text-xs text-[#8A8F98] shrink-0">Agente por defecto</span>
+            <select
+              value={issue.defaultAssigneeId || ''}
+              onChange={(e) => handleDefaultAssignee(e.target.value)}
+              className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
+            >
+              <option value="">Sin definir</option>
+              {members
+                .filter((m) => m.isAgent)
+                .map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.displayName}
+                    {m.agentKind ? ` (${m.agentKind})` : ''}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+
+        {isEpicIssue && (
+          <p className="text-[11px] text-[#5B616E]">
+            Preselecciona el asignado al crear issues dentro de esta épica. No los reasigna solo:
+            un issue que dejaste sin asignar sigue sin asignar.
+          </p>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-[#F75555]">{error}</p>}
+    </div>
+  );
+}
+
+const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
   const [titleDraft, setTitleDraft] = useState(issue.title);
@@ -287,6 +643,10 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
           </div>
         </div>
 
+        <HierarchySection issue={issue} onOpenIssue={onOpenIssue} />
+
+        <RepoSection issue={issue} />
+
         {/* Description Section */}
         <div className="flex flex-col gap-2">
           <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
@@ -316,7 +676,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <GitSection issue={issue} />
 
-        <CommentsSection issueId={issue.id} members={members} />
+        <CommentsSection workspaceId={issue.workspaceId} issueId={issue.id} members={members} />
       </div>
     </div>
   );
@@ -343,6 +703,7 @@ export const IssuePeekPanel: React.FC = () => {
       updateIssue={updateIssue}
       deleteIssue={deleteIssue}
       onClose={() => setPeekIssueId(null)}
+      onOpenIssue={(id) => setPeekIssueId(id)}
     />
   );
 };

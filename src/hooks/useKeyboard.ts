@@ -10,6 +10,7 @@ export function useKeyboard() {
   const setCmdKOpen = useAppStore((s) => s.setCmdKOpen);
   const setShortcutHelpOpen = useAppStore((s) => s.setShortcutHelpOpen);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
+  const activeTeam = useAppStore((s) => s.activeTeam);
   
   const issues = useIssueStore((s) => s.issues);
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
@@ -124,6 +125,12 @@ export function useKeyboard() {
         const chord = e.key.toLowerCase();
         lastKeyRef.current = null;
 
+        // Antes estas rutas tenían 'eng' hardcodeado, así que en cualquier
+        // workspace cuyo primer equipo no fuera ese, G+B y G+P navegaban a un
+        // equipo inexistente. Se resuelve contra el equipo activo, igual que el
+        // Sidebar, con el mismo fallback.
+        const teamId = activeTeam?.id || 'eng';
+
         if (chord === 'i') {
           e.preventDefault();
           router.push('/inbox');
@@ -132,10 +139,13 @@ export function useKeyboard() {
           router.push('/my-issues');
         } else if (chord === 'b') {
           e.preventDefault();
-          router.push('/team/eng/issues');
+          router.push(`/team/${teamId}/issues`);
         } else if (chord === 'p') {
           e.preventDefault();
-          router.push('/team/eng/projects');
+          router.push(`/team/${teamId}/projects`);
+        } else if (chord === 'e') {
+          e.preventDefault();
+          router.push(`/team/${teamId}/epics`);
         }
       }
     };
@@ -153,5 +163,6 @@ export function useKeyboard() {
     updateIssue,
     deleteIssue,
     router,
+    activeTeam,
   ]);
 }

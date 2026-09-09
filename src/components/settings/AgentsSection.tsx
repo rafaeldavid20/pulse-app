@@ -1,12 +1,21 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bot, Loader2, Plus } from 'lucide-react';
+import { Bot, Loader2, Plus, GitBranch } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useAppStore } from '@/stores/appStore';
-import { AgentSummary, createAgent, listAgents, updateAgent } from '@/lib/firestore';
+import {
+  AgentSummary,
+  ConnectRepoResult,
+  connectAgentRepo,
+  createAgent,
+  disconnectAgentRepo,
+  getGithubStatus,
+  listAgents,
+  updateAgent,
+} from '@/lib/firestore';
 
 function slugify(text: string): string {
   return text
@@ -163,6 +172,157 @@ function CreateAgentModal({
   );
 }
 
+/**
+ * Repos conectados de un agente, y el flujo para conectar uno nuevo.
+ *
+ * Conectar deja el repo listo salvo por un paso: el `CLAUDE_CODE_OAUTH_TOKEN`,
+ * que es del usuario y Pulse no gestiona. En vez de dejarlo como una nota suelta
+ * en la documentación, se muestra el comando exacto acá y el estado pasa a verde
+ * cuando Pulse detecta el secret — GitHub devuelve nombres de secrets, nunca
+ * valores, así que se puede verificar sin verlo.
+ */
+function AgentRepoConnections({
+  agent,
+  repos,
+  canConnect,
+  missingPermissions,
+  onChanged,
+}: {
+  agent: AgentSummary;
+  repos: string[];
+  canConnect: boolean;
+  missingPermissions: string[];
+  onChanged: () => void;
+}) {
+  const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
+  const [selected, setSelected] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [result, setResult] = useState<ConnectRepoResult | null>(null);
+
+  const connected = agent.connectedRepos ?? [];
+  const available = repos.filter((r) => !connected.some((c) => c.repoFullName === r));
+
+  const handleConnect = async () => {
+    if (!workspaceId || !selected) return;
+    setBusy(true);
+    setError('');
+    setResult(null);
+    try {
+      setResult(await connectAgentRepo(workspaceId, agent.id, selected));
+      setSelected('');
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo conectar el repo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDisconnect = async (repoFullName: string) => {
+    if (!workspaceId) return;
+    setBusy(true);
+    setError('');
+    try {
+      await disconnectAgentRepo(workspaceId, agent.id, repoFullName);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo desconectar el repo.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pl-3 mt-1 border-l border-[#26292F]">
+      {connected.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {connected.map((c) => (
+            <div key={c.repoFullName} className="flex items-center justify-between gap-2 text-xs">
+              <span className="flex items-center gap-1.5 text-[#8A8F98] font-mono truncate">
+                <GitBranch className="w-3 h-3 shrink-0 text-[#4ADE80]" />
+                {c.repoFullName}
+              </span>
+              <button
+                onClick={() => handleDisconnect(c.repoFullName)}
+                disabled={busy}
+                className="text-[11px] text-[#5B616E] hover:text-[#F75555] disabled:opacity-50 shrink-0"
+              >
+                Desconectar
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!canConnect ? (
+        <p className="text-[11px] text-[#F09436]">
+          A la GitHub App le faltan permisos ({missingPermissions.join(', ')}). Agregalos en la
+          configuración de la App y aprobá el upgrade en la instalación para poder conectar repos
+          desde acá.
+        </p>
+      ) : available.length === 0 ? (
+        <p className="text-[11px] text-[#5B616E]">
+          {repos.length === 0
+            ? 'No hay repos disponibles en la instalación de GitHub.'
+            : 'Este agente ya está conectado a todos los repos disponibles.'}
+        </p>
+      ) : (
+        <div className="flex items-center gap-2">
+          <select
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            disabled={busy}
+            className="flex-1 min-w-0 bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
+          >
+            <option value="">Conectar a un repo…</option>
+            {available.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleConnect}
+            disabled={busy || !selected}
+            className="px-2.5 py-1.5 text-[11px] rounded-md bg-[#5E6AD2] hover:bg-[#707CE6] text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
+          >
+            {busy ? 'Conectando…' : 'Conectar'}
+          </button>
+        </div>
+      )}
+
+      {result && (
+        <div className="flex flex-col gap-1.5 p-2.5 bg-[#16171A] border border-[#26292F] rounded-md">
+          <p className="text-[11px] text-[#4ADE80]">
+            ✓ {result.repoFullName} conectado
+            {result.workflowCreated ? ' · workflow creado' : ' · workflow actualizado'} · key de MCP
+            provisionada
+          </p>
+
+          {result.anthropicSecretPresent ? (
+            <p className="text-[11px] text-[#4ADE80]">
+              ✓ {result.anthropicSecretName} ya está en el repo. No queda nada por hacer.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-[11px] text-[#F09436]">
+                Falta {result.anthropicSecretName}. Es tuyo y está atado a tu suscripción de Claude,
+                así que Pulse no lo guarda ni lo transporta. Corré esto una vez:
+              </p>
+              <code className="block px-2 py-1.5 bg-[#0F1012] border border-[#26292F] rounded text-[11px] text-[#F7F8F8] font-mono break-all">
+                {result.manualStep}
+              </code>
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <p className="text-[11px] text-[#F75555]">{error}</p>}
+    </div>
+  );
+}
+
 export function AgentsSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -170,6 +330,9 @@ export function AgentsSection() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [repos, setRepos] = useState<string[]>([]);
+  const [canConnect, setCanConnect] = useState(false);
+  const [missingPermissions, setMissingPermissions] = useState<string[]>([]);
 
   const workspaceId = activeWorkspace?.id;
 
@@ -180,6 +343,18 @@ export function AgentsSection() {
     try {
       const result = await listAgents(workspaceId);
       setAgents(result);
+
+      // El estado de GitHub no es esencial para listar agentes: si falla, la
+      // sección sigue sirviendo y solo se deshabilita el conectar.
+      try {
+        const gh = await getGithubStatus(workspaceId);
+        setRepos(gh.repositories ?? []);
+        setCanConnect(gh.connected && gh.canConnectRepos !== false);
+        setMissingPermissions(gh.missingPermissions ?? []);
+      } catch {
+        setRepos([]);
+        setCanConnect(false);
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Error al cargar los agentes.');
     } finally {
@@ -253,10 +428,8 @@ export function AgentsSection() {
       ) : (
         <div className="flex flex-col gap-1">
           {agents.map((agent) => (
-            <div
-              key={agent.id}
-              className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-[#1E2024] transition-colors"
-            >
+            <div key={agent.id} className="flex flex-col px-3 py-2.5 rounded-md hover:bg-[#1E2024] transition-colors">
+            <div className="flex items-center justify-between">
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-sm text-[#F7F8F8] truncate">{agent.displayName}</span>
                 <span className="text-xs text-[#5B616E] font-mono truncate">
@@ -286,6 +459,15 @@ export function AgentsSection() {
                   />
                 </label>
               </div>
+            </div>
+
+            <AgentRepoConnections
+              agent={agent}
+              repos={repos}
+              canConnect={canConnect}
+              missingPermissions={missingPermissions}
+              onChanged={refresh}
+            />
             </div>
           ))}
         </div>

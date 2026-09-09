@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -9,8 +9,9 @@ import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAuth } from '@/hooks/useAuth';
-import { IssueStatus, IssuePriority } from '@/types';
-import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
+import { IssueStatus, IssuePriority, IssueType } from '@/types';
+import { ISSUE_PRIORITIES, ISSUE_STATUSES, ISSUE_TYPES } from '@/lib/constants/issue';
+import { validParentsFor } from '@/lib/hierarchy';
 import { AlertCircle } from 'lucide-react';
 
 export const CreateIssueModal: React.FC = () => {
@@ -26,6 +27,9 @@ export const CreateIssueModal: React.FC = () => {
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const defaultProjectId = useIssueStore((s) => s.defaultProjectId);
   const setDefaultProjectId = useIssueStore((s) => s.setDefaultProjectId);
+  const defaultIssueType = useIssueStore((s) => s.defaultIssueType);
+  const setDefaultIssueType = useIssueStore((s) => s.setDefaultIssueType);
+  const allIssues = useIssueStore((s) => s.issues);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -33,6 +37,8 @@ export const CreateIssueModal: React.FC = () => {
   const [priority, setPriority] = useState<IssuePriority>(3);
   const [assigneeId, setAssigneeId] = useState<string>('');
   const [projectId, setProjectId] = useState<string>('');
+  const [type, setType] = useState<IssueType>('task');
+  const [parentId, setParentId] = useState<string>('');
   const [selectedLabels, setSelectedLabels] = useState<string[]>(['feature']);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -43,14 +49,37 @@ export const CreateIssueModal: React.FC = () => {
     if (isCreateIssueOpen && defaultProjectId) {
       setProjectId(defaultProjectId);
     }
+    if (isCreateIssueOpen) {
+      setType(defaultIssueType);
+    }
     setTitleError(false);
-  }, [isCreateIssueOpen, defaultProjectId]);
+  }, [isCreateIssueOpen, defaultProjectId, defaultIssueType]);
+
+  // Los padres válidos dependen del tipo elegido (tabla `ALLOWED_PARENT_TYPES`),
+  // así que cambiar el tipo puede invalidar el padre ya seleccionado.
+  const parentOptions = useMemo(
+    () => validParentsFor(allIssues, type),
+    [allIssues, type]
+  );
+
+  // Se deriva en render en vez de resetear `parentId` desde un efecto: cambiar
+  // el tipo puede invalidar el padre elegido, y un efecto que corrige estado
+  // dispara un render en cascada por cada cambio de tipo.
+  const effectiveParentId = parentOptions.some((p) => p.id === parentId) ? parentId : '';
+
+  // Si la épica elegida define un agente por defecto y todavía no elegiste
+  // asignado, se preselecciona. Es preselección, no imposición: cambiar el
+  // selector la pisa, y dejarlo en "Sin asignar" es una elección respetada.
+  const parentIssue = parentOptions.find((p) => p.id === effectiveParentId);
+  const effectiveAssigneeId = assigneeId || parentIssue?.defaultAssigneeId || '';
 
   const handleClose = () => {
     setErrorMsg('');
     setTitleError(false);
     setCreateIssueOpen(false);
     setDefaultProjectId(null);
+    setDefaultIssueType('task');
+    setParentId('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,7 +121,9 @@ export const CreateIssueModal: React.FC = () => {
         status,
         priority,
         projectId: projectId || undefined,
-        assigneeId: assigneeId || undefined,
+        assigneeId: effectiveAssigneeId || undefined,
+        type,
+        parentId: effectiveParentId || undefined,
         labelIds: selectedLabels.length > 0 ? selectedLabels : ['feature'],
       });
 
@@ -162,6 +193,49 @@ export const CreateIssueModal: React.FC = () => {
           />
         </div>
 
+        {/* Hierarchy: tipo y padre */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#8A8F98]">Tipo</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as IssueType)}
+              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer"
+            >
+              {ISSUE_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-[#8A8F98]">
+              {type === 'subtask' ? 'Historia padre' : 'Épica'}
+            </label>
+            <select
+              value={effectiveParentId}
+              onChange={(e) => setParentId(e.target.value)}
+              disabled={parentOptions.length === 0}
+              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {type === 'epic'
+                  ? 'Una épica no puede tener padre'
+                  : parentOptions.length === 0
+                    ? 'No hay padres disponibles'
+                    : 'Sin asignar'}
+              </option>
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.identifier} · {p.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Properties Selector Row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Status */}
@@ -217,7 +291,7 @@ export const CreateIssueModal: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-[#8A8F98]">Asignado a</label>
             <select
-              value={assigneeId}
+              value={effectiveAssigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
               className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer truncate"
             >

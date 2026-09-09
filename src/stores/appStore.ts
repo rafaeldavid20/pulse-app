@@ -17,6 +17,8 @@ interface AppState {
   isInviteMemberOpen: boolean;
   
   activeView: 'list' | 'board';
+  /** Cómo se agrupa el board: columnas por estado, o swimlanes por épica. */
+  boardGroupBy: 'status' | 'epic';
   filterState: FilterState;
   
   setUserWorkspaces: (workspaces: Workspace[]) => void;
@@ -33,6 +35,7 @@ interface AppState {
   setCreateWorkspaceOpen: (open: boolean) => void;
   setInviteMemberOpen: (open: boolean) => void;
   setActiveView: (view: 'list' | 'board') => void;
+  setBoardGroupBy: (groupBy: 'status' | 'epic') => void;
   setFilterState: (filters: Partial<FilterState>) => void;
   resetFilters: () => void;
 }
@@ -41,6 +44,7 @@ const initialFilters: FilterState = {
   search: '',
   status: [],
   priority: [],
+  type: [],
   labelIds: [],
 };
 
@@ -59,6 +63,7 @@ export const useAppStore = create<AppState>((set) => ({
   isCreateWorkspaceOpen: false,
   isInviteMemberOpen: false,
   activeView: 'list',
+  boardGroupBy: 'status',
   filterState: initialFilters,
 
   setUserWorkspaces: (userWorkspaces) =>
@@ -90,6 +95,7 @@ export const useAppStore = create<AppState>((set) => ({
   setCreateWorkspaceOpen: (isCreateWorkspaceOpen) => set({ isCreateWorkspaceOpen }),
   setInviteMemberOpen: (isInviteMemberOpen) => set({ isInviteMemberOpen }),
   setActiveView: (activeView) => set({ activeView }),
+  setBoardGroupBy: (boardGroupBy) => set({ boardGroupBy }),
   setFilterState: (filters) =>
     set((state) => ({ filterState: { ...state.filterState, ...filters } })),
   resetFilters: () => set({ filterState: initialFilters }),

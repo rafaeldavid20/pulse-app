@@ -1,29 +1,45 @@
 'use client';
 
 import React, { useState } from 'react';
-import { IssueStatus } from '@/types';
+import { Issue, IssueStatus } from '@/types';
 import { useIssues } from '@/hooks/useIssues';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
+import { IssueTypeBadge } from './IssueTypeBadge';
+import { EpicProgress } from './EpicProgress';
+import { progressOf } from '@/lib/hierarchy';
 import { Avatar } from '@/components/ui/Avatar';
 import { getStatusLabel, cn } from '@/lib/utils';
-import { Plus, GripVertical, Trash2 } from 'lucide-react';
+import { Plus, GripVertical, Trash2, ChevronDown } from 'lucide-react';
 
 const COLUMNS: IssueStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled'];
 
 export const IssueBoard: React.FC = () => {
-  const { issuesByStatus } = useIssues();
+  const { issuesByStatus, issuesByEpic, epics } = useIssues();
+  const boardGroupBy = useAppStore((s) => s.boardGroupBy);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
   const updateIssue = useIssueStore((s) => s.updateIssue);
   const deleteIssue = useIssueStore((s) => s.deleteIssue);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
   const members = useAppStore((s) => s.members);
+  // Sin filtrar, igual que en IssueList: el progreso describe el árbol real,
+  // no el subconjunto que el filtro activo deja ver.
+  const allIssues = useIssueStore((s) => s.issues);
 
   const [draggedIssueId, setDraggedIssueId] = useState<string | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<IssueStatus | null>(null);
+  const [collapsedLanes, setCollapsedLanes] = useState<string[]>([]);
+
+  const toggleLane = (laneId: string) =>
+    setCollapsedLanes((prev) =>
+      prev.includes(laneId) ? prev.filter((id) => id !== laneId) : [...prev, laneId]
+    );
+  // La clave incluye la lane además del estado: con swimlanes por épica hay
+  // una columna "Por hacer" por cada épica, y una clave que fuera solo el
+  // estado las resaltaría todas a la vez al arrastrar sobre una.
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, issueId: string) => {
     e.dataTransfer.setData('text/plain', issueId);
@@ -33,24 +49,31 @@ export const IssueBoard: React.FC = () => {
 
   const handleDragEnd = () => {
     setDraggedIssueId(null);
-    setDragOverColumn(null);
+    setDragOverKey(null);
   };
 
-  const handleDragOver = (e: React.DragEvent, status: IssueStatus) => {
+  const handleDragOver = (e: React.DragEvent, key: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dragOverColumn !== status) {
-      setDragOverColumn(status);
+    if (dragOverKey !== key) {
+      setDragOverKey(key);
     }
   };
 
-  const handleDragLeave = (e: React.DragEvent, status: IssueStatus) => {
+  const handleDragLeave = (e: React.DragEvent, key: string) => {
     e.preventDefault();
-    if (dragOverColumn === status) {
-      setDragOverColumn(null);
+    if (dragOverKey === key) {
+      setDragOverKey(null);
     }
   };
 
+  /**
+   * Soltar una card solo cambia el estado, también en la vista por épicas.
+   * Que además reasignara la épica sería el gesto "natural", pero no siempre es
+   * legal (una sub-tarea cuelga de una historia, no de una épica) y ejecutar la
+   * mitad del gesto en silencio confunde más de lo que ayuda: mover de épica se
+   * hace desde el panel del issue, que valida y avisa.
+   */
   const handleDrop = (e: React.DragEvent, targetStatus: IssueStatus) => {
     e.preventDefault();
     const issueId = e.dataTransfer.getData('text/plain') || draggedIssueId;
@@ -58,20 +81,26 @@ export const IssueBoard: React.FC = () => {
       updateIssue(issueId, { status: targetStatus });
     }
     setDraggedIssueId(null);
-    setDragOverColumn(null);
+    setDragOverKey(null);
   };
 
-  return (
-    <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory flex-nowrap pb-6 pt-2 min-h-[calc(100vh-140px)] scrollbar-none px-1">
+  const renderLane = (laneId: string, byStatus: Record<string, Issue[]>, minHeight: string) => (
+    <div
+      className={cn(
+        'flex gap-4 overflow-x-auto snap-x snap-mandatory flex-nowrap pb-6 pt-2 scrollbar-none px-1',
+        minHeight
+      )}
+    >
       {COLUMNS.map((status) => {
-        const columnIssues = issuesByStatus[status] || [];
-        const isDragTarget = dragOverColumn === status;
+        const columnIssues = byStatus[status] || [];
+        const dragKey = `${laneId}::${status}`;
+        const isDragTarget = dragOverKey === dragKey;
 
         return (
           <div
             key={status}
-            onDragOver={(e) => handleDragOver(e, status)}
-            onDragLeave={(e) => handleDragLeave(e, status)}
+            onDragOver={(e) => handleDragOver(e, dragKey)}
+            onDragLeave={(e) => handleDragLeave(e, dragKey)}
             onDrop={(e) => handleDrop(e, status)}
             className={cn(
               'w-[85vw] sm:w-72 shrink-0 snap-center flex flex-col bg-[#0F1012] border rounded-xl overflow-hidden max-h-[calc(100vh-160px)] transition-all duration-150',
@@ -140,9 +169,16 @@ export const IssueBoard: React.FC = () => {
                           <span className="font-mono text-[11px] text-[#5B616E] font-medium truncate">
                             {issue.identifier}
                           </span>
+                          <IssueTypeBadge type={issue.type} />
                         </div>
 
                         <div className="flex items-center gap-1.5">
+                          {progressOf(allIssues, issue).total > 0 && (
+                            <EpicProgress
+                              progress={progressOf(allIssues, issue)}
+                              variant="inline"
+                            />
+                          )}
                           <PriorityBadge priority={issue.priority} />
                           <button
                             onClick={(e) => {
@@ -182,6 +218,89 @@ export const IssueBoard: React.FC = () => {
               )}
             </div>
           </div>
+        );
+      })}
+    </div>
+  );
+
+  if (boardGroupBy === 'status') {
+    return renderLane('all', issuesByStatus, 'min-h-[calc(100vh-140px)]');
+  }
+
+  // --- Swimlanes por épica ---------------------------------------------
+  // Una lane por épica con issues visibles, más una final para lo que no
+  // cuelga de ninguna. Las épicas sin nada dentro no generan lane: seis
+  // columnas vacías por épica vacía no informan nada y empujan el resto
+  // fuera de la pantalla.
+  const lanes: { id: string; epic: Issue | null; issues: Issue[] }[] = [
+    ...epics
+      .filter(({ epic }) => (issuesByEpic.get(epic.id) || []).length > 0)
+      .map(({ epic }) => ({
+        id: epic.id,
+        epic,
+        issues: issuesByEpic.get(epic.id) || [],
+      })),
+  ];
+
+  const orphans = issuesByEpic.get('') || [];
+  if (orphans.length > 0) {
+    lanes.push({ id: 'none', epic: null, issues: orphans });
+  }
+
+  if (lanes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-[#26292F] rounded-lg my-6">
+        <p className="text-[#8A8F98] text-sm">No hay issues para agrupar por épica</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {lanes.map((lane) => {
+        const collapsed = collapsedLanes.includes(lane.id);
+        const byStatus: Record<string, Issue[]> = {};
+        COLUMNS.forEach((s) => {
+          byStatus[s] = lane.issues.filter((i) => i.status === s);
+        });
+
+        return (
+          <section key={lane.id} className="flex flex-col">
+            <button
+              onClick={() => toggleLane(lane.id)}
+              className="flex items-center gap-2.5 px-2 py-2.5 text-left hover:bg-[#16171A] rounded-lg transition-colors group"
+            >
+              <ChevronDown
+                className={cn(
+                  'w-4 h-4 text-[#5B616E] transition-transform shrink-0',
+                  collapsed && '-rotate-90'
+                )}
+              />
+              {lane.epic ? (
+                <>
+                  <IssueTypeBadge type="epic" />
+                  <span className="font-mono text-[11px] text-[#5B616E] shrink-0">
+                    {lane.epic.identifier}
+                  </span>
+                  <span className="text-sm font-semibold text-[#F7F8F8] truncate">
+                    {lane.epic.title}
+                  </span>
+                  <EpicProgress
+                    progress={progressOf(allIssues, lane.epic)}
+                    variant="inline"
+                    className="ml-1"
+                  />
+                </>
+              ) : (
+                <span className="text-sm font-semibold text-[#8A8F98]">Sin épica</span>
+              )}
+              <span className="ml-auto font-mono text-[11px] text-[#5B616E] tabular-nums shrink-0">
+                {lane.issues.length}
+              </span>
+            </button>
+
+            {!collapsed && renderLane(lane.id, byStatus, 'min-h-[200px]')}
+          </section>
         );
       })}
     </div>

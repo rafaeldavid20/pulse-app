@@ -388,7 +388,15 @@ export async function createRealIssue(
   return actionRes;
 }
 
-export async function updateRealIssue(id: string, updates: Partial<Issue>) {
+/**
+ * `repoFullName` no es un campo de `Issue`: viaja plano y el backend lo guarda
+ * en `git.repoFullName` (la whitelist de campos escribibles solo maneja campos
+ * de primer nivel). Va en el tipo para no tener que castear en cada llamada.
+ */
+export async function updateRealIssue(
+  id: string,
+  updates: Partial<Issue> & { repoFullName?: string }
+) {
   const actionRes = await callPlatformAction('issues.update', { id, ...updates });
   if (!actionRes) throw new Error('No se pudo actualizar el issue.');
 }
@@ -396,6 +404,18 @@ export async function updateRealIssue(id: string, updates: Partial<Issue>) {
 export async function deleteRealIssue(id: string) {
   const actionRes = await callPlatformAction('issues.delete', { id });
   if (!actionRes) throw new Error('No se pudo eliminar el issue.');
+}
+
+/**
+ * Mueve un issue bajo otro padre (o lo saca de su padre con `parentId: null`).
+ *
+ * Es una acción propia y no un `issues.update` con `parentId` porque el backend
+ * hace bastante más que escribir un campo: reescribe el `epicId` de todos los
+ * descendientes y mueve los contadores de los dos padres involucrados.
+ */
+export async function reparentIssue(id: string, parentId: string | null): Promise<void> {
+  const actionRes = await callPlatformAction('issues.reparent', { id, parentId });
+  if (!actionRes) throw new Error('No se pudo mover el issue.');
 }
 
 // ===============================================================
@@ -516,6 +536,7 @@ export interface AgentSummary {
   maxConcurrentIssues: number;
   enabled: boolean;
   autonomousMode: boolean;
+  connectedRepos?: ConnectedRepo[];
 }
 
 export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
@@ -562,11 +583,32 @@ export async function createAgent(
 // authorizes against the issue's real workspaceId (see the backend action),
 // and a silent client fallback would let that check be bypassed entirely.
 
+/**
+ * El filtro por `workspaceId` no es redundante con el de `issueId`: es lo que
+ * hace que la query pase las security rules.
+ *
+ * La regla de `comments` es `allow read: if isMember(resource.data.workspaceId)`.
+ * En una operación `list`, Firestore no evalúa la regla documento por documento
+ * — exige que la *query* garantice que todo lo que puede devolver la cumple. Con
+ * solo `where issueId == X`, no puede garantizarlo y rechaza la query entera con
+ * permission-denied. Por eso las de issues/projects/labels, que filtran por
+ * `workspaceId`, sí funcionaban y esta no.
+ *
+ * El síntoma era engañoso: la sección de comentarios mostraba "Todavía no hay
+ * comentarios" en vez de un error, así que todo lo que escribían los agentes y
+ * el sync de GitHub era invisible.
+ */
 export function subscribeIssueComments(
+  workspaceId: string,
   issueId: string,
   callback: (comments: Comment[]) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'comments'), where('issueId', '==', issueId), orderBy('createdAt', 'asc'));
+  const q = query(
+    collection(db, 'comments'),
+    where('workspaceId', '==', workspaceId),
+    where('issueId', '==', issueId),
+    orderBy('createdAt', 'asc')
+  );
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => d.data() as Comment));
   });
@@ -589,6 +631,62 @@ export interface GithubStatus {
   accountLogin?: string;
   repositories?: string[];
   connectedAt?: string;
+  /** Permisos que le faltan a la instalación para poder conectar repos. */
+  missingPermissions?: string[];
+  canConnectRepos?: boolean;
+}
+
+export interface ConnectedRepo {
+  repoFullName: string;
+  apiKeyId: string;
+  workflowSha?: string;
+  workflowVersion?: number;
+  connectedAt: string;
+}
+
+export interface ConnectRepoResult {
+  repoFullName: string;
+  workflowCreated: boolean;
+  anthropicSecretPresent: boolean;
+  anthropicSecretName: string;
+  /** Comando a copiar para el secret que Pulse deliberadamente no gestiona. */
+  manualStep: string | null;
+}
+
+/**
+ * Deja un repo listo para recibir dispatches: crea una key de MCP dedicada, la
+ * escribe como secret y commitea el workflow en la rama por defecto.
+ *
+ * No toca el token de Anthropic — es del usuario y Pulse no lo guarda ni lo
+ * transporta. El resultado dice si ya está puesto y, si no, con qué comando.
+ */
+export async function connectAgentRepo(
+  workspaceId: string,
+  agentId: string,
+  repoFullName: string
+): Promise<ConnectRepoResult> {
+  const res = await callPlatformAction<ConnectRepoResult>('agents.connectRepo', {
+    workspaceId,
+    agentId,
+    repoFullName,
+  });
+  if (!res) throw new Error('No se pudo conectar el repo.');
+  return res;
+}
+
+export async function disconnectAgentRepo(
+  workspaceId: string,
+  agentId: string,
+  repoFullName: string,
+  removeWorkflow = false
+): Promise<void> {
+  const res = await callPlatformAction('agents.disconnectRepo', {
+    workspaceId,
+    agentId,
+    repoFullName,
+    removeWorkflow,
+  });
+  if (!res) throw new Error('No se pudo desconectar el repo.');
 }
 
 export async function getGithubStatus(workspaceId: string): Promise<GithubStatus> {

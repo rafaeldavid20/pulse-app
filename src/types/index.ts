@@ -1,143 +1,23 @@
-export type IssueStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' | 'canceled';
+/**
+ * Punto de entrada de tipos del frontend.
+ *
+ * El modelo de dominio vive en `./domain.ts` — ese archivo es la fuente única
+ * compartida con `pulse-backend` (ver `scripts/sync-types.mjs`). Acá se
+ * re-exporta entero para que el resto de la app siga importando de
+ * `@/types` sin cambios, y se agregan los tipos que son *solo* de la UI y no
+ * tienen por qué viajar al backend.
+ */
+export * from './domain';
 
-export type IssuePriority = 0 | 1 | 2 | 3 | 4;
-// 0: None, 1: Urgent (Red), 2: High (Orange), 3: Medium (Yellow), 4: Low (Blue)
-
-export type ProjectStatus = 'planned' | 'in_progress' | 'paused' | 'completed' | 'canceled';
-
-export type MemberRole = 'owner' | 'admin' | 'member';
-
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  ownerId: string;
-  createdAt: string;
-}
-
-export interface Team {
-  id: string;
-  workspaceId: string;
-  name: string;
-  key: string; // e.g. "ENG", "DES", "MKT"
-  icon?: string;
-  issueCount: number;
-  createdAt: string;
-}
-
-export interface Label {
-  id: string;
-  teamId: string;
-  name: string;
-  color: string;
-}
-
-export interface Project {
-  id: string;
-  teamId: string;
-  name: string;
-  description: string;
-  status: ProjectStatus;
-  leadId?: string;
-  color?: string;
-  targetDate?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Member {
-  id: string;
-  workspaceId: string;
-  userId: string;
-  role: MemberRole;
-  displayName: string;
-  email: string;
-  photoURL?: string;
-  joinedAt: string;
-  isAgent?: boolean;
-  agentKind?: 'claude' | 'chatgpt';
-}
-
-export type AgentIssueState = 'idle' | 'claimed' | 'working' | 'pr_open' | 'blocked';
-
-export interface Agent {
-  id: string;
-  workspaceId: string;
-  kind: 'claude' | 'chatgpt';
-  displayName: string;
-  defaultRepo?: string;
-  defaultTeamId?: string;
-  maxConcurrentIssues?: number;
-  enabled: boolean;
-  autonomousMode: boolean;
-  createdAt: string;
-}
-
-export interface Issue {
-  id: string;
-  workspaceId: string;
-  teamId: string;
-  projectId?: string;
-  identifier: string; // e.g. "ENG-142"
-  number: number;
-  title: string;
-  description?: string;
-  status: IssueStatus;
-  priority: IssuePriority;
-  assigneeId?: string;
-  creatorId: string;
-  labelIds: string[];
-  parentId?: string;
-  dueDate?: string;
-  estimate?: number;
-  agent?: {
-    claimedBy?: string;
-    claimedAt?: string;
-    state?: AgentIssueState;
-    blockedReason?: string;
-  };
-  git?: {
-    repoFullName?: string;
-    branch?: string;
-    branchUrl?: string;
-    baseBranch?: string;
-    prNumber?: number;
-    prUrl?: string;
-    prState?: 'open' | 'draft' | 'merged' | 'closed';
-    lastSyncedAt?: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Comment {
-  id: string;
-  workspaceId: string;
-  issueId: string;
-  authorId: string;
-  body: string;
-  source: 'web' | 'mcp' | 'github';
-  githubCommentId?: string;
-  createdAt: string;
-}
-
-export interface Activity {
-  id: string;
-  issueId: string;
-  actorId: string;
-  type: 'status_change' | 'assignment' | 'label' | 'comment' | 'created' | 'priority_change';
-  changes?: {
-    fromValue?: string;
-    toValue?: string;
-  };
-  createdAt: string;
-}
+import type { IssueStatus, IssuePriority, IssueType } from './domain';
 
 export interface FilterState {
   search: string;
   status: IssueStatus[];
   priority: IssuePriority[];
+  type: IssueType[];
   assigneeId?: string;
   projectId?: string;
+  epicId?: string;
   labelIds: string[];
 }

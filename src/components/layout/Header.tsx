@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LayoutList, LayoutGrid, Plus, Search } from 'lucide-react';
+import { LayoutList, LayoutGrid, Plus, Search, Rows3, Zap } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { Button } from '@/components/ui/Button';
 
@@ -18,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const activeView = useAppStore((s) => s.activeView);
   const setActiveView = useAppStore((s) => s.setActiveView);
+  const boardGroupBy = useAppStore((s) => s.boardGroupBy);
+  const setBoardGroupBy = useAppStore((s) => s.setBoardGroupBy);
   const setCreateMenuOpen = useAppStore((s) => s.setCreateMenuOpen);
   const filterState = useAppStore((s) => s.filterState);
   const setFilterState = useAppStore((s) => s.setFilterState);
@@ -76,6 +78,37 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span className="hidden md:inline font-medium">Board</span>
+            </button>
+          </div>
+        )}
+
+        {/* Agrupamiento del board — solo tiene sentido en vista board, así que
+            no se muestra ocupando lugar en la lista. */}
+        {showViewToggle && activeView === 'board' && (
+          <div className="hidden sm:flex items-center bg-[#0F1012] border border-[#26292F] p-0.5 rounded-md">
+            <button
+              onClick={() => setBoardGroupBy('status')}
+              className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                boardGroupBy === 'status'
+                  ? 'bg-[#1E2024] text-[#F7F8F8]'
+                  : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+              }`}
+              title="Agrupar por estado"
+            >
+              <Rows3 className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline font-medium">Estado</span>
+            </button>
+            <button
+              onClick={() => setBoardGroupBy('epic')}
+              className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                boardGroupBy === 'epic'
+                  ? 'bg-[#1E2024] text-[#A78BFA]'
+                  : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+              }`}
+              title="Agrupar por épica (swimlanes)"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline font-medium">Épica</span>
             </button>
           </div>
         )}
