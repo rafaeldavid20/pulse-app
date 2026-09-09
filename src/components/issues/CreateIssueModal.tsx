@@ -67,6 +67,12 @@ export const CreateIssueModal: React.FC = () => {
   // dispara un render en cascada por cada cambio de tipo.
   const effectiveParentId = parentOptions.some((p) => p.id === parentId) ? parentId : '';
 
+  // Si la épica elegida define un agente por defecto y todavía no elegiste
+  // asignado, se preselecciona. Es preselección, no imposición: cambiar el
+  // selector la pisa, y dejarlo en "Sin asignar" es una elección respetada.
+  const parentIssue = parentOptions.find((p) => p.id === effectiveParentId);
+  const effectiveAssigneeId = assigneeId || parentIssue?.defaultAssigneeId || '';
+
   const handleClose = () => {
     setErrorMsg('');
     setTitleError(false);
@@ -115,7 +121,7 @@ export const CreateIssueModal: React.FC = () => {
         status,
         priority,
         projectId: projectId || undefined,
-        assigneeId: assigneeId || undefined,
+        assigneeId: effectiveAssigneeId || undefined,
         type,
         parentId: effectiveParentId || undefined,
         labelIds: selectedLabels.length > 0 ? selectedLabels : ['feature'],
@@ -285,7 +291,7 @@ export const CreateIssueModal: React.FC = () => {
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-[#8A8F98]">Asignado a</label>
             <select
-              value={assigneeId}
+              value={effectiveAssigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
               className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer truncate"
             >

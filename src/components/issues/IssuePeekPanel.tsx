@@ -14,6 +14,8 @@ import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { ancestorsOf, childrenOf, progressOf, validParentsFor } from '@/lib/hierarchy';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
+import { resolveRepo, describeRepoSource } from '@/lib/repo';
 import { subscribeIssueComments, createComment, createIssueBranch } from '@/lib/firestore';
 
 interface IssuePeekBodyProps {
@@ -349,6 +351,163 @@ function HierarchySection({
   );
 }
 
+/**
+ * Repo del issue y, si es una épica, su agente por defecto.
+ *
+ * En una épica los dos campos son "defaults que heredan los hijos"; en
+ * cualquier otro issue el repo es un override de lo que ya heredó. La UI dice
+ * cuál de los dos casos es, porque la diferencia importa: cambiar el repo de
+ * una épica mueve el trabajo de todos sus issues.
+ */
+function RepoSection({ issue }: { issue: Issue }) {
+  const issues = useIssueStore((s) => s.issues);
+  const updateIssue = useIssueStore((s) => s.updateIssue);
+  const setIssueRepo = useIssueStore((s) => s.setIssueRepo);
+  const members = useAppStore((s) => s.members);
+  const { repos, agents, connected, loading } = useWorkspaceInfra();
+  const [error, setError] = useState('');
+
+  const isEpicIssue = (issue.type ?? 'task') === 'epic';
+
+  const agentDefaults = useMemo(
+    () => Object.fromEntries(agents.map((a) => [a.id, a.defaultRepo])),
+    [agents]
+  );
+  const resolved = useMemo(
+    () => resolveRepo(issues, issue, agentDefaults),
+    [issues, issue, agentDefaults]
+  );
+
+  const own = issue.git?.repoFullName ?? '';
+
+  const handleRepo = async (value: string) => {
+    setError('');
+    try {
+      // Cadena vacía borra el campo en el backend, que es cómo se vuelve a
+      // heredar de la épica.
+      await setIssueRepo(issue.id, value);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el repo.');
+    }
+  };
+
+  const handleDefaultAssignee = async (value: string) => {
+    setError('');
+    try {
+      await updateIssue(issue.id, { defaultAssigneeId: value || undefined });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el agente.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          Repositorio
+        </label>
+        <div className="h-9 rounded-lg bg-[#16171A] border border-[#26292F] animate-pulse" />
+      </div>
+    );
+  }
+
+  if (!connected) {
+    return (
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          Repositorio
+        </label>
+        <p className="text-xs text-[#5B616E]">
+          Este workspace no tiene GitHub conectado. Conectalo en Configuración → GitHub para que
+          los agentes puedan crear ramas.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+        {isEpicIssue ? 'Defaults de la épica' : 'Repositorio'}
+      </label>
+
+      <div className="flex flex-col gap-2 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs text-[#8A8F98] shrink-0 flex items-center gap-1.5">
+            <GitBranch className="w-3.5 h-3.5" />
+            {isEpicIssue ? 'Repo por defecto' : 'Repo'}
+          </span>
+          <select
+            value={own}
+            onChange={(e) => handleRepo(e.target.value)}
+            className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
+          >
+            <option value="">
+              {isEpicIssue
+                ? 'Sin definir'
+                : resolved.source === 'issue'
+                  ? 'Heredar'
+                  : `Heredar (${resolved.repo ?? 'sin repo'})`}
+            </option>
+            {repos.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <p
+          className={cn(
+            'text-[11px]',
+            resolved.source === 'none' ? 'text-[#F09436]' : 'text-[#5B616E]'
+          )}
+        >
+          {resolved.repo ? (
+            <>
+              <span className="font-mono text-[#8A8F98]">{resolved.repo}</span>
+              {' · '}
+              {describeRepoSource(resolved)}
+            </>
+          ) : (
+            describeRepoSource(resolved)
+          )}
+        </p>
+
+        {isEpicIssue && (
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#26292F]">
+            <span className="text-xs text-[#8A8F98] shrink-0">Agente por defecto</span>
+            <select
+              value={issue.defaultAssigneeId || ''}
+              onChange={(e) => handleDefaultAssignee(e.target.value)}
+              className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
+            >
+              <option value="">Sin definir</option>
+              {members
+                .filter((m) => m.isAgent)
+                .map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.displayName}
+                    {m.agentKind ? ` (${m.agentKind})` : ''}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+
+        {isEpicIssue && (
+          <p className="text-[11px] text-[#5B616E]">
+            Preselecciona el asignado al crear issues dentro de esta épica. No los reasigna solo:
+            un issue que dejaste sin asignar sigue sin asignar.
+          </p>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-[#F75555]">{error}</p>}
+    </div>
+  );
+}
+
 const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
@@ -485,6 +644,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         </div>
 
         <HierarchySection issue={issue} onOpenIssue={onOpenIssue} />
+
+        <RepoSection issue={issue} />
 
         {/* Description Section */}
         <div className="flex flex-col gap-2">

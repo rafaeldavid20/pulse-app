@@ -388,7 +388,15 @@ export async function createRealIssue(
   return actionRes;
 }
 
-export async function updateRealIssue(id: string, updates: Partial<Issue>) {
+/**
+ * `repoFullName` no es un campo de `Issue`: viaja plano y el backend lo guarda
+ * en `git.repoFullName` (la whitelist de campos escribibles solo maneja campos
+ * de primer nivel). Va en el tipo para no tener que castear en cada llamada.
+ */
+export async function updateRealIssue(
+  id: string,
+  updates: Partial<Issue> & { repoFullName?: string }
+) {
   const actionRes = await callPlatformAction('issues.update', { id, ...updates });
   if (!actionRes) throw new Error('No se pudo actualizar el issue.');
 }

@@ -25,6 +25,7 @@ interface IssueState {
   updateIssue: (id: string, updates: Partial<Issue>) => Promise<void>;
   deleteIssue: (id: string) => Promise<void>;
   moveIssue: (id: string, parentId: string | null) => Promise<void>;
+  setIssueRepo: (id: string, repoFullName: string) => Promise<void>;
   bulkUpdateStatus: (ids: string[], status: IssueStatus) => Promise<void>;
 }
 
@@ -73,6 +74,20 @@ export const useIssueStore = create<IssueState>((set) => ({
       selectedIssueId: state.selectedIssueId === id ? null : state.selectedIssueId,
     }));
     await deleteRealIssue(id);
+  },
+
+  setIssueRepo: async (id, repoFullName) => {
+    // El backend recibe `repoFullName` a nivel raíz y lo guarda en
+    // `git.repoFullName`. El update optimista tiene que escribir donde la UI
+    // lee, o el selector se ve sin cambios hasta que llegue la snapshot.
+    set((state) => ({
+      issues: state.issues.map((iss) =>
+        iss.id === id
+          ? { ...iss, git: { ...iss.git, repoFullName: repoFullName || undefined } }
+          : iss
+      ),
+    }));
+    await updateRealIssue(id, { repoFullName });
   },
 
   moveIssue: async (id, parentId) => {

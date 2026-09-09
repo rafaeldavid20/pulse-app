@@ -131,6 +131,11 @@ export interface IssueAgentState {
 }
 
 export interface IssueGitState {
+  /**
+   * El repo al que pertenece el issue. En una épica hace de default para todos
+   * sus hijos; en un issue, de override. Se resuelve en cascada
+   * issue -> épica -> agente (ver `resolveIssueRepo` en el backend).
+   */
   repoFullName?: string;
   branch?: string;
   branchUrl?: string;
@@ -176,6 +181,14 @@ export interface Issue {
   subIssueDoneCount?: number;
   dueDate?: string;
   estimate?: number;
+  /**
+   * Solo significativo en épicas: preselecciona el asignado al crear un issue
+   * hijo. Es preselección al crear, no herencia en runtime — si el dispatch
+   * heredara el agente de la épica, un issue que dejaste sin asignar a
+   * propósito podría despertar a un agente solo, y "sin asignar" dejaría de
+   * significar algo.
+   */
+  defaultAssigneeId?: string;
   agent?: IssueAgentState;
   git?: IssueGitState;
   createdAt: string;
@@ -362,6 +375,7 @@ export const ISSUE_WRITABLE_FIELDS = [
   'parentId',
   'dueDate',
   'estimate',
+  'defaultAssigneeId',
 ] as const;
 
 export type IssueWritableField = (typeof ISSUE_WRITABLE_FIELDS)[number];
