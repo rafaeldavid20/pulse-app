@@ -13,6 +13,7 @@ import {
   HelpCircle,
   LogOut,
   ChevronUp,
+  Zap,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +49,7 @@ export const Sidebar: React.FC = () => {
 
   const teamNavItems = [
     { label: 'Issues', icon: Layers, href: `/team/${teamId}/issues`, shortcut: 'G B' },
+    { label: 'Épicas', icon: Zap, href: `/team/${teamId}/epics`, shortcut: 'G E' },
     { label: 'Proyectos', icon: FolderKanban, href: `/team/${teamId}/projects`, shortcut: 'G P' },
     { label: 'Configuración', icon: Settings, href: '/settings', shortcut: '' },
   ];

@@ -6,6 +6,9 @@ import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
+import { IssueTypeBadge } from './IssueTypeBadge';
+import { EpicProgress } from './EpicProgress';
+import { progressOf } from '@/lib/hierarchy';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -26,6 +29,10 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const deleteIssue = useIssueStore((s) => s.deleteIssue);
   const bulkUpdateStatus = useIssueStore((s) => s.bulkUpdateStatus);
   const members = useAppStore((s) => s.members);
+  // El árbol se calcula sobre todos los issues del workspace, no sobre los
+  // filtrados: una épica no debería mostrar 2/2 solo porque el filtro activo
+  // esconde la mitad de sus hijos.
+  const allIssues = useIssueStore((s) => s.issues);
 
   const handleBulkDelete = () => {
     selectedIssueIds.forEach((id) => deleteIssue(id));
@@ -120,6 +127,8 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
                 {issue.identifier}
               </span>
 
+              <IssueTypeBadge type={issue.type} />
+
               <PriorityBadge priority={issue.priority} />
 
               <StatusBadge status={issue.status} />
@@ -127,6 +136,12 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
               <span className="text-[#F7F8F8] font-normal truncate">
                 {issue.title}
               </span>
+
+              {/* Progreso solo cuando hay algo colgando: una fila sin hijos no
+                  gana nada mostrando una barra vacía. */}
+              {progressOf(allIssues, issue).total > 0 && (
+                <EpicProgress progress={progressOf(allIssues, issue)} variant="inline" />
+              )}
             </div>
 
             {/* Right Side: Labels, Due Date, Assignee Avatar, Trash Delete Button */}

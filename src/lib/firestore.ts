@@ -398,6 +398,18 @@ export async function deleteRealIssue(id: string) {
   if (!actionRes) throw new Error('No se pudo eliminar el issue.');
 }
 
+/**
+ * Mueve un issue bajo otro padre (o lo saca de su padre con `parentId: null`).
+ *
+ * Es una acción propia y no un `issues.update` con `parentId` porque el backend
+ * hace bastante más que escribir un campo: reescribe el `epicId` de todos los
+ * descendientes y mueve los contadores de los dos padres involucrados.
+ */
+export async function reparentIssue(id: string, parentId: string | null): Promise<void> {
+  const actionRes = await callPlatformAction('issues.reparent', { id, parentId });
+  if (!actionRes) throw new Error('No se pudo mover el issue.');
+}
+
 // ===============================================================
 // 4. PROJECTS SERVICES
 // ===============================================================

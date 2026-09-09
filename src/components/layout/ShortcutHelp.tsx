@@ -42,6 +42,7 @@ export const ShortcutHelp: React.FC = () => {
         { key: 'G  M', label: 'Ir a Mis Issues' },
         { key: 'G  B', label: 'Ir a Engineering Issues' },
         { key: 'G  P', label: 'Ir a Proyectos' },
+        { key: 'G  E', label: 'Ir a Épicas' },
       ],
     },
   ];
