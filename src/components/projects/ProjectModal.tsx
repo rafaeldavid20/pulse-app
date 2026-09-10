@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
 import { Project, ProjectStatus } from '@/types';
 import { AlertCircle } from 'lucide-react';
 
@@ -38,6 +39,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const members = useAppStore((s) => s.members);
   const addProject = useProjectStore((s) => s.addProject);
   const updateProject = useProjectStore((s) => s.updateProject);
+  const { repos: infraRepos, connected: infraConnected } = useWorkspaceInfra();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -45,6 +47,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [color, setColor] = useState('#5E6AD2');
   const [leadId, setLeadId] = useState<string>('');
   const [targetDate, setTargetDate] = useState('');
+  const [repoFullNames, setRepoFullNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [nameError, setNameError] = useState(false);
 
@@ -56,6 +59,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setColor(projectToEdit.color || '#5E6AD2');
       setLeadId(projectToEdit.leadId || '');
       setTargetDate(projectToEdit.targetDate ? projectToEdit.targetDate.split('T')[0] : '');
+      setRepoFullNames(projectToEdit.repoFullNames || []);
     } else {
       setName('');
       setDescription('');
@@ -63,6 +67,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setColor('#5E6AD2');
       setLeadId('');
       setTargetDate('');
+      setRepoFullNames([]);
     }
     setNameError(false);
   }, [projectToEdit, isOpen]);
@@ -87,6 +92,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           color,
           leadId: leadId || undefined,
           targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
+          repoFullNames,
         });
       } else {
         if (!activeWorkspace || !activeTeam) return;
@@ -99,6 +105,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           color,
           leadId: leadId || user?.uid || undefined,
           targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
+          repoFullNames,
         });
       }
 
@@ -200,6 +207,46 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             onChange={(e) => setTargetDate(e.target.value)}
             className="text-xs"
           />
+        </div>
+
+        {/* Repos permitidos — el límite dentro del cual se eligen las ramas */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-[#8A8F98]">
+            Repositorios del proyecto{' '}
+            <span className="text-[10px] text-[#5B616E] font-normal">(Opcional)</span>
+          </label>
+          {!infraConnected ? (
+            <p className="text-[11px] text-[#5B616E]">
+              Conectá GitHub en Configuración para poder limitar los repos.
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1 max-h-36 overflow-y-auto p-2 bg-[#0F1012] border border-[#26292F] rounded-md">
+                {infraRepos.map((r) => (
+                  <label
+                    key={r}
+                    className="flex items-center gap-2 text-xs text-[#F7F8F8] cursor-pointer py-0.5"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={repoFullNames.includes(r)}
+                      onChange={(e) =>
+                        setRepoFullNames((prev) =>
+                          e.target.checked ? [...prev, r] : prev.filter((x) => x !== r)
+                        )
+                      }
+                      className="w-3.5 h-3.5 accent-[#5E6AD2]"
+                    />
+                    <span className="font-mono truncate">{r}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-[10px] text-[#5B616E]">
+                Sus issues solo pueden abrir ramas en estos repos. Sin ninguno marcado, vale
+                cualquiera de los conectados.
+              </p>
+            </>
+          )}
         </div>
 
         {/* Color Palette */}

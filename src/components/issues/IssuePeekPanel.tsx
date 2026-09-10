@@ -4,10 +4,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
+import { useProjectStore } from '@/stores/projectStore';
 import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
 import { LabelPicker } from '@/components/labels/LabelPicker';
-import { Issue, IssueStatus, IssuePriority, IssueType, Member, Comment } from '@/types';
+import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES, canBeChild, canHaveChildren, isCompletedStatus } from '@/lib/constants/issue';
 import { formatTimeAgo, cn } from '@/lib/utils';
 import { IssueTypeBadge } from './IssueTypeBadge';
@@ -101,15 +102,47 @@ function CommentsSection({ workspaceId, issueId, members }: { workspaceId: strin
   );
 }
 
+/**
+ * Ramas del issue, una por repo, y el selector para abrir una más.
+ *
+ * Un issue puede tocar varios repos —el modelo de dominio vive en pulse-app y
+ * sus consumidores en pulse-backend—, así que esto lista `gitRefs` en vez de la
+ * única `git`. Los issues anteriores a `gitRefs` solo tienen `git`, y se muestra
+ * esa: por eso las dos fuentes se unifican acá y no en el store.
+ */
 function GitSection({ issue }: { issue: Issue }) {
+  const projects = useProjectStore((s) => s.projects);
+  const { repos: installationRepos, connected } = useWorkspaceInfra();
   const [creating, setCreating] = useState(false);
+  const [selectedRepo, setSelectedRepo] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // El límite lo pone el proyecto; si no declara ninguno, valen todos los de la
+  // instalación, igual que en el backend.
+  const project = projects.find((p) => p.id === issue.projectId);
+  const allowedRepos =
+    project?.repoFullNames && project.repoFullNames.length > 0
+      ? project.repoFullNames.filter((r) => installationRepos.includes(r))
+      : installationRepos;
+
+  const refs: IssueGitRef[] =
+    issue.gitRefs && issue.gitRefs.length > 0
+      ? issue.gitRefs
+      : issue.git?.branch
+        ? [{ ...issue.git, repoFullName: issue.git.repoFullName || '(sin repo)' }]
+        : [];
+
+  const reposWithoutBranch = allowedRepos.filter(
+    (r) => !refs.some((ref) => ref.repoFullName === r)
+  );
+
   const handleCreateBranch = async () => {
+    if (!selectedRepo) return;
     setCreating(true);
     setError(null);
     try {
-      await createIssueBranch(issue.id);
+      await createIssueBranch(issue.id, selectedRepo);
+      setSelectedRepo('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear la rama.');
     } finally {
@@ -120,40 +153,85 @@ function GitSection({ issue }: { issue: Issue }) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">Git</label>
-      {issue.git?.branch ? (
-        <div className="flex flex-col gap-1.5 p-3 bg-[#16171A] border border-[#26292F] rounded-lg text-xs">
-          <a
-            href={issue.git.branchUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 text-[#F7F8F8] hover:text-[#5E6AD2] font-mono"
-          >
-            <GitBranch className="w-3.5 h-3.5 shrink-0" />
-            {issue.git.branch}
-            <ExternalLink className="w-3 h-3 shrink-0" />
-          </a>
-          {issue.git.prUrl && (
-            <a
-              href={issue.git.prUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 text-[#8A8F98] hover:text-[#5E6AD2]"
+
+      {refs.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {refs.map((ref) => (
+            <div
+              key={ref.repoFullName}
+              className="flex flex-col gap-1.5 p-3 bg-[#16171A] border border-[#26292F] rounded-lg text-xs"
             >
-              PR #{issue.git.prNumber} · {issue.git.prState}
-              <ExternalLink className="w-3 h-3 shrink-0" />
-            </a>
-          )}
+              <span className="text-[10px] text-[#5B616E] font-mono truncate">
+                {ref.repoFullName}
+              </span>
+              <a
+                href={ref.branchUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-[#F7F8F8] hover:text-[#5E6AD2] font-mono"
+              >
+                <GitBranch className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{ref.branch}</span>
+                <ExternalLink className="w-3 h-3 shrink-0" />
+              </a>
+              {ref.prUrl && (
+                <a
+                  href={ref.prUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-[#8A8F98] hover:text-[#5E6AD2]"
+                >
+                  PR #{ref.prNumber} · {ref.prState}
+                  <ExternalLink className="w-3 h-3 shrink-0" />
+                </a>
+              )}
+            </div>
+          ))}
         </div>
-      ) : (
-        <button
-          onClick={handleCreateBranch}
-          disabled={creating}
-          className="self-start flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-[#1E2024] hover:bg-[#26292E] text-[#F7F8F8] border border-[#26292F] rounded-md disabled:opacity-50 transition-colors"
-        >
-          {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />}
-          Crear rama
-        </button>
       )}
+
+      {!connected ? (
+        <p className="text-xs text-[#5B616E]">
+          Conectá GitHub en Configuración para poder crear ramas.
+        </p>
+      ) : reposWithoutBranch.length === 0 ? (
+        refs.length > 0 && (
+          <p className="text-[11px] text-[#5B616E]">
+            Ya hay una rama en cada repo permitido por el proyecto.
+          </p>
+        )
+      ) : (
+        <div className="flex items-center gap-2">
+          <select
+            value={selectedRepo}
+            onChange={(e) => setSelectedRepo(e.target.value)}
+            disabled={creating}
+            className="flex-1 min-w-0 bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
+          >
+            <option value="">
+              {refs.length > 0 ? 'Crear rama en otro repo…' : 'Crear rama en…'}
+            </option>
+            {reposWithoutBranch.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleCreateBranch}
+            disabled={creating || !selectedRepo}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-[#1E2024] hover:bg-[#26292E] text-[#F7F8F8] border border-[#26292F] rounded-md disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
+          >
+            {creating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <GitBranch className="w-3.5 h-3.5" />
+            )}
+            Crear
+          </button>
+        </div>
+      )}
+
       {error && <p className="text-xs text-[#F75555]">{error}</p>}
     </div>
   );
