@@ -12,6 +12,7 @@ import { progressOf } from '@/lib/hierarchy';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
 import { Trash2, CheckCircle2, X } from 'lucide-react';
 
@@ -20,6 +21,8 @@ interface IssueListProps {
 }
 
 export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
+  const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
+  const issuesError = useIssueStore((s) => s.issuesError);
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const selectedIssueIds = useIssueStore((s) => s.selectedIssueIds);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
@@ -38,6 +41,32 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     selectedIssueIds.forEach((id) => deleteIssue(id));
     clearSelection();
   };
+
+  if (issuesError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-[#F75555]/40 bg-[#F75555]/5 rounded-lg my-6">
+        <p className="text-[#F75555] text-sm">{issuesError}</p>
+      </div>
+    );
+  }
+
+  if (!issuesLoaded) {
+    return (
+      <div className="w-full flex flex-col border border-[#1C1E22] rounded-lg overflow-hidden bg-[#0F1012]">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 px-3.5 py-3 border-b border-[#1C1E22] last:border-b-0"
+          >
+            <Skeleton className="h-3.5 w-14 shrink-0" />
+            <Skeleton className="h-4 w-4 rounded-full shrink-0" />
+            <Skeleton className="h-4 w-14 rounded-full shrink-0" />
+            <Skeleton className="h-4 flex-1 max-w-sm" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (issues.length === 0) {
     return (

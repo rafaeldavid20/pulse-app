@@ -11,6 +11,7 @@ import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { progressOf } from '@/lib/hierarchy';
 import { Avatar } from '@/components/ui/Avatar';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { getStatusLabel, cn } from '@/lib/utils';
 import { Plus, GripVertical, Trash2, ChevronDown } from 'lucide-react';
 
@@ -28,18 +29,49 @@ export const IssueBoard: React.FC = () => {
   // Sin filtrar, igual que en IssueList: el progreso describe el árbol real,
   // no el subconjunto que el filtro activo deja ver.
   const allIssues = useIssueStore((s) => s.issues);
+  const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
+  const issuesError = useIssueStore((s) => s.issuesError);
 
   const [draggedIssueId, setDraggedIssueId] = useState<string | null>(null);
   const [collapsedLanes, setCollapsedLanes] = useState<string[]>([]);
+  // La clave incluye la lane además del estado: con swimlanes por épica hay
+  // una columna "Por hacer" por cada épica, y una clave que fuera solo el
+  // estado las resaltaría todas a la vez al arrastrar sobre una.
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
+  if (issuesError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-[#F75555]/40 bg-[#F75555]/5 rounded-lg my-6">
+        <p className="text-[#F75555] text-sm">{issuesError}</p>
+      </div>
+    );
+  }
+
+  if (!issuesLoaded) {
+    return (
+      <div className="flex gap-4 overflow-x-auto flex-nowrap pb-6 pt-2 px-1">
+        {COLUMNS.map((status) => (
+          <div
+            key={status}
+            className="w-[85vw] sm:w-72 shrink-0 flex flex-col bg-[#0F1012] border border-[#1C1E22] rounded-xl overflow-hidden"
+          >
+            <div className="px-3.5 py-3 border-b border-[#1C1E22] bg-[#16171A]">
+              <Skeleton className="h-4 w-24" />
+            </div>
+            <div className="p-2.5 flex flex-col gap-2">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const toggleLane = (laneId: string) =>
     setCollapsedLanes((prev) =>
       prev.includes(laneId) ? prev.filter((id) => id !== laneId) : [...prev, laneId]
     );
-  // La clave incluye la lane además del estado: con swimlanes por épica hay
-  // una columna "Por hacer" por cada épica, y una clave que fuera solo el
-  // estado las resaltaría todas a la vez al arrastrar sobre una.
-  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, issueId: string) => {
     e.dataTransfer.setData('text/plain', issueId);
