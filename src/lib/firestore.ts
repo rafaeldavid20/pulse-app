@@ -11,6 +11,7 @@ import {
   onSnapshot,
   arrayUnion,
   Unsubscribe,
+  FirestoreError,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
@@ -368,16 +369,33 @@ export async function createTeamInWorkspace(workspaceId: string, name: string, k
 // 3. ISSUES SERVICES (REAL-TIME SNAPSHOT PER WORKSPACE)
 // ===============================================================
 
+/** Mensaje legible para el error de una suscripción de Firestore (permiso denegado / offline / otro). */
+export function describeSubscriptionError(error: FirestoreError): string {
+  switch (error.code) {
+    case 'permission-denied':
+      return 'No tenés permiso para ver estos issues.';
+    case 'unavailable':
+      return 'Sin conexión — no se pudieron cargar los issues.';
+    default:
+      return 'No se pudieron cargar los issues.';
+  }
+}
+
 export function subscribeWorkspaceIssues(
   workspaceId: string,
-  callback: (issues: Issue[]) => void
+  callback: (issues: Issue[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const q = query(collection(db, 'issues'), where('workspaceId', '==', workspaceId));
-  return onSnapshot(q, (snap) => {
-    const issues = snap.docs.map((d) => d.data() as Issue);
-    issues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    callback(issues);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const issues = snap.docs.map((d) => d.data() as Issue);
+      issues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(issues);
+    },
+    onError
+  );
 }
 
 export async function createRealIssue(

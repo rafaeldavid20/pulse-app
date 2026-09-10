@@ -16,6 +16,7 @@ import {
   subscribeWorkspaceIssues,
   subscribeWorkspaceProjects,
   subscribeWorkspaceLabels,
+  describeSubscriptionError,
 } from '@/lib/firestore';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import { ShortcutHelp } from '@/components/layout/ShortcutHelp';
@@ -40,6 +41,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
 
   const setIssues = useIssueStore((s) => s.setIssues);
+  const setIssuesError = useIssueStore((s) => s.setIssuesError);
+  const resetIssuesSubscription = useIssueStore((s) => s.resetIssuesSubscription);
   const setProjects = useProjectStore((s) => s.setProjects);
   const setLabels = useLabelStore((s) => s.setLabels);
 
@@ -90,9 +93,17 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   useEffect(() => {
     if (!activeWorkspace) return;
 
+    // Volver a "cargando" al cambiar de workspace: sin este reset, los issues
+    // del workspace anterior siguen mostrándose (o la lista queda vacía) hasta
+    // que llega la primera snapshot del nuevo, en vez de ver el skeleton.
+    resetIssuesSubscription();
+
     const unsubMembers = subscribeWorkspaceMembers(activeWorkspace.id, setMembers);
     const unsubTeams = subscribeWorkspaceTeams(activeWorkspace.id, setTeams);
-    const unsubIssues = subscribeWorkspaceIssues(activeWorkspace.id, setIssues);
+    const unsubIssues = subscribeWorkspaceIssues(activeWorkspace.id, setIssues, (error) => {
+      console.error('subscribeWorkspaceIssues', error);
+      setIssuesError(describeSubscriptionError(error));
+    });
     const unsubProjects = subscribeWorkspaceProjects(activeWorkspace.id, setProjects);
     const unsubLabels = subscribeWorkspaceLabels(activeWorkspace.id, setLabels);
 
@@ -103,7 +114,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       unsubProjects();
       unsubLabels();
     };
-  }, [activeWorkspace, setMembers, setTeams, setIssues, setProjects, setLabels]);
+  }, [activeWorkspace, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels]);
 
   if (loading) {
     return (
