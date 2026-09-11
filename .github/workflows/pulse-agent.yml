@@ -100,6 +100,9 @@ jobs:
             con clear en true para sacar la etiqueta, y dejá escritas en el PR las
             decisiones que tomaste.
 
+            Si el repo no corresponde al trabajo descrito, no improvises: comentá el problema
+            con pulse_comment_issue y terminá sin crear rama ni PR.
+
       - name: Reportar el run en Pulse
         # Corre siempre que el run no se haya cancelado a mano, termine como
         # termine la sesión del modelo. Hubo runs que reclamaron el issue y
