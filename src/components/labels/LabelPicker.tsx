@@ -49,7 +49,7 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-[#8A8F98] hover:text-[#F7F8F8] bg-[#1E2024] hover:bg-[#26292E] border border-[#26292F] transition-colors"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-secondary hover:text-primary bg-hover hover:bg-active border border-default transition-colors"
         >
           <Plus className="w-3 h-3" />
           <span>Añadir etiqueta</span>
@@ -58,9 +58,9 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
 
       {/* Label Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-8 left-0 z-30 w-56 bg-[#0F1012] border border-[#26292F] rounded-xl p-2 shadow-2xl flex flex-col gap-1 animate-fade-in-scale">
+        <div className="absolute top-8 left-0 z-30 w-56 bg-surface border border-default rounded-xl p-2 shadow-2xl flex flex-col gap-1 animate-fade-in-scale">
           <div className="flex items-center justify-between px-2 py-1">
-            <span className="text-[10px] font-semibold text-[#5B616E] uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-tertiary uppercase tracking-wider">
               Etiquetas
             </span>
             <button
@@ -69,7 +69,7 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
                 setIsOpen(false);
                 setIsCreateModalOpen(true);
               }}
-              className="text-[10px] text-[#5E6AD2] hover:underline font-medium flex items-center gap-0.5"
+              className="text-[10px] text-accent hover:underline font-medium flex items-center gap-0.5"
             >
               <Plus className="w-2.5 h-2.5" /> Nueva
             </button>
@@ -84,14 +84,14 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
                   type="button"
                   onClick={() => toggleLabel(l.name)}
                   className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
-                    isChecked ? 'bg-[#5E6AD2]/15 text-[#F7F8F8]' : 'hover:bg-[#1E2024] text-[#8A8F98]'
+                    isChecked ? 'bg-accent/15 text-primary' : 'hover:bg-hover text-secondary'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: l.color }} />
                     <span>{l.name}</span>
                   </div>
-                  {isChecked && <Check className="w-3.5 h-3.5 text-[#5E6AD2]" />}
+                  {isChecked && <Check className="w-3.5 h-3.5 text-accent" />}
                 </button>
               );
             })}

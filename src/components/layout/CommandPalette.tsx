@@ -46,9 +46,9 @@ export const CommandPalette: React.FC = () => {
       onClick={() => setCmdKOpen(false)}
     >
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl">
-        <Command label="Command Menu" className="w-full bg-[#0F1012] border border-[#26292F] rounded-xl shadow-2xl overflow-hidden">
-          <div className="flex items-center px-4 border-b border-[#1C1E22]">
-            <Search className="w-4 h-4 text-[#5B616E] shrink-0 mr-2" />
+        <Command label="Command Menu" className="w-full bg-surface border border-default rounded-xl shadow-2xl overflow-hidden">
+          <div className="flex items-center px-4 border-b border-subtle">
+            <Search className="w-4 h-4 text-tertiary shrink-0 mr-2" />
             <Command.Input
               placeholder="Escribe un comando o busca un issue..."
               autoFocus
@@ -56,7 +56,7 @@ export const CommandPalette: React.FC = () => {
           </div>
 
           <Command.List className="max-h-96 overflow-y-auto p-2">
-            <Command.Empty className="p-4 text-center text-xs text-[#5B616E]">
+            <Command.Empty className="p-4 text-center text-xs text-tertiary">
               No se encontraron resultados.
             </Command.Empty>
 
@@ -68,9 +68,9 @@ export const CommandPalette: React.FC = () => {
                   setCreateIssueOpen(true);
                 }}
               >
-                <Plus className="w-4 h-4 text-[#5E6AD2]" />
+                <Plus className="w-4 h-4 text-accent" />
                 <span>Crear nuevo issue...</span>
-                <kbd className="ml-auto font-mono text-[10px] text-[#5B616E] bg-[#1E2024] px-1 rounded">
+                <kbd className="ml-auto font-mono text-[10px] text-tertiary bg-hover px-1 rounded">
                   C
                 </kbd>
               </Command.Item>
@@ -84,9 +84,9 @@ export const CommandPalette: React.FC = () => {
                   router.push('/inbox');
                 }}
               >
-                <Inbox className="w-4 h-4 text-[#8A8F98]" />
+                <Inbox className="w-4 h-4 text-secondary" />
                 <span>Ir a Inbox</span>
-                <kbd className="ml-auto font-mono text-[10px] text-[#5B616E]">
+                <kbd className="ml-auto font-mono text-[10px] text-tertiary">
                   G I
                 </kbd>
               </Command.Item>
@@ -97,9 +97,9 @@ export const CommandPalette: React.FC = () => {
                   router.push('/my-issues');
                 }}
               >
-                <UserCheck className="w-4 h-4 text-[#8A8F98]" />
+                <UserCheck className="w-4 h-4 text-secondary" />
                 <span>Ir a Mis Issues</span>
-                <kbd className="ml-auto font-mono text-[10px] text-[#5B616E]">
+                <kbd className="ml-auto font-mono text-[10px] text-tertiary">
                   G M
                 </kbd>
               </Command.Item>
@@ -110,9 +110,9 @@ export const CommandPalette: React.FC = () => {
                   router.push('/team/eng/issues');
                 }}
               >
-                <Layers className="w-4 h-4 text-[#8A8F98]" />
+                <Layers className="w-4 h-4 text-secondary" />
                 <span>Ir a Engineering Issues</span>
-                <kbd className="ml-auto font-mono text-[10px] text-[#5B616E]">
+                <kbd className="ml-auto font-mono text-[10px] text-tertiary">
                   G B
                 </kbd>
               </Command.Item>
@@ -123,9 +123,9 @@ export const CommandPalette: React.FC = () => {
                   router.push('/team/eng/projects');
                 }}
               >
-                <FolderKanban className="w-4 h-4 text-[#8A8F98]" />
+                <FolderKanban className="w-4 h-4 text-secondary" />
                 <span>Ir a Proyectos</span>
-                <kbd className="ml-auto font-mono text-[10px] text-[#5B616E]">
+                <kbd className="ml-auto font-mono text-[10px] text-tertiary">
                   G P
                 </kbd>
               </Command.Item>
@@ -141,11 +141,11 @@ export const CommandPalette: React.FC = () => {
                     setPeekIssueId(issue.id);
                   }}
                 >
-                  <span className="font-mono text-xs text-[#5B616E] shrink-0">
+                  <span className="font-mono text-xs text-tertiary shrink-0">
                     {issue.identifier}
                   </span>
                   <StatusBadge status={issue.status} />
-                  <span className="truncate text-xs font-normal text-[#F7F8F8]">
+                  <span className="truncate text-xs font-normal text-primary">
                     {issue.title}
                   </span>
                   <PriorityBadge priority={issue.priority} className="ml-auto shrink-0" />

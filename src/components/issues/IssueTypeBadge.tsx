@@ -17,11 +17,11 @@ interface IssueTypeBadgeProps {
  * como la misma señal.
  */
 const TYPE_STYLE: Record<IssueType, { icon: React.ElementType; color: string }> = {
-  epic: { icon: Zap, color: '#A78BFA' },
-  story: { icon: BookOpen, color: '#5E94E4' },
-  task: { icon: CircleDot, color: '#8A8F98' },
-  bug: { icon: Bug, color: '#F75555' },
-  subtask: { icon: GitBranch, color: '#5B616E' },
+  epic: { icon: Zap, color: 'var(--color-type-epic)' },
+  story: { icon: BookOpen, color: 'var(--color-priority-low)' },
+  task: { icon: CircleDot, color: 'var(--color-secondary)' },
+  bug: { icon: Bug, color: 'var(--color-priority-urgent)' },
+  subtask: { icon: GitBranch, color: 'var(--color-tertiary)' },
 };
 
 export const IssueTypeBadge: React.FC<IssueTypeBadgeProps> = ({

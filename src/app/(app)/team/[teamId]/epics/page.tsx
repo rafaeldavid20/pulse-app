@@ -38,8 +38,8 @@ export default function TeamEpicsPage() {
       <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-[#A78BFA]" />
-            <h2 className="text-base font-semibold text-[#F7F8F8]">Épicas</h2>
+            <Zap className="w-5 h-5 text-type-epic" />
+            <h2 className="text-base font-semibold text-primary">Épicas</h2>
           </div>
 
           <Button
@@ -59,13 +59,13 @@ export default function TeamEpicsPage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 bg-[#0F1012] border border-[#26292F] rounded-2xl text-center gap-4 my-8">
-            <div className="w-12 h-12 rounded-xl bg-[#A78BFA]/15 flex items-center justify-center text-[#A78BFA]">
+          <div className="flex flex-col items-center justify-center p-12 bg-surface border border-default rounded-2xl text-center gap-4 my-8">
+            <div className="w-12 h-12 rounded-xl bg-type-epic/15 flex items-center justify-center text-type-epic">
               <Zap className="w-6 h-6" />
             </div>
             <div className="flex flex-col gap-1 max-w-sm">
-              <h3 className="text-base font-bold text-[#F7F8F8]">Todavía no hay épicas</h3>
-              <p className="text-xs text-[#8A8F98]">
+              <h3 className="text-base font-bold text-primary">Todavía no hay épicas</h3>
+              <p className="text-xs text-secondary">
                 Una épica agrupa historias y tareas bajo un mismo objetivo. Es un issue como
                 cualquier otro: tiene identificador, estado y comentarios, pero además lleva el
                 progreso de todo lo que cuelga de ella.

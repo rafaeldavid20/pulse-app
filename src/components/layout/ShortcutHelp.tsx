@@ -57,17 +57,17 @@ export const ShortcutHelp: React.FC = () => {
       <div className="flex flex-col gap-5 text-sm">
         {shortcutGroups.map((group) => (
           <div key={group.title} className="flex flex-col gap-2">
-            <h4 className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+            <h4 className="text-xs font-semibold text-secondary uppercase tracking-wider">
               {group.title}
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {group.items.map((item) => (
                 <div
                   key={item.key}
-                  className="flex items-center justify-between p-2 bg-[#16171A] border border-[#26292F] rounded-md text-xs"
+                  className="flex items-center justify-between p-2 bg-elevated border border-default rounded-md text-xs"
                 >
-                  <span className="text-[#8A8F98]">{item.label}</span>
-                  <kbd className="font-mono text-xs text-[#F7F8F8] bg-[#1E2024] px-1.5 py-0.5 rounded border border-[#26292F] font-semibold">
+                  <span className="text-secondary">{item.label}</span>
+                  <kbd className="font-mono text-xs text-primary bg-hover px-1.5 py-0.5 rounded border border-default font-semibold">
                     {item.key}
                   </kbd>
                 </div>

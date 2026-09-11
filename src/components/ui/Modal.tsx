@@ -60,17 +60,17 @@ export const Modal: React.FC<ModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in-scale">
       <div
         className={cn(
-          'w-full bg-[#0F1012] border border-[#26292F] rounded-xl shadow-2xl overflow-hidden flex flex-col',
+          'w-full bg-surface border border-default rounded-xl shadow-2xl overflow-hidden flex flex-col',
           maxWidthClasses[maxWidth]
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#1C1E22]">
-            <div className="text-base font-semibold text-[#F7F8F8]">{title}</div>
+          <div className="flex items-center justify-between px-5 py-4 border-b border-subtle">
+            <div className="text-base font-semibold text-primary">{title}</div>
             <button
               onClick={onClose}
-              className="text-[#8A8F98] hover:text-[#F7F8F8] p-1 rounded-md hover:bg-[#1E2024] transition-colors"
+              className="text-secondary hover:text-primary p-1 rounded-md hover:bg-hover transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

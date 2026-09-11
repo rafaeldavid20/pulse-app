@@ -29,14 +29,14 @@ export const CreateMenuModal: React.FC<CreateMenuModalProps> = ({ onOpenProjectM
       title: 'Nuevo Issue',
       description: 'Crea un nuevo issue o tarea en tu equipo',
       icon: Layers,
-      color: 'text-[#5E6AD2] bg-[#5E6AD2]/15 border-[#5E6AD2]/30',
+      color: 'text-accent bg-accent/15 border-accent/30',
       action: () => setCreateIssueOpen(true),
     },
     {
       title: 'Nuevo Proyecto',
       description: 'Crea una iniciativa o proyecto con fecha objetivo',
       icon: FolderKanban,
-      color: 'text-[#F09436] bg-[#F09436]/15 border-[#F09436]/30',
+      color: 'text-priority-high bg-priority-high/15 border-priority-high/30',
       action: () => {
         if (onOpenProjectModal) onOpenProjectModal();
       },
@@ -45,14 +45,14 @@ export const CreateMenuModal: React.FC<CreateMenuModalProps> = ({ onOpenProjectM
       title: 'Nuevo Workspace',
       description: 'Crea una nueva organización o espacio de trabajo',
       icon: Building2,
-      color: 'text-[#10B981] bg-[#10B981]/15 border-[#10B981]/30',
+      color: 'text-success bg-success/15 border-success/30',
       action: () => setCreateWorkspaceOpen(true),
     },
     {
       title: 'Invitar Miembro',
       description: 'Invita a un colaborador a unirse a este workspace',
       icon: UserPlus,
-      color: 'text-[#EC4899] bg-[#EC4899]/15 border-[#EC4899]/30',
+      color: 'text-highlight bg-highlight/15 border-highlight/30',
       action: () => setInviteMemberOpen(true),
     },
   ];
@@ -71,16 +71,16 @@ export const CreateMenuModal: React.FC<CreateMenuModalProps> = ({ onOpenProjectM
             <button
               key={opt.title}
               onClick={() => handleSelect(opt.action)}
-              className="flex items-start gap-3 p-3.5 bg-[#16171A] hover:bg-[#1E2024] border border-[#26292F] hover:border-[#5E6AD2]/50 rounded-xl text-left transition-all group"
+              className="flex items-start gap-3 p-3.5 bg-elevated hover:bg-hover border border-default hover:border-accent/50 rounded-xl text-left transition-all group"
             >
               <div className={`p-2.5 rounded-lg border shrink-0 ${opt.color}`}>
                 <Icon className="w-5 h-5" />
               </div>
               <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-[#F7F8F8] group-hover:text-[#5E6AD2] transition-colors">
+                <span className="text-sm font-semibold text-primary group-hover:text-accent transition-colors">
                   {opt.title}
                 </span>
-                <span className="text-[11px] text-[#8A8F98] leading-tight">
+                <span className="text-[11px] text-secondary leading-tight">
                   {opt.description}
                 </span>
               </div>

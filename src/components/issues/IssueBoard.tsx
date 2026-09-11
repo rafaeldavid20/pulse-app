@@ -41,8 +41,8 @@ export const IssueBoard: React.FC = () => {
 
   if (issuesError) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-[#F75555]/40 bg-[#F75555]/5 rounded-lg my-6">
-        <p className="text-[#F75555] text-sm">{issuesError}</p>
+      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-priority-urgent/40 bg-priority-urgent/5 rounded-lg my-6">
+        <p className="text-priority-urgent text-sm">{issuesError}</p>
       </div>
     );
   }
@@ -53,9 +53,9 @@ export const IssueBoard: React.FC = () => {
         {COLUMNS.map((status) => (
           <div
             key={status}
-            className="w-[85vw] sm:w-72 shrink-0 flex flex-col bg-[#0F1012] border border-[#1C1E22] rounded-xl overflow-hidden"
+            className="w-[85vw] sm:w-72 shrink-0 flex flex-col bg-surface border border-subtle rounded-xl overflow-hidden"
           >
-            <div className="px-3.5 py-3 border-b border-[#1C1E22] bg-[#16171A]">
+            <div className="px-3.5 py-3 border-b border-subtle bg-elevated">
               <Skeleton className="h-4 w-24" />
             </div>
             <div className="p-2.5 flex flex-col gap-2">
@@ -135,27 +135,27 @@ export const IssueBoard: React.FC = () => {
             onDragLeave={(e) => handleDragLeave(e, dragKey)}
             onDrop={(e) => handleDrop(e, status)}
             className={cn(
-              'w-[85vw] sm:w-72 shrink-0 snap-center flex flex-col bg-[#0F1012] border rounded-xl overflow-hidden max-h-[calc(100vh-160px)] transition-all duration-150',
+              'w-[85vw] sm:w-72 shrink-0 snap-center flex flex-col bg-surface border rounded-xl overflow-hidden max-h-[calc(100vh-160px)] transition-all duration-150',
               isDragTarget
-                ? 'border-[#5E6AD2] bg-[#5E6AD2]/5 shadow-lg shadow-[#5E6AD2]/10 scale-[1.01]'
-                : 'border-[#1C1E22]'
+                ? 'border-accent bg-accent/5 shadow-lg shadow-accent/10 scale-[1.01]'
+                : 'border-subtle'
             )}
           >
             {/* Column Header */}
-            <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1C1E22] bg-[#16171A]">
+            <div className="flex items-center justify-between px-3.5 py-3 border-b border-subtle bg-elevated">
               <div className="flex items-center gap-2">
                 <StatusBadge status={status} />
-                <span className="font-semibold text-xs text-[#F7F8F8]">
+                <span className="font-semibold text-xs text-primary">
                   {getStatusLabel(status)}
                 </span>
-                <span className="text-xs text-[#5B616E] font-mono">
+                <span className="text-xs text-tertiary font-mono">
                   {columnIssues.length}
                 </span>
               </div>
 
               <button
                 onClick={() => setCreateIssueOpen(true)}
-                className="text-[#8A8F98] hover:text-[#F7F8F8] p-1 rounded hover:bg-[#1E2024] transition-colors"
+                className="text-secondary hover:text-primary p-1 rounded hover:bg-hover transition-colors"
                 title="Añadir issue"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -169,8 +169,8 @@ export const IssueBoard: React.FC = () => {
                   className={cn(
                     'p-6 text-center text-xs border border-dashed rounded-lg transition-colors flex flex-col items-center justify-center gap-1 select-none',
                     isDragTarget
-                      ? 'border-[#5E6AD2] text-[#5E6AD2] bg-[#5E6AD2]/10 font-medium'
-                      : 'border-[#1C1E22] text-[#5B616E]'
+                      ? 'border-accent text-accent bg-accent/10 font-medium'
+                      : 'border-subtle text-tertiary'
                   )}
                 >
                   {isDragTarget ? 'Soltar aquí' : 'Arrastra un issue aquí'}
@@ -191,14 +191,14 @@ export const IssueBoard: React.FC = () => {
                         setPeekIssueId(issue.id);
                       }}
                       className={cn(
-                        'group flex flex-col gap-2 p-3.5 sm:p-3 bg-[#16171A] hover:bg-[#1E2024] border border-[#26292F] hover:border-[#32363F] rounded-lg cursor-grab active:cursor-grabbing transition-all shadow-sm select-none',
-                        isBeingDragged && 'opacity-30 border-dashed border-[#5E6AD2]'
+                        'group flex flex-col gap-2 p-3.5 sm:p-3 bg-elevated hover:bg-hover border border-default hover:border-strong rounded-lg cursor-grab active:cursor-grabbing transition-all shadow-sm select-none',
+                        isBeingDragged && 'opacity-30 border-dashed border-accent'
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <GripVertical className="w-3 h-3 text-[#5B616E] opacity-60 group-hover:opacity-100 transition-opacity shrink-0" />
-                          <span className="font-mono text-[11px] text-[#5B616E] font-medium truncate">
+                          <GripVertical className="w-3 h-3 text-tertiary opacity-60 group-hover:opacity-100 transition-opacity shrink-0" />
+                          <span className="font-mono text-[11px] text-tertiary font-medium truncate">
                             {issue.identifier}
                           </span>
                           <IssueTypeBadge type={issue.type} />
@@ -217,7 +217,7 @@ export const IssueBoard: React.FC = () => {
                               e.stopPropagation();
                               deleteIssue(issue.id);
                             }}
-                            className="p-1 text-[#5B616E] hover:text-[#F75555] opacity-100 sm:opacity-0 group-hover:opacity-100 hover:bg-[#F75555]/10 rounded transition-all"
+                            className="p-1 text-tertiary hover:text-priority-urgent opacity-100 sm:opacity-0 group-hover:opacity-100 hover:bg-priority-urgent/10 rounded transition-all"
                             title="Eliminar issue"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -225,14 +225,14 @@ export const IssueBoard: React.FC = () => {
                         </div>
                       </div>
 
-                      <p className="text-xs text-[#F7F8F8] font-medium line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-primary font-medium line-clamp-2 leading-relaxed">
                         {issue.title}
                       </p>
 
-                      <div className="flex items-center justify-between pt-1 border-t border-[#1C1E22] mt-1">
+                      <div className="flex items-center justify-between pt-1 border-t border-subtle mt-1">
                         <div className="flex items-center gap-1">
                           {issue.labelIds && issue.labelIds[0] && (
-                            <span className="text-[10px] text-[#8A8F98] bg-[#1E2024] px-1.5 py-0.5 rounded border border-[#26292F]">
+                            <span className="text-[10px] text-secondary bg-hover px-1.5 py-0.5 rounded border border-default">
                               {issue.labelIds[0]}
                             </span>
                           )}
@@ -281,8 +281,8 @@ export const IssueBoard: React.FC = () => {
 
   if (lanes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-[#26292F] rounded-lg my-6">
-        <p className="text-[#8A8F98] text-sm">No hay issues para agrupar por épica</p>
+      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
+        <p className="text-secondary text-sm">No hay issues para agrupar por épica</p>
       </div>
     );
   }
@@ -300,21 +300,21 @@ export const IssueBoard: React.FC = () => {
           <section key={lane.id} className="flex flex-col">
             <button
               onClick={() => toggleLane(lane.id)}
-              className="flex items-center gap-2.5 px-2 py-2.5 text-left hover:bg-[#16171A] rounded-lg transition-colors group"
+              className="flex items-center gap-2.5 px-2 py-2.5 text-left hover:bg-elevated rounded-lg transition-colors group"
             >
               <ChevronDown
                 className={cn(
-                  'w-4 h-4 text-[#5B616E] transition-transform shrink-0',
+                  'w-4 h-4 text-tertiary transition-transform shrink-0',
                   collapsed && '-rotate-90'
                 )}
               />
               {lane.epic ? (
                 <>
                   <IssueTypeBadge type="epic" />
-                  <span className="font-mono text-[11px] text-[#5B616E] shrink-0">
+                  <span className="font-mono text-[11px] text-tertiary shrink-0">
                     {lane.epic.identifier}
                   </span>
-                  <span className="text-sm font-semibold text-[#F7F8F8] truncate">
+                  <span className="text-sm font-semibold text-primary truncate">
                     {lane.epic.title}
                   </span>
                   <EpicProgress
@@ -324,9 +324,9 @@ export const IssueBoard: React.FC = () => {
                   />
                 </>
               ) : (
-                <span className="text-sm font-semibold text-[#8A8F98]">Sin épica</span>
+                <span className="text-sm font-semibold text-secondary">Sin épica</span>
               )}
-              <span className="ml-auto font-mono text-[11px] text-[#5B616E] tabular-nums shrink-0">
+              <span className="ml-auto font-mono text-[11px] text-tertiary tabular-nums shrink-0">
                 {lane.issues.length}
               </span>
             </button>

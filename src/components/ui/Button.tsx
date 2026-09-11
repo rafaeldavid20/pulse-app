@@ -24,13 +24,13 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantClasses = {
     primary:
-      'bg-[#5E6AD2] hover:bg-[#707CE6] text-white font-medium shadow-sm active:scale-[0.98]',
+      'bg-accent hover:bg-accent-hover text-white font-medium shadow-sm active:scale-[0.98]',
     secondary:
-      'bg-[#1E2024] hover:bg-[#26292E] text-[#F7F8F8] border border-[#26292F] font-medium active:scale-[0.98]',
+      'bg-hover hover:bg-active text-primary border border-default font-medium active:scale-[0.98]',
     ghost:
-      'bg-transparent hover:bg-[#1E2024] text-[#8A8F98] hover:text-[#F7F8F8]',
+      'bg-transparent hover:bg-hover text-secondary hover:text-primary',
     danger:
-      'bg-[#F75555]/15 hover:bg-[#F75555]/25 text-[#F75555] border border-[#F75555]/30 font-medium',
+      'bg-priority-urgent/15 hover:bg-priority-urgent/25 text-priority-urgent border border-priority-urgent/30 font-medium',
   };
 
   return (

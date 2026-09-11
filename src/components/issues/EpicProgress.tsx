@@ -18,7 +18,7 @@ export const EpicProgress: React.FC<EpicProgressProps> = ({
 
   if (total === 0) {
     return (
-      <span className={cn('text-xs text-[#5B616E]', className)}>Sin sub-issues</span>
+      <span className={cn('text-xs text-tertiary', className)}>Sin sub-issues</span>
     );
   }
 
@@ -28,13 +28,13 @@ export const EpicProgress: React.FC<EpicProgressProps> = ({
         className={cn('inline-flex items-center gap-1.5 shrink-0', className)}
         title={`${closed} de ${total} cerrados`}
       >
-        <span className="relative w-8 h-1 rounded-full bg-[#26292F] overflow-hidden">
+        <span className="relative w-8 h-1 rounded-full bg-default overflow-hidden">
           <span
-            className="absolute inset-y-0 left-0 bg-[#A78BFA] rounded-full transition-all"
+            className="absolute inset-y-0 left-0 bg-type-epic rounded-full transition-all"
             style={{ width: `${percent}%` }}
           />
         </span>
-        <span className="font-mono text-[10px] text-[#5B616E] tabular-nums">
+        <span className="font-mono text-[10px] text-tertiary tabular-nums">
           {closed}/{total}
         </span>
       </span>
@@ -44,14 +44,14 @@ export const EpicProgress: React.FC<EpicProgressProps> = ({
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-[#8A8F98]">Progreso</span>
-        <span className="font-mono text-[#F7F8F8] tabular-nums">
+        <span className="text-secondary">Progreso</span>
+        <span className="font-mono text-primary tabular-nums">
           {closed}/{total} · {percent}%
         </span>
       </div>
-      <div className="h-1.5 rounded-full bg-[#26292F] overflow-hidden">
+      <div className="h-1.5 rounded-full bg-default overflow-hidden">
         <div
-          className="h-full bg-[#A78BFA] rounded-full transition-all duration-300"
+          className="h-full bg-type-epic rounded-full transition-all duration-300"
           style={{ width: `${percent}%` }}
         />
       </div>

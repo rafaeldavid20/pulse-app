@@ -1,34 +1,52 @@
 @import "tailwindcss";
 
-:root {
-  --bg-base: #08090A;
-  --bg-surface: #0F1012;
-  --bg-elevated: #16171A;
-  --bg-hover: #1E2024;
-  --bg-active: #26292E;
-  
-  --border-subtle: #1C1E22;
-  --border-default: #26292F;
-  --border-focus: #5E6AD2;
+/*
+ * Tokens de diseño. Cada --color-* genera automáticamente las utilidades
+ * bg-*, text-*, border-*, ring-*, accent-*, etc. (Tailwind v4 @theme).
+ * Un solo lugar para cambiar un color en vez de un find-and-replace de hexes.
+ */
+@theme {
+  --color-base: #08090A;
+  --color-surface: #0F1012;
+  --color-elevated: #16171A;
+  --color-hover: #1E2024;
+  --color-active: #26292E;
 
-  --text-primary: #F7F8F8;
-  --text-secondary: #8A8F98;
-  --text-tertiary: #5B616E;
-  --text-muted: #424651;
+  --color-subtle: #1C1E22;
+  --color-default: #26292F;
+  --color-strong: #32363F;
 
-  --accent: #5E6AD2;
-  --accent-hover: #707CE6;
-  --accent-subtle: rgba(94, 106, 210, 0.15);
+  --color-primary: #F7F8F8;
+  --color-secondary: #8A8F98;
+  --color-tertiary: #5B616E;
+  --color-muted: #424651;
 
-  --priority-urgent: #F75555;
-  --priority-high: #F09436;
-  --priority-medium: #F7C948;
-  --priority-low: #5E94E4;
+  --color-accent: #5E6AD2;
+  --color-accent-hover: #707CE6;
+  --color-accent-subtle: rgba(94, 106, 210, 0.15);
+
+  --color-priority-urgent: #F75555;
+  --color-priority-high: #F09436;
+  --color-priority-medium: #F7C948;
+  --color-priority-low: #5E94E4;
+
+  /* Estado de issues/proyectos, fuera de la escala de prioridad. */
+  --color-status-backlog: #5C5C66;
+  --color-status-done: #4ADE80;
+  --color-status-canceled: #6B7280;
+
+  /* Acento por tipo de issue (distinto de prioridad/estado a propósito). */
+  --color-type-epic: #A78BFA;
+
+  /* Acento decorativo secundario (menú de creación rápida, etc). */
+  --color-highlight: #EC4899;
+
+  --color-success: #10B981;
 }
 
 body {
-  background-color: var(--bg-base);
-  color: var(--text-primary);
+  background-color: var(--color-base);
+  color: var(--color-primary);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -56,12 +74,12 @@ body {
   background: rgba(15, 16, 18, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-default);
 }
 
 /* Focus styles for keyboard accessibility */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }
 
@@ -100,9 +118,9 @@ body {
 [cmdk-root] {
   max-width: 640px;
   width: 100%;
-  background: #0F1012;
+  background: var(--color-surface);
   border-radius: 12px;
-  border: 1px solid #26292F;
+  border: 1px solid var(--color-default);
   box-shadow: 0 16px 70px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
@@ -112,10 +130,10 @@ body {
   background: transparent;
   padding: 16px;
   font-size: 15px;
-  color: #F7F8F8;
+  color: var(--color-primary);
   border: none;
   outline: none;
-  border-bottom: 1px solid #1C1E22;
+  border-bottom: 1px solid var(--color-subtle);
 }
 
 [cmdk-item] {
@@ -128,15 +146,15 @@ body {
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  color: #8A8F98;
+  color: var(--color-secondary);
   user-select: none;
   will-change: background, color;
   transition: all 100ms ease;
 }
 
 [cmdk-item][data-selected='true'] {
-  background: #1E2024;
-  color: #F7F8F8;
+  background: var(--color-hover);
+  color: var(--color-primary);
 }
 
 [cmdk-group-heading] {
@@ -145,6 +163,6 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #5B616E;
+  color: var(--color-tertiary);
   padding: 8px 12px 4px;
 }

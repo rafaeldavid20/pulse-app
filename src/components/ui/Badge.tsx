@@ -21,10 +21,10 @@ export const Badge: React.FC<BadgeProps> = ({
       onClick={onClick}
       className={cn(
         'inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium transition-colors shrink-0',
-        variant === 'default' && 'bg-[#1E2024] text-[#8A8F98] border border-[#26292F]',
-        variant === 'subtle' && 'bg-[#16171A] text-[#8A8F98]',
-        variant === 'outline' && 'border border-[#26292F] text-[#8A8F98]',
-        variant === 'accent' && 'bg-[#5E6AD2]/15 text-[#707CE6] border border-[#5E6AD2]/30',
+        variant === 'default' && 'bg-hover text-secondary border border-default',
+        variant === 'subtle' && 'bg-elevated text-secondary',
+        variant === 'outline' && 'border border-default text-secondary',
+        variant === 'accent' && 'bg-accent/15 text-accent-hover border border-accent/30',
         className
       )}
       style={color ? { backgroundColor: `${color}20`, color, borderColor: `${color}40` } : undefined}

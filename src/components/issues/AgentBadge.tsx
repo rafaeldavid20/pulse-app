@@ -9,25 +9,25 @@ interface AgentBadgeProps {
 }
 
 const STATE_CONFIG: Record<AgentIssueState, { label: string; color: string; icon: React.ReactNode }> = {
-  idle: { label: 'Inactivo', color: 'text-[#5B616E] bg-[#1E2024]', icon: <CircleDot className="w-3 h-3" /> },
+  idle: { label: 'Inactivo', color: 'text-tertiary bg-hover', icon: <CircleDot className="w-3 h-3" /> },
   claimed: {
     label: 'Reclamado',
-    color: 'text-[#8A8F98] bg-[#1E2024]',
+    color: 'text-secondary bg-hover',
     icon: <CircleDot className="w-3 h-3" />,
   },
   working: {
     label: 'Trabajando',
-    color: 'text-[#F09436] bg-[#F09436]/10',
+    color: 'text-priority-high bg-priority-high/10',
     icon: <Loader2 className="w-3 h-3 animate-spin" />,
   },
   pr_open: {
     label: 'PR abierto',
-    color: 'text-[#5E94E4] bg-[#5E94E4]/10',
+    color: 'text-priority-low bg-priority-low/10',
     icon: <GitPullRequest className="w-3 h-3" />,
   },
   blocked: {
     label: 'Bloqueado',
-    color: 'text-[#F75555] bg-[#F75555]/10',
+    color: 'text-priority-urgent bg-priority-urgent/10',
     icon: <AlertTriangle className="w-3 h-3" />,
   },
 };

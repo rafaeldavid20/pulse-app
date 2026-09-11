@@ -26,8 +26,8 @@ export default function TeamProjectsPage() {
         {/* Top Header Action Bar */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FolderKanban className="w-5 h-5 text-[#5E6AD2]" />
-            <h2 className="text-base font-semibold text-[#F7F8F8]">
+            <FolderKanban className="w-5 h-5 text-accent" />
+            <h2 className="text-base font-semibold text-primary">
               Iniciativas y Proyectos
             </h2>
           </div>
@@ -50,13 +50,13 @@ export default function TeamProjectsPage() {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center p-12 bg-[#0F1012] border border-[#26292F] rounded-2xl text-center gap-4 my-8">
-            <div className="w-12 h-12 rounded-xl bg-[#5E6AD2]/15 flex items-center justify-center text-[#5E6AD2]">
+          <div className="flex flex-col items-center justify-center p-12 bg-surface border border-default rounded-2xl text-center gap-4 my-8">
+            <div className="w-12 h-12 rounded-xl bg-accent/15 flex items-center justify-center text-accent">
               <FolderKanban className="w-6 h-6" />
             </div>
             <div className="flex flex-col gap-1 max-w-sm">
-              <h3 className="text-base font-bold text-[#F7F8F8]">No hay proyectos creados aún</h3>
-              <p className="text-xs text-[#8A8F98]">
+              <h3 className="text-base font-bold text-primary">No hay proyectos creados aún</h3>
+              <p className="text-xs text-secondary">
                 Crea tu primer proyecto para agrupar tus issues, hacer seguimiento a la fecha objetivo y medir el porcentaje de avance.
               </p>
             </div>

@@ -33,20 +33,20 @@ export const EpicCard: React.FC<EpicCardProps> = ({ epic, issues }) => {
   })).filter((s) => s.count > 0);
 
   return (
-    <div className="flex flex-col gap-4 p-5 bg-[#0F1012] border border-[#26292F] rounded-2xl hover:border-[#A78BFA]/40 transition-colors">
+    <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-2xl hover:border-type-epic/40 transition-colors">
       <div className="flex items-start justify-between gap-3">
         <button
           onClick={() => setPeekIssueId(epic.id)}
           className="flex items-start gap-3 min-w-0 text-left group"
         >
-          <div className="w-9 h-9 rounded-xl bg-[#A78BFA]/15 flex items-center justify-center text-[#A78BFA] shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-type-epic/15 flex items-center justify-center text-type-epic shrink-0">
             <Zap className="w-4.5 h-4.5" />
           </div>
           <div className="flex flex-col gap-0.5 min-w-0">
-            <span className="font-mono text-[10px] text-[#5B616E] font-medium">
+            <span className="font-mono text-[10px] text-tertiary font-medium">
               {epic.identifier}
             </span>
-            <h3 className="text-sm font-semibold text-[#F7F8F8] truncate group-hover:text-[#A78BFA] transition-colors">
+            <h3 className="text-sm font-semibold text-primary truncate group-hover:text-type-epic transition-colors">
               {epic.title}
             </h3>
           </div>
@@ -59,13 +59,13 @@ export const EpicCard: React.FC<EpicCardProps> = ({ epic, issues }) => {
       </div>
 
       {epic.description && (
-        <p className="text-xs text-[#8A8F98] line-clamp-2">{epic.description}</p>
+        <p className="text-xs text-secondary line-clamp-2">{epic.description}</p>
       )}
 
       <EpicProgress progress={progress} />
 
       {byStatus.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[#5B616E]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-tertiary">
           {byStatus.map((s) => (
             <span key={s.value} className="font-mono tabular-nums">
               {s.count} {s.label.toLowerCase()}
@@ -74,19 +74,19 @@ export const EpicCard: React.FC<EpicCardProps> = ({ epic, issues }) => {
         </div>
       )}
 
-      <div className="flex items-center justify-between pt-1 border-t border-[#1C1E22]">
+      <div className="flex items-center justify-between pt-1 border-t border-subtle">
         {lead ? (
           <div className="flex items-center gap-2">
             <Avatar name={lead.displayName} src={lead.photoURL} size="sm" />
-            <span className="text-xs text-[#8A8F98] truncate">{lead.displayName}</span>
+            <span className="text-xs text-secondary truncate">{lead.displayName}</span>
           </div>
         ) : (
-          <span className="text-xs text-[#5B616E]">Sin responsable</span>
+          <span className="text-xs text-tertiary">Sin responsable</span>
         )}
 
         <button
           onClick={() => setFilterState({ epicId: epic.id })}
-          className="flex items-center gap-1 text-xs text-[#8A8F98] hover:text-[#A78BFA] transition-colors"
+          className="flex items-center gap-1 text-xs text-secondary hover:text-type-epic transition-colors"
         >
           Ver issues
           <ChevronRight className="w-3.5 h-3.5" />
