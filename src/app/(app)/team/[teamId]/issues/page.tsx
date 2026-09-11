@@ -8,7 +8,7 @@ import { useIssues } from '@/hooks/useIssues';
 import { useAppStore } from '@/stores/appStore';
 
 export default function TeamIssuesPage() {
-  const { issues, totalCount } = useIssues();
+  const { teamIssues, totalCount } = useIssues();
   const activeView = useAppStore((s) => s.activeView);
   const activeTeam = useAppStore((s) => s.activeTeam);
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
@@ -21,11 +21,12 @@ export default function TeamIssuesPage() {
         title={`${teamName} Issues`}
         subtitle={`${totalCount} issues en total`}
         showViewToggle
+        showFilterBar
       />
 
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
         {activeView === 'list' ? (
-          <IssueList issues={issues} />
+          <IssueList issues={teamIssues} />
         ) : (
           <IssueBoard />
         )}

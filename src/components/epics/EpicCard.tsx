@@ -85,7 +85,7 @@ export const EpicCard: React.FC<EpicCardProps> = ({ epic, issues }) => {
         )}
 
         <button
-          onClick={() => setFilterState({ epicId: epic.id })}
+          onClick={() => setFilterState({ epicIds: [epic.id] })}
           className="flex items-center gap-1 text-xs text-secondary hover:text-type-epic transition-colors"
         >
           Ver issues

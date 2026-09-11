@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Workspace, Team, Member, FilterState } from '@/types';
+import { Workspace, Team, Member, FilterState, IssueGroupBy, IssueSortBy } from '@/types';
 
 interface AppState {
   userWorkspaces: Workspace[];
@@ -20,7 +20,10 @@ interface AppState {
   /** Cómo se agrupa el board: columnas por estado, o swimlanes por épica. */
   boardGroupBy: 'status' | 'epic';
   filterState: FilterState;
-  
+  /** Agrupación de la vista lista (barra de filtros). Independiente de `boardGroupBy`. */
+  groupBy: IssueGroupBy;
+  sortBy: IssueSortBy;
+
   setUserWorkspaces: (workspaces: Workspace[]) => void;
   setActiveWorkspace: (workspace: Workspace | null) => void;
   setTeams: (teams: Team[]) => void;
@@ -38,6 +41,12 @@ interface AppState {
   setBoardGroupBy: (groupBy: 'status' | 'epic') => void;
   setFilterState: (filters: Partial<FilterState>) => void;
   resetFilters: () => void;
+  setGroupBy: (groupBy: IssueGroupBy) => void;
+  setSortBy: (sortBy: IssueSortBy) => void;
+  /** Reemplaza filtros + agrupación + orden de una sola vez (restaurar desde localStorage). */
+  setViewState: (view: { filters: FilterState; groupBy: IssueGroupBy; sortBy: IssueSortBy }) => void;
+  /** A diferencia de `resetFilters`, también vuelve agrupación y orden a su default. */
+  resetView: () => void;
 }
 
 const initialFilters: FilterState = {
@@ -45,8 +54,14 @@ const initialFilters: FilterState = {
   status: [],
   priority: [],
   type: [],
+  assigneeIds: [],
+  projectIds: [],
+  epicIds: [],
   labelIds: [],
 };
+
+const initialGroupBy: IssueGroupBy = 'none';
+const initialSortBy: IssueSortBy = 'manual';
 
 export const useAppStore = create<AppState>((set) => ({
   userWorkspaces: [],
@@ -65,6 +80,8 @@ export const useAppStore = create<AppState>((set) => ({
   activeView: 'list',
   boardGroupBy: 'status',
   filterState: initialFilters,
+  groupBy: initialGroupBy,
+  sortBy: initialSortBy,
 
   setUserWorkspaces: (userWorkspaces) =>
     set((state) => {
@@ -99,4 +116,9 @@ export const useAppStore = create<AppState>((set) => ({
   setFilterState: (filters) =>
     set((state) => ({ filterState: { ...state.filterState, ...filters } })),
   resetFilters: () => set({ filterState: initialFilters }),
+  setGroupBy: (groupBy) => set({ groupBy }),
+  setSortBy: (sortBy) => set({ sortBy }),
+  setViewState: ({ filters, groupBy, sortBy }) =>
+    set({ filterState: filters, groupBy, sortBy }),
+  resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy }),
 }));
