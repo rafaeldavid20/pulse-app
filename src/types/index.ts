@@ -16,8 +16,14 @@ export interface FilterState {
   status: IssueStatus[];
   priority: IssuePriority[];
   type: IssueType[];
-  assigneeId?: string;
-  projectId?: string;
-  epicId?: string;
+  assigneeIds: string[];
+  projectIds: string[];
+  epicIds: string[];
   labelIds: string[];
 }
+
+/** Cómo se agrupan las filas de la lista de issues bajo la barra de filtros. */
+export type IssueGroupBy = 'none' | 'status' | 'assignee' | 'priority' | 'project' | 'epic';
+
+/** Criterio de orden de las filas, dentro de cada grupo si hay uno activo. */
+export type IssueSortBy = 'manual' | 'priority' | 'updated' | 'created' | 'estimate';

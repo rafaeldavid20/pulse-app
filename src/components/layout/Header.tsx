@@ -3,18 +3,23 @@
 import React from 'react';
 import { LayoutList, LayoutGrid, Plus, Search, Rows3, Zap } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
+import { useViewPersistence } from '@/hooks/useViewPersistence';
 import { Button } from '@/components/ui/Button';
+import { FilterBar } from './FilterBar';
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
   showViewToggle?: boolean;
+  /** Fila de filtros (status/priority/assignee/label/project/epic + agrupar/ordenar) bajo el header. */
+  showFilterBar?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   title,
   subtitle,
   showViewToggle = true,
+  showFilterBar = false,
 }) => {
   const activeView = useAppStore((s) => s.activeView);
   const setActiveView = useAppStore((s) => s.setActiveView);
@@ -24,7 +29,10 @@ export const Header: React.FC<HeaderProps> = ({
   const filterState = useAppStore((s) => s.filterState);
   const setFilterState = useAppStore((s) => s.setFilterState);
 
+  useViewPersistence(showFilterBar);
+
   return (
+    <>
     <header className="h-14 border-b border-subtle bg-base px-4 sm:px-6 flex items-center justify-between shrink-0 select-none">
       {/* Left: Title & Subtitle */}
       <div className="flex items-center gap-3 min-w-0">
@@ -124,5 +132,8 @@ export const Header: React.FC<HeaderProps> = ({
         </Button>
       </div>
     </header>
+
+    {showFilterBar && <FilterBar />}
+    </>
   );
 };

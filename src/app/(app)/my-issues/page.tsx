@@ -20,6 +20,7 @@ export default function MyIssuesPage() {
         title="Mis Issues"
         subtitle={`${myIssues.length} asignados a ti`}
         showViewToggle={false}
+        showFilterBar
       />
 
       <div className="flex-1 p-6 overflow-y-auto">
