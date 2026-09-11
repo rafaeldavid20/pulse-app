@@ -11,6 +11,7 @@ import { EpicProgress } from './EpicProgress';
 import { progressOf } from '@/lib/hierarchy';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { useLabelStore } from '@/stores/labelStore';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
@@ -36,6 +37,11 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   // filtrados: una épica no debería mostrar 2/2 solo porque el filtro activo
   // esconde la mitad de sus hijos.
   const allIssues = useIssueStore((s) => s.issues);
+  // Los issues guardan ids de etiqueta; mostrar el id crudo ("lbl-XXXX") no le
+  // dice nada a nadie. Los ids viejos que no son etiquetas ("feature") se
+  // muestran tal cual.
+  const labels = useLabelStore((s) => s.labels);
+  const labelsById = Object.fromEntries(labels.map((l) => [l.id, l]));
 
   const handleBulkDelete = () => {
     selectedIssueIds.forEach((id) => deleteIssue(id));
@@ -178,8 +184,8 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
               {issue.labelIds && issue.labelIds.length > 0 && (
                 <div className="hidden md:flex items-center gap-1">
                   {issue.labelIds.map((labelId) => (
-                    <Badge key={labelId} variant="subtle" className="text-[11px] px-1.5 py-0">
-                      {labelId}
+                    <Badge key={labelId} variant="subtle" className="text-[11px] px-1.5 py-0" color={labelsById[labelId]?.color}>
+                      {labelsById[labelId]?.name ?? labelId}
                     </Badge>
                   ))}
                 </div>

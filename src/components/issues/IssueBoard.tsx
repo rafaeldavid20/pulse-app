@@ -1,5 +1,6 @@
 'use client';
 
+import { useLabelStore } from '@/stores/labelStore';
 import React, { useState } from 'react';
 import { Issue, IssueStatus } from '@/types';
 import { useIssues } from '@/hooks/useIssues';
@@ -29,6 +30,12 @@ export const IssueBoard: React.FC = () => {
   // Sin filtrar, igual que en IssueList: el progreso describe el árbol real,
   // no el subconjunto que el filtro activo deja ver.
   const allIssues = useIssueStore((s) => s.issues);
+  const labels = useLabelStore((s) => s.labels);
+  const labelsById = Object.fromEntries(labels.map((l) => [l.id, l]));
+  // La card muestra una sola etiqueta: si el issue está marcado "ambigua", es
+  // esa, porque es la que le pide una acción a quien mira el tablero.
+  const boardLabel = (iss: Issue) =>
+    iss.labelIds?.find((id) => labelsById[id]?.name === 'ambigua') ?? iss.labelIds?.[0];
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
 
@@ -231,9 +238,9 @@ export const IssueBoard: React.FC = () => {
 
                       <div className="flex items-center justify-between pt-1 border-t border-subtle mt-1">
                         <div className="flex items-center gap-1">
-                          {issue.labelIds && issue.labelIds[0] && (
-                            <span className="text-[10px] text-secondary bg-hover px-1.5 py-0.5 rounded border border-default">
-                              {issue.labelIds[0]}
+                          {boardLabel(issue) && (
+                            <span className="text-[10px] text-secondary bg-hover px-1.5 py-0.5 rounded border border-default" style={labelsById[boardLabel(issue)!]?.color ? { color: labelsById[boardLabel(issue)!]!.color, borderColor: labelsById[boardLabel(issue)!]!.color } : undefined}>
+                              {labelsById[boardLabel(issue)!]?.name ?? boardLabel(issue)}
                             </span>
                           )}
                         </div>
