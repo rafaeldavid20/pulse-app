@@ -17,13 +17,13 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
     switch (priority) {
       case 1: // Urgent
         return (
-          <span className="w-4 h-4 bg-[#F75555]/20 border border-[#F75555] rounded flex items-center justify-center text-[#F75555] text-[10px] font-bold">
+          <span className="w-4 h-4 bg-priority-urgent/20 border border-priority-urgent rounded flex items-center justify-center text-priority-urgent text-[10px] font-bold">
             !
           </span>
         );
       case 2: // High
         return (
-          <svg className="w-3.5 h-3.5 text-[#F09436]" viewBox="0 0 16 16" fill="currentColor">
+          <svg className="w-3.5 h-3.5 text-priority-high" viewBox="0 0 16 16" fill="currentColor">
             <rect x="2" y="10" width="3" height="4" rx="0.5" />
             <rect x="6.5" y="7" width="3" height="7" rx="0.5" />
             <rect x="11" y="4" width="3" height="10" rx="0.5" />
@@ -31,7 +31,7 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
         );
       case 3: // Medium
         return (
-          <svg className="w-3.5 h-3.5 text-[#F7C948]" viewBox="0 0 16 16" fill="currentColor">
+          <svg className="w-3.5 h-3.5 text-priority-medium" viewBox="0 0 16 16" fill="currentColor">
             <rect x="2" y="10" width="3" height="4" rx="0.5" />
             <rect x="6.5" y="7" width="3" height="7" rx="0.5" />
             <rect x="11" y="4" width="3" height="10" rx="0.5" opacity="0.2" />
@@ -39,7 +39,7 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
         );
       case 4: // Low
         return (
-          <svg className="w-3.5 h-3.5 text-[#5E94E4]" viewBox="0 0 16 16" fill="currentColor">
+          <svg className="w-3.5 h-3.5 text-priority-low" viewBox="0 0 16 16" fill="currentColor">
             <rect x="2" y="10" width="3" height="4" rx="0.5" />
             <rect x="6.5" y="7" width="3" height="7" rx="0.5" opacity="0.2" />
             <rect x="11" y="4" width="3" height="10" rx="0.5" opacity="0.2" />
@@ -47,7 +47,7 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
         );
       default: // None
         return (
-          <svg className="w-3.5 h-3.5 text-[#424651]" viewBox="0 0 16 16" fill="currentColor">
+          <svg className="w-3.5 h-3.5 text-muted" viewBox="0 0 16 16" fill="currentColor">
             <rect x="2" y="10" width="3" height="4" rx="0.5" opacity="0.3" />
             <rect x="6.5" y="7" width="3" height="7" rx="0.5" opacity="0.3" />
             <rect x="11" y="4" width="3" height="10" rx="0.5" opacity="0.3" />
@@ -62,7 +62,7 @@ export const PriorityBadge: React.FC<PriorityBadgeProps> = ({
       title={`Prioridad: ${getPriorityLabel(priority)}`}
     >
       {renderIcon()}
-      {showLabel && <span className="text-[#8A8F98]">{getPriorityLabel(priority)}</span>}
+      {showLabel && <span className="text-secondary">{getPriorityLabel(priority)}</span>}
     </span>
   );
 };

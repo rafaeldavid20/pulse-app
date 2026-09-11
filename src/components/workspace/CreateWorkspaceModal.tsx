@@ -49,7 +49,7 @@ export const CreateWorkspaceModal: React.FC<CreateWorkspaceModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Crear nuevo workspace" maxWidth="md">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Nombre del Workspace</label>
+          <label className="text-xs font-semibold text-secondary">Nombre del Workspace</label>
           <Input
             placeholder="e.g. Acme Corp, Mi Empresa, Startup"
             value={name}
@@ -59,7 +59,7 @@ export const CreateWorkspaceModal: React.FC<CreateWorkspaceModalProps> = ({
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-[#1C1E22] mt-2">
+        <div className="flex justify-end gap-2 pt-2 border-t border-subtle mt-2">
           <Button variant="ghost" size="sm" type="button" onClick={onClose}>
             Cancelar
           </Button>

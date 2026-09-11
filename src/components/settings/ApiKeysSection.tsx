@@ -34,10 +34,10 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="shrink-0 p-1.5 rounded-md text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-[#1E2024] transition-colors"
+      className="shrink-0 p-1.5 rounded-md text-secondary hover:text-primary hover:bg-hover transition-colors"
       title="Copiar"
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-[#4CB782]" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 }
@@ -108,7 +108,7 @@ function CreateKeyModal({
       {!created ? (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Nombre</label>
+            <label className="text-xs font-semibold text-secondary">Nombre</label>
             <Input
               autoFocus
               placeholder="Ej: Claude Code (laptop)"
@@ -117,11 +117,11 @@ function CreateKeyModal({
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Vincular a un agente (opcional)</label>
+            <label className="text-xs font-semibold text-secondary">Vincular a un agente (opcional)</label>
             <select
               value={agentId}
               onChange={(e) => setAgentId(e.target.value)}
-              className="bg-[#0F1012] border border-[#26292F] rounded-md px-3 py-2 text-sm text-[#F7F8F8]"
+              className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
             >
               <option value="">Ninguno — clave personal</option>
               {agents.map((agent) => (
@@ -130,12 +130,12 @@ function CreateKeyModal({
                 </option>
               ))}
             </select>
-            <p className="text-[11px] text-[#5B616E] pt-1">
+            <p className="text-[11px] text-tertiary pt-1">
               Una clave vinculada a un agente actúa como ese agente (asigna, comenta y reclama issues
               en su nombre) en vez de como tu usuario — necesario para el disparo autónomo.
             </p>
           </div>
-          {error && <p className="text-xs text-[#F75555]">{error}</p>}
+          {error && <p className="text-xs text-priority-urgent">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="secondary" size="sm" onClick={handleClose}>
               Cancelar
@@ -147,28 +147,28 @@ function CreateKeyModal({
         </form>
       ) : (
         <div className="flex flex-col gap-4">
-          <p className="text-xs text-[#8A8F98]">
+          <p className="text-xs text-secondary">
             Copiá esta clave ahora — no vas a poder volver a verla. Si la perdés, tenés que crear una nueva.
           </p>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Clave completa</label>
-            <div className="flex items-center gap-2 bg-[#0F1012] border border-[#26292F] rounded-md px-3 py-2">
-              <code className="flex-1 text-xs text-[#F7F8F8] break-all font-mono">{created.fullKey}</code>
+            <label className="text-xs font-semibold text-secondary">Clave completa</label>
+            <div className="flex items-center gap-2 bg-surface border border-default rounded-md px-3 py-2">
+              <code className="flex-1 text-xs text-primary break-all font-mono">{created.fullKey}</code>
               <CopyButton text={created.fullKey} />
             </div>
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Conectar con Claude Code</label>
-            <div className="flex items-center gap-2 bg-[#0F1012] border border-[#26292F] rounded-md px-3 py-2">
-              <code className="flex-1 text-xs text-[#8A8F98] break-all font-mono">{mcpAddCommand}</code>
+            <label className="text-xs font-semibold text-secondary">Conectar con Claude Code</label>
+            <div className="flex items-center gap-2 bg-surface border border-default rounded-md px-3 py-2">
+              <code className="flex-1 text-xs text-secondary break-all font-mono">{mcpAddCommand}</code>
               <CopyButton text={mcpAddCommand} />
             </div>
-            <p className="text-[11px] text-[#5B616E] pt-1">
+            <p className="text-[11px] text-tertiary pt-1">
               Si tu versión de la CLI no soporta ese flag, usá un{' '}
-              <code className="text-[#8A8F98]">.mcp.json</code> con:{' '}
-              <code className="text-[#8A8F98] break-all">
+              <code className="text-secondary">.mcp.json</code> con:{' '}
+              <code className="text-secondary break-all">
                 {`{"mcpServers":{"pulse":{"type":"http","url":"${MCP_URL}","headers":{"Authorization":"Bearer ${created.fullKey}"}}}}`}
               </code>
             </p>
@@ -232,30 +232,30 @@ export function ApiKeysSection() {
   if (!workspaceId) return null;
 
   return (
-    <div className="flex flex-col gap-4 p-5 bg-[#0F1012] border border-[#26292F] rounded-xl">
+    <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Key className="w-4 h-4 text-[#8A8F98]" />
-          <h3 className="text-base font-semibold text-[#F7F8F8]">Claves de API (MCP)</h3>
+          <Key className="w-4 h-4 text-secondary" />
+          <h3 className="text-base font-semibold text-primary">Claves de API (MCP)</h3>
         </div>
         <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setModalOpen(true)}>
           Crear clave
         </Button>
       </div>
 
-      <p className="text-xs text-[#8A8F98]">
+      <p className="text-xs text-secondary">
         Usá una clave para conectar Claude Code (u otro cliente MCP) a este workspace y darle acceso a
         tus issues y proyectos.
       </p>
 
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-[#8A8F98]">
+        <div className="flex items-center justify-center py-6 text-secondary">
           <Loader2 className="w-4 h-4 animate-spin" />
         </div>
       ) : loadError ? (
-        <p className="text-xs text-[#F75555]">{loadError}</p>
+        <p className="text-xs text-priority-urgent">{loadError}</p>
       ) : keys.length === 0 ? (
-        <p className="text-xs text-[#5B616E] py-2">Todavía no creaste ninguna clave.</p>
+        <p className="text-xs text-tertiary py-2">Todavía no creaste ninguna clave.</p>
       ) : (
         <div className="flex flex-col gap-1">
           {keys.map((key) => {
@@ -264,26 +264,26 @@ export function ApiKeysSection() {
             return (
               <div
                 key={key.id}
-                className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-[#1E2024] transition-colors"
+                className="flex items-center justify-between px-3 py-2.5 rounded-md hover:bg-hover transition-colors"
               >
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-[#F7F8F8] truncate">{key.name}</span>
+                    <span className="text-sm text-primary truncate">{key.name}</span>
                     {key.agentId && (
                       <span
-                        className="text-[10px] uppercase tracking-wide font-semibold text-[#8A8F98] bg-[#1E2024] px-1.5 py-0.5 rounded"
+                        className="text-[10px] uppercase tracking-wide font-semibold text-secondary bg-hover px-1.5 py-0.5 rounded"
                         title={`Actúa como el agente '${key.agentId}'`}
                       >
                         {linkedAgent?.displayName ?? key.agentId}
                       </span>
                     )}
                     {revoked && (
-                      <span className="text-[10px] uppercase tracking-wide font-semibold text-[#F75555] bg-[#F75555]/10 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] uppercase tracking-wide font-semibold text-priority-urgent bg-priority-urgent/10 px-1.5 py-0.5 rounded">
                         Revocada
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-[#5B616E] font-mono truncate">
+                  <span className="text-xs text-tertiary font-mono truncate">
                     {key.prefix}··· · último uso: {formatDate(key.lastUsedAt)} · creada: {formatDate(key.createdAt)}
                   </span>
                 </div>
@@ -291,7 +291,7 @@ export function ApiKeysSection() {
                   <button
                     onClick={() => handleRevoke(key)}
                     disabled={revokingId === key.id}
-                    className="shrink-0 p-1.5 rounded-md text-[#8A8F98] hover:text-[#F75555] hover:bg-[#F75555]/10 transition-colors disabled:opacity-50"
+                    className="shrink-0 p-1.5 rounded-md text-secondary hover:text-priority-urgent hover:bg-priority-urgent/10 transition-colors disabled:opacity-50"
                     title="Revocar"
                   >
                     {revokingId === key.id ? (

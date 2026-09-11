@@ -99,7 +99,7 @@ function CreateAgentModal({
     <Modal isOpen={isOpen} onClose={handleClose} title="Nuevo agente" maxWidth="lg">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Nombre</label>
+          <label className="text-xs font-semibold text-secondary">Nombre</label>
           <Input
             autoFocus
             placeholder="Ej: Claude"
@@ -108,7 +108,7 @@ function CreateAgentModal({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">ID del agente</label>
+          <label className="text-xs font-semibold text-secondary">ID del agente</label>
           <Input
             placeholder="Ej: agent-claude"
             value={agentId}
@@ -117,29 +117,29 @@ function CreateAgentModal({
               setAgentIdEdited(true);
             }}
           />
-          {idTaken && <p className="text-[11px] text-[#F75555]">Ya existe un agente con ese ID.</p>}
+          {idTaken && <p className="text-[11px] text-priority-urgent">Ya existe un agente con ese ID.</p>}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Tipo</label>
+          <label className="text-xs font-semibold text-secondary">Tipo</label>
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value)}
-            className="bg-[#0F1012] border border-[#26292F] rounded-md px-3 py-2 text-sm text-[#F7F8F8]"
+            className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
           >
             <option value="claude">Claude</option>
             <option value="chatgpt">ChatGPT</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Repo por defecto (opcional)</label>
+          <label className="text-xs font-semibold text-secondary">Repo por defecto (opcional)</label>
           <Input placeholder="Ej: owner/repo" value={defaultRepo} onChange={(e) => setDefaultRepo(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Team por defecto (opcional)</label>
+          <label className="text-xs font-semibold text-secondary">Team por defecto (opcional)</label>
           <select
             value={defaultTeamId}
             onChange={(e) => setDefaultTeamId(e.target.value)}
-            className="bg-[#0F1012] border border-[#26292F] rounded-md px-3 py-2 text-sm text-[#F7F8F8]"
+            className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
           >
             <option value="">Sin team por defecto</option>
             {teams.map((team) => (
@@ -150,7 +150,7 @@ function CreateAgentModal({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Máx. issues concurrentes</label>
+          <label className="text-xs font-semibold text-secondary">Máx. issues concurrentes</label>
           <Input
             type="number"
             min={1}
@@ -158,7 +158,7 @@ function CreateAgentModal({
             onChange={(e) => setMaxConcurrentIssues(Math.max(1, parseInt(e.target.value, 10) || 1))}
           />
         </div>
-        {error && <p className="text-xs text-[#F75555]">{error}</p>}
+        {error && <p className="text-xs text-priority-urgent">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" size="sm" onClick={handleClose}>
             Cancelar
@@ -234,19 +234,19 @@ function AgentRepoConnections({
   };
 
   return (
-    <div className="flex flex-col gap-2 pl-3 mt-1 border-l border-[#26292F]">
+    <div className="flex flex-col gap-2 pl-3 mt-1 border-l border-default">
       {connected.length > 0 && (
         <div className="flex flex-col gap-1">
           {connected.map((c) => (
             <div key={c.repoFullName} className="flex items-center justify-between gap-2 text-xs">
-              <span className="flex items-center gap-1.5 text-[#8A8F98] font-mono truncate">
-                <GitBranch className="w-3 h-3 shrink-0 text-[#4ADE80]" />
+              <span className="flex items-center gap-1.5 text-secondary font-mono truncate">
+                <GitBranch className="w-3 h-3 shrink-0 text-status-done" />
                 {c.repoFullName}
               </span>
               <button
                 onClick={() => handleDisconnect(c.repoFullName)}
                 disabled={busy}
-                className="text-[11px] text-[#5B616E] hover:text-[#F75555] disabled:opacity-50 shrink-0"
+                className="text-[11px] text-tertiary hover:text-priority-urgent disabled:opacity-50 shrink-0"
               >
                 Desconectar
               </button>
@@ -256,13 +256,13 @@ function AgentRepoConnections({
       )}
 
       {!canConnect ? (
-        <p className="text-[11px] text-[#F09436]">
+        <p className="text-[11px] text-priority-high">
           A la GitHub App le faltan permisos ({missingPermissions.join(', ')}). Agregalos en la
           configuración de la App y aprobá el upgrade en la instalación para poder conectar repos
           desde acá.
         </p>
       ) : available.length === 0 ? (
-        <p className="text-[11px] text-[#5B616E]">
+        <p className="text-[11px] text-tertiary">
           {repos.length === 0
             ? 'No hay repos disponibles en la instalación de GitHub.'
             : 'Este agente ya está conectado a todos los repos disponibles.'}
@@ -273,7 +273,7 @@ function AgentRepoConnections({
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
             disabled={busy}
-            className="flex-1 min-w-0 bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
+            className="flex-1 min-w-0 bg-elevated border border-default text-primary text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
           >
             <option value="">Conectar a un repo…</option>
             {available.map((r) => (
@@ -285,7 +285,7 @@ function AgentRepoConnections({
           <button
             onClick={handleConnect}
             disabled={busy || !selected}
-            className="px-2.5 py-1.5 text-[11px] rounded-md bg-[#5E6AD2] hover:bg-[#707CE6] text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
+            className="px-2.5 py-1.5 text-[11px] rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
           >
             {busy ? 'Conectando…' : 'Conectar'}
           </button>
@@ -293,24 +293,24 @@ function AgentRepoConnections({
       )}
 
       {result && (
-        <div className="flex flex-col gap-1.5 p-2.5 bg-[#16171A] border border-[#26292F] rounded-md">
-          <p className="text-[11px] text-[#4ADE80]">
+        <div className="flex flex-col gap-1.5 p-2.5 bg-elevated border border-default rounded-md">
+          <p className="text-[11px] text-status-done">
             ✓ {result.repoFullName} conectado
             {result.workflowCreated ? ' · workflow creado' : ' · workflow actualizado'} · key de MCP
             provisionada
           </p>
 
           {result.anthropicSecretPresent ? (
-            <p className="text-[11px] text-[#4ADE80]">
+            <p className="text-[11px] text-status-done">
               ✓ {result.anthropicSecretName} ya está en el repo. No queda nada por hacer.
             </p>
           ) : (
             <div className="flex flex-col gap-1">
-              <p className="text-[11px] text-[#F09436]">
+              <p className="text-[11px] text-priority-high">
                 Falta {result.anthropicSecretName}. Es tuyo y está atado a tu suscripción de Claude,
                 así que Pulse no lo guarda ni lo transporta. Corré esto una vez:
               </p>
-              <code className="block px-2 py-1.5 bg-[#0F1012] border border-[#26292F] rounded text-[11px] text-[#F7F8F8] font-mono break-all">
+              <code className="block px-2 py-1.5 bg-surface border border-default rounded text-[11px] text-primary font-mono break-all">
                 {result.manualStep}
               </code>
             </div>
@@ -318,7 +318,7 @@ function AgentRepoConnections({
         </div>
       )}
 
-      {error && <p className="text-[11px] text-[#F75555]">{error}</p>}
+      {error && <p className="text-[11px] text-priority-urgent">{error}</p>}
     </div>
   );
 }
@@ -399,18 +399,18 @@ export function AgentsSection() {
   if (!workspaceId) return null;
 
   return (
-    <div className="flex flex-col gap-4 p-5 bg-[#0F1012] border border-[#26292F] rounded-xl">
+    <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Bot className="w-4 h-4 text-[#8A8F98]" />
-          <h3 className="text-base font-semibold text-[#F7F8F8]">Agentes</h3>
+          <Bot className="w-4 h-4 text-secondary" />
+          <h3 className="text-base font-semibold text-primary">Agentes</h3>
         </div>
         <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setModalOpen(true)}>
           Crear agente
         </Button>
       </div>
 
-      <p className="text-xs text-[#8A8F98]">
+      <p className="text-xs text-secondary">
         Con &quot;Autónomo&quot; activado, un agente arranca solo apenas se le asigna un issue y pasa a
         &quot;Por hacer&quot; — dispara un workflow de GitHub Actions sin que nadie tenga que abrir Claude
         Code. Un circuit breaker diario por workspace y el límite de issues concurrentes evitan que un
@@ -418,26 +418,26 @@ export function AgentsSection() {
       </p>
 
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-[#8A8F98]">
+        <div className="flex items-center justify-center py-6 text-secondary">
           <Loader2 className="w-4 h-4 animate-spin" />
         </div>
       ) : loadError ? (
-        <p className="text-xs text-[#F75555]">{loadError}</p>
+        <p className="text-xs text-priority-urgent">{loadError}</p>
       ) : agents.length === 0 ? (
-        <p className="text-xs text-[#5B616E] py-2">Todavía no hay agentes en este workspace.</p>
+        <p className="text-xs text-tertiary py-2">Todavía no hay agentes en este workspace.</p>
       ) : (
         <div className="flex flex-col gap-1">
           {agents.map((agent) => (
-            <div key={agent.id} className="flex flex-col px-3 py-2.5 rounded-md hover:bg-[#1E2024] transition-colors">
+            <div key={agent.id} className="flex flex-col px-3 py-2.5 rounded-md hover:bg-hover transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm text-[#F7F8F8] truncate">{agent.displayName}</span>
-                <span className="text-xs text-[#5B616E] font-mono truncate">
+                <span className="text-sm text-primary truncate">{agent.displayName}</span>
+                <span className="text-xs text-tertiary font-mono truncate">
                   {agent.kind} · {agent.defaultRepo || 'sin repo por defecto'}
                 </span>
               </div>
               <div className="flex items-center gap-4 shrink-0">
-                <label className="flex items-center gap-1.5 text-xs text-[#8A8F98]">
+                <label className="flex items-center gap-1.5 text-xs text-secondary">
                   Máx. concurrentes
                   <input
                     type="number"
@@ -445,17 +445,17 @@ export function AgentsSection() {
                     value={agent.maxConcurrentIssues}
                     disabled={savingId === agent.id}
                     onChange={(e) => handleMaxConcurrentChange(agent, parseInt(e.target.value, 10))}
-                    className="w-14 bg-[#0F1012] border border-[#26292F] rounded-md px-2 py-1 text-[#F7F8F8] text-xs"
+                    className="w-14 bg-surface border border-default rounded-md px-2 py-1 text-primary text-xs"
                   />
                 </label>
-                <label className="flex items-center gap-1.5 text-xs text-[#8A8F98] cursor-pointer">
+                <label className="flex items-center gap-1.5 text-xs text-secondary cursor-pointer">
                   Autónomo
                   <input
                     type="checkbox"
                     checked={agent.autonomousMode}
                     disabled={savingId === agent.id}
                     onChange={() => handleToggleAutonomous(agent)}
-                    className="w-3.5 h-3.5 accent-[#4C6EF5]"
+                    className="w-3.5 h-3.5 accent-accent"
                   />
                 </label>
               </div>

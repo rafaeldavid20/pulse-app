@@ -20,16 +20,16 @@ export default function SettingsPage() {
 
       <div className="flex-1 p-6 overflow-y-auto max-w-2xl flex flex-col gap-8">
         {/* Workspace Info */}
-        <div className="flex flex-col gap-4 p-5 bg-[#0F1012] border border-[#26292F] rounded-xl">
-          <h3 className="text-base font-semibold text-[#F7F8F8]">General</h3>
+        <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
+          <h3 className="text-base font-semibold text-primary">General</h3>
           
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Nombre del Workspace</label>
+            <label className="text-xs font-semibold text-secondary">Nombre del Workspace</label>
             <Input defaultValue={activeWorkspace?.name || 'Pulse Workspace'} />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">URL Slug</label>
+            <label className="text-xs font-semibold text-secondary">URL Slug</label>
             <Input defaultValue={activeWorkspace?.slug || 'pulse'} disabled />
           </div>
 
@@ -39,16 +39,16 @@ export default function SettingsPage() {
         </div>
 
         {/* User Profile */}
-        <div className="flex flex-col gap-4 p-5 bg-[#0F1012] border border-[#26292F] rounded-xl">
-          <h3 className="text-base font-semibold text-[#F7F8F8]">Mi Perfil</h3>
+        <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
+          <h3 className="text-base font-semibold text-primary">Mi Perfil</h3>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Nombre</label>
+            <label className="text-xs font-semibold text-secondary">Nombre</label>
             <Input defaultValue={user?.displayName || 'Rafael Rodriguez'} />
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Email</label>
+            <label className="text-xs font-semibold text-secondary">Email</label>
             <Input defaultValue={user?.email || 'rafaeldavidrodriguez.93@gmail.com'} disabled />
           </div>
 

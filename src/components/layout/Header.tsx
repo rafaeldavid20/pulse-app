@@ -25,14 +25,14 @@ export const Header: React.FC<HeaderProps> = ({
   const setFilterState = useAppStore((s) => s.setFilterState);
 
   return (
-    <header className="h-14 border-b border-[#1C1E22] bg-[#08090A] px-4 sm:px-6 flex items-center justify-between shrink-0 select-none">
+    <header className="h-14 border-b border-subtle bg-base px-4 sm:px-6 flex items-center justify-between shrink-0 select-none">
       {/* Left: Title & Subtitle */}
       <div className="flex items-center gap-3 min-w-0">
-        <h1 className="text-base font-semibold text-[#F7F8F8] tracking-tight truncate">
+        <h1 className="text-base font-semibold text-primary tracking-tight truncate">
           {title}
         </h1>
         {subtitle && (
-          <span className="text-xs text-[#5B616E] font-medium hidden sm:inline truncate">
+          <span className="text-xs text-tertiary font-medium hidden sm:inline truncate">
             {subtitle}
           </span>
         )}
@@ -42,25 +42,25 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Search Input */}
         <div className="relative flex items-center">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 text-[#5B616E]" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 text-tertiary" />
           <input
             type="text"
             placeholder="Filtrar..."
             value={filterState.search}
             onChange={(e) => setFilterState({ search: e.target.value })}
-            className="w-28 sm:w-48 bg-[#0F1012] border border-[#26292F] focus:border-[#5E6AD2] rounded-md pl-8 pr-2.5 py-1 text-xs text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors"
+            className="w-28 sm:w-48 bg-surface border border-default focus:border-accent rounded-md pl-8 pr-2.5 py-1 text-xs text-primary placeholder-tertiary outline-none transition-colors"
           />
         </div>
 
         {/* View Toggle (List vs Board) */}
         {showViewToggle && (
-          <div className="flex items-center bg-[#0F1012] border border-[#26292F] p-0.5 rounded-md">
+          <div className="flex items-center bg-surface border border-default p-0.5 rounded-md">
             <button
               onClick={() => setActiveView('list')}
               className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
                 activeView === 'list'
-                  ? 'bg-[#1E2024] text-[#F7F8F8]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+                  ? 'bg-hover text-primary'
+                  : 'text-secondary hover:text-primary'
               }`}
               title="Vista Lista"
             >
@@ -71,8 +71,8 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveView('board')}
               className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
                 activeView === 'board'
-                  ? 'bg-[#1E2024] text-[#F7F8F8]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+                  ? 'bg-hover text-primary'
+                  : 'text-secondary hover:text-primary'
               }`}
               title="Vista Board (Kanban)"
             >
@@ -85,13 +85,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Agrupamiento del board — solo tiene sentido en vista board, así que
             no se muestra ocupando lugar en la lista. */}
         {showViewToggle && activeView === 'board' && (
-          <div className="hidden sm:flex items-center bg-[#0F1012] border border-[#26292F] p-0.5 rounded-md">
+          <div className="hidden sm:flex items-center bg-surface border border-default p-0.5 rounded-md">
             <button
               onClick={() => setBoardGroupBy('status')}
               className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
                 boardGroupBy === 'status'
-                  ? 'bg-[#1E2024] text-[#F7F8F8]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+                  ? 'bg-hover text-primary'
+                  : 'text-secondary hover:text-primary'
               }`}
               title="Agrupar por estado"
             >
@@ -102,8 +102,8 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setBoardGroupBy('epic')}
               className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
                 boardGroupBy === 'epic'
-                  ? 'bg-[#1E2024] text-[#A78BFA]'
-                  : 'text-[#8A8F98] hover:text-[#F7F8F8]'
+                  ? 'bg-hover text-type-epic'
+                  : 'text-secondary hover:text-primary'
               }`}
               title="Agrupar por épica (swimlanes)"
             >

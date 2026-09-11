@@ -150,7 +150,7 @@ export const CreateIssueModal: React.FC = () => {
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {errorMsg && (
-          <div className="p-3 bg-[#F75555]/15 border border-[#F75555]/30 rounded-lg text-xs text-[#F75555] flex items-center gap-2">
+          <div className="p-3 bg-priority-urgent/15 border border-priority-urgent/30 rounded-lg text-xs text-priority-urgent flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{errorMsg}</span>
           </div>
@@ -158,8 +158,8 @@ export const CreateIssueModal: React.FC = () => {
 
         {/* Title Input */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">
-            Título del issue <span className="text-[#F75555]">*</span>
+          <label className="text-xs font-semibold text-secondary">
+            Título del issue <span className="text-priority-urgent">*</span>
           </label>
           <Input
             placeholder="Título del issue..."
@@ -170,11 +170,11 @@ export const CreateIssueModal: React.FC = () => {
             }}
             autoFocus
             className={`text-base font-medium py-2.5 ${
-              titleError ? 'border-[#F75555] focus:border-[#F75555]' : ''
+              titleError ? 'border-priority-urgent focus:border-priority-urgent' : ''
             }`}
           />
           {titleError && (
-            <div className="flex items-center gap-1.5 text-[11px] text-[#F75555] font-medium mt-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-priority-urgent font-medium mt-0.5">
               <AlertCircle className="w-3.5 h-3.5" />
               <span>El título del issue es obligatorio.</span>
             </div>
@@ -183,24 +183,24 @@ export const CreateIssueModal: React.FC = () => {
 
         {/* Description Textarea */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Descripción</label>
+          <label className="text-xs font-semibold text-secondary">Descripción</label>
           <textarea
             placeholder="Añade una descripción (Markdown soportado)..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={4}
-            className="w-full bg-[#0F1012] border border-[#26292F] focus:border-[#5E6AD2] rounded-md p-3 text-sm text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors resize-none font-mono"
+            className="w-full bg-surface border border-default focus:border-accent rounded-md p-3 text-sm text-primary placeholder-tertiary outline-none transition-colors resize-none font-mono"
           />
         </div>
 
         {/* Hierarchy: tipo y padre */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Tipo</label>
+            <label className="text-xs font-semibold text-secondary">Tipo</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as IssueType)}
-              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer"
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer"
             >
               {ISSUE_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -211,14 +211,14 @@ export const CreateIssueModal: React.FC = () => {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">
+            <label className="text-xs font-semibold text-secondary">
               {type === 'subtask' ? 'Historia padre' : 'Épica'}
             </label>
             <select
               value={effectiveParentId}
               onChange={(e) => setParentId(e.target.value)}
               disabled={parentOptions.length === 0}
-              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="">
                 {type === 'epic'
@@ -240,11 +240,11 @@ export const CreateIssueModal: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {/* Status */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Estado</label>
+            <label className="text-xs font-semibold text-secondary">Estado</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as IssueStatus)}
-              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer"
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer"
             >
               {ISSUE_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -256,11 +256,11 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* Priority */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Prioridad</label>
+            <label className="text-xs font-semibold text-secondary">Prioridad</label>
             <select
               value={priority}
               onChange={(e) => setPriority(parseInt(e.target.value, 10) as IssuePriority)}
-              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer"
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer"
             >
               {ISSUE_PRIORITIES.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -272,11 +272,11 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* Project */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Proyecto (Opcional)</label>
+            <label className="text-xs font-semibold text-secondary">Proyecto (Opcional)</label>
             <select
               value={projectId}
               onChange={(e) => setProjectId(e.target.value)}
-              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer truncate"
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer truncate"
             >
               <option value="">Sin proyecto</option>
               {projects.map((p) => (
@@ -289,11 +289,11 @@ export const CreateIssueModal: React.FC = () => {
 
           {/* Assignee */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-[#8A8F98]">Asignado a</label>
+            <label className="text-xs font-semibold text-secondary">Asignado a</label>
             <select
               value={effectiveAssigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md p-2 outline-none cursor-pointer truncate"
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer truncate"
             >
               <option value="">Sin asignar</option>
               <optgroup label="Humanos">
@@ -320,7 +320,7 @@ export const CreateIssueModal: React.FC = () => {
 
         {/* Interactive Label Picker */}
         <div className="flex flex-col gap-1 pt-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Etiquetas</label>
+          <label className="text-xs font-semibold text-secondary">Etiquetas</label>
           <LabelPicker
             selectedLabelIds={selectedLabels}
             onChange={(labels) => setSelectedLabels(labels)}
@@ -328,9 +328,9 @@ export const CreateIssueModal: React.FC = () => {
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-[#1C1E22] mt-2">
-          <span className="text-xs text-[#5B616E]">
-            Tip: Presiona <kbd className="bg-[#1E2024] px-1 rounded text-[#F7F8F8]">Cmd+Enter</kbd> para guardar
+        <div className="flex items-center justify-between pt-3 border-t border-subtle mt-2">
+          <span className="text-xs text-tertiary">
+            Tip: Presiona <kbd className="bg-hover px-1 rounded text-primary">Cmd+Enter</kbd> para guardar
           </span>
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" type="button" onClick={handleClose}>

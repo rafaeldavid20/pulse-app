@@ -35,15 +35,15 @@ export default function ProjectDetailPage({
 
   if (!project) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-[#8A8F98] gap-4">
-        <FolderKanban className="w-10 h-10 text-[#5E6AD2]" />
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-secondary gap-4">
+        <FolderKanban className="w-10 h-10 text-accent" />
         <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-bold text-[#F7F8F8]">Proyecto no encontrado</h2>
-          <p className="text-xs text-[#8A8F98]">El proyecto solicitado no existe o fue eliminado.</p>
+          <h2 className="text-lg font-bold text-primary">Proyecto no encontrado</h2>
+          <p className="text-xs text-secondary">El proyecto solicitado no existe o fue eliminado.</p>
         </div>
         <Link
           href={`/team/${resolvedParams.teamId}/projects`}
-          className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#5E6AD2] text-white text-xs font-semibold rounded-md hover:bg-[#4E5AC0] transition-colors"
+          className="inline-flex items-center gap-2 px-3 py-1.5 bg-accent text-white text-xs font-semibold rounded-md hover:bg-accent-hover transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Volver a la lista de proyectos</span>
@@ -78,7 +78,7 @@ export default function ProjectDetailPage({
         <div className="flex items-center justify-between">
           <Link
             href={`/team/${resolvedParams.teamId}/projects`}
-            className="inline-flex items-center gap-1.5 text-xs text-[#8A8F98] hover:text-[#F7F8F8] transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Lista de proyectos</span>
@@ -97,7 +97,7 @@ export default function ProjectDetailPage({
 
             <button
               onClick={() => setIsHeaderCollapsed(!isHeaderCollapsed)}
-              className="flex items-center gap-1 px-2.5 py-1 bg-[#16171A] hover:bg-[#1E2024] border border-[#26292F] text-[#8A8F98] hover:text-[#F7F8F8] text-xs rounded-md transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 bg-elevated hover:bg-hover border border-default text-secondary hover:text-primary text-xs rounded-md transition-colors"
             >
               {isHeaderCollapsed ? (
                 <>
@@ -116,17 +116,17 @@ export default function ProjectDetailPage({
 
         {/* Collapsible Project Detail Header Card */}
         {!isHeaderCollapsed && (
-          <div className="flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 bg-[#0F1012] border border-[#26292F] rounded-2xl relative overflow-hidden shadow-xl animate-fade-in-scale">
+          <div className="flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 bg-surface border border-default rounded-2xl relative overflow-hidden shadow-xl animate-fade-in-scale">
             {/* Top Color Strip */}
             <div
               className="absolute top-0 left-0 right-0 h-1.5"
-              style={{ backgroundColor: project.color || '#5E6AD2' }}
+              style={{ backgroundColor: project.color || 'var(--color-accent)' }}
             />
 
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-xl sm:text-2xl font-bold text-[#F7F8F8] tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold text-primary tracking-tight">
                     {project.name}
                   </h1>
                   <select
@@ -134,7 +134,7 @@ export default function ProjectDetailPage({
                     onChange={(e) =>
                       updateProject(project.id, { status: e.target.value as any })
                     }
-                    className="bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs font-semibold rounded-md px-2.5 py-1 outline-none cursor-pointer capitalize"
+                    className="bg-elevated border border-default text-primary text-xs font-semibold rounded-md px-2.5 py-1 outline-none cursor-pointer capitalize"
                   >
                     <option value="planned">Planificado</option>
                     <option value="in_progress">En Progreso</option>
@@ -145,7 +145,7 @@ export default function ProjectDetailPage({
                 </div>
 
                 {project.description && (
-                  <p className="text-xs sm:text-sm text-[#8A8F98] leading-relaxed max-w-2xl">
+                  <p className="text-xs sm:text-sm text-secondary leading-relaxed max-w-2xl">
                     {project.description}
                   </p>
                 )}
@@ -163,41 +163,41 @@ export default function ProjectDetailPage({
             </div>
 
             {/* Progress Bar & Metadata Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-[#1C1E22] text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-subtle text-xs">
               {/* Progress */}
               <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between text-[#8A8F98]">
+                <div className="flex items-center justify-between text-secondary">
                   <span>Progreso del Proyecto</span>
-                  <span className="text-[#F7F8F8] font-mono font-semibold">{percent}%</span>
+                  <span className="text-primary font-mono font-semibold">{percent}%</span>
                 </div>
-                <div className="w-full bg-[#1E2024] h-2 rounded-full overflow-hidden">
+                <div className="w-full bg-hover h-2 rounded-full overflow-hidden">
                   <div
                     className="h-full transition-all duration-300 rounded-full"
                     style={{
                       width: `${percent}%`,
-                      backgroundColor: project.color || '#5E6AD2',
+                      backgroundColor: project.color || 'var(--color-accent)',
                     }}
                   />
                 </div>
               </div>
 
               {/* Target Date */}
-              <div className="flex items-center gap-2 text-[#8A8F98]">
-                <Calendar className="w-4 h-4 text-[#5E6AD2]" />
+              <div className="flex items-center gap-2 text-secondary">
+                <Calendar className="w-4 h-4 text-accent" />
                 <div>
-                  <span className="block text-[10px] uppercase text-[#5B616E]">Fecha objetivo</span>
-                  <span className="text-[#F7F8F8] font-medium">
+                  <span className="block text-[10px] uppercase text-tertiary">Fecha objetivo</span>
+                  <span className="text-primary font-medium">
                     {project.targetDate ? formatDate(project.targetDate) : 'Sin fecha definida'}
                   </span>
                 </div>
               </div>
 
               {/* Project Lead */}
-              <div className="flex items-center gap-2 text-[#8A8F98]">
+              <div className="flex items-center gap-2 text-secondary">
                 <Avatar name={lead?.displayName} src={lead?.photoURL} size="md" />
                 <div>
-                  <span className="block text-[10px] uppercase text-[#5B616E]">Líder de Proyecto</span>
-                  <span className="text-[#F7F8F8] font-medium">{lead?.displayName || 'Sin asignar'}</span>
+                  <span className="block text-[10px] uppercase text-tertiary">Líder de Proyecto</span>
+                  <span className="text-primary font-medium">{lead?.displayName || 'Sin asignar'}</span>
                 </div>
               </div>
             </div>
@@ -207,7 +207,7 @@ export default function ProjectDetailPage({
         {/* Project Issues Section */}
         <div className="flex flex-col gap-4 mt-1">
           <div className="flex items-center justify-between">
-            <h3 className="text-base font-semibold text-[#F7F8F8]">
+            <h3 className="text-base font-semibold text-primary">
               Issues del Proyecto ({totalCount})
             </h3>
           </div>

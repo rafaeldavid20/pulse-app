@@ -12,22 +12,22 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <div className="w-full flex flex-col gap-1">
         <div className="relative flex items-center w-full">
           {icon && (
-            <span className="absolute left-3 text-[#5B616E] pointer-events-none flex items-center justify-center">
+            <span className="absolute left-3 text-tertiary pointer-events-none flex items-center justify-center">
               {icon}
             </span>
           )}
           <input
             ref={ref}
             className={cn(
-              'w-full bg-[#0F1012] border border-[#26292F] focus:border-[#5E6AD2] rounded-md py-2 text-sm text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors',
+              'w-full bg-surface border border-default focus:border-accent rounded-md py-2 text-sm text-primary placeholder-tertiary outline-none transition-colors',
               icon ? 'pl-9 pr-3' : 'px-3',
-              error && 'border-[#F75555]',
+              error && 'border-priority-urgent',
               className
             )}
             {...props}
           />
         </div>
-        {error && <span className="text-xs text-[#F75555]">{error}</span>}
+        {error && <span className="text-xs text-priority-urgent">{error}</span>}
       </div>
     );
   }

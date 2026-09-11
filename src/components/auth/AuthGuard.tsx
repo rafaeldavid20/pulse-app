@@ -118,9 +118,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#08090A] flex flex-col items-center justify-center gap-3 text-[#5E6AD2]">
-        <div className="w-8 h-8 border-2 border-[#5E6AD2] border-t-transparent rounded-full animate-spin" />
-        <span className="text-xs font-medium text-[#8A8F98]">Cargando sesión...</span>
+      <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-3 text-accent">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <span className="text-xs font-medium text-secondary">Cargando sesión...</span>
       </div>
     );
   }

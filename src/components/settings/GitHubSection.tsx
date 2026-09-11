@@ -49,25 +49,25 @@ export function GitHubSection() {
   if (!workspaceId) return null;
 
   return (
-    <div className="flex flex-col gap-4 p-5 bg-[#0F1012] border border-[#26292F] rounded-xl">
+    <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
       <div className="flex items-center gap-2">
-        <GitBranch className="w-4 h-4 text-[#8A8F98]" />
-        <h3 className="text-base font-semibold text-[#F7F8F8]">GitHub</h3>
+        <GitBranch className="w-4 h-4 text-secondary" />
+        <h3 className="text-base font-semibold text-primary">GitHub</h3>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-6 text-[#8A8F98]">
+        <div className="flex items-center justify-center py-6 text-secondary">
           <Loader2 className="w-4 h-4 animate-spin" />
         </div>
       ) : error ? (
-        <p className="text-xs text-[#F75555]">{error}</p>
+        <p className="text-xs text-priority-urgent">{error}</p>
       ) : status?.connected ? (
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <span className="text-sm text-[#F7F8F8]">
+            <span className="text-sm text-primary">
               Conectado a <span className="font-semibold">{status.accountLogin}</span>
             </span>
-            <span className="text-xs text-[#5B616E]">
+            <span className="text-xs text-tertiary">
               {status.repositories && status.repositories.length > 0
                 ? status.repositories.join(', ')
                 : 'Sin repos autorizados'}
@@ -79,7 +79,7 @@ export function GitHubSection() {
         </div>
       ) : (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-[#8A8F98] max-w-xs">
+          <p className="text-xs text-secondary max-w-xs">
             Conectá un repositorio para que los issues puedan generar ramas de GitHub directamente desde Pulse.
           </p>
           <Button size="sm" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={handleConnect} disabled={connecting}>

@@ -38,24 +38,24 @@ export default function InboxPage() {
                 key={n.id}
                 className={`flex items-start gap-3 p-4 rounded-xl border transition-all cursor-pointer ${
                   !n.read
-                    ? 'bg-[#16171A] border-[#5E6AD2]/40 shadow-sm'
-                    : 'bg-[#0F1012] border-[#1C1E22] opacity-80'
+                    ? 'bg-elevated border-accent/40 shadow-sm'
+                    : 'bg-surface border-subtle opacity-80'
                 }`}
               >
-                <div className="p-2 rounded-lg bg-[#1E2024] text-[#5E6AD2] shrink-0 mt-0.5">
+                <div className="p-2 rounded-lg bg-hover text-accent shrink-0 mt-0.5">
                   <Icon className="w-4 h-4" />
                 </div>
 
                 <div className="flex flex-col gap-1 min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold text-[#F7F8F8]">
+                    <h4 className="text-sm font-semibold text-primary">
                       {n.title}
                     </h4>
-                    <span className="text-xs text-[#5B616E] shrink-0 font-mono">
+                    <span className="text-xs text-tertiary shrink-0 font-mono">
                       {formatTimeAgo(n.time)}
                     </span>
                   </div>
-                  <p className="text-xs text-[#8A8F98] truncate">{n.subtitle}</p>
+                  <p className="text-xs text-secondary truncate">{n.subtitle}</p>
                 </div>
               </div>
             );

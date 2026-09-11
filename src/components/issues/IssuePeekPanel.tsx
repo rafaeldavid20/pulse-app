@@ -64,19 +64,19 @@ function CommentsSection({ workspaceId, issueId, members }: { workspaceId: strin
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-[#F7F8F8]">Actividad y Comentarios</h3>
+      <h3 className="text-sm font-semibold text-primary">Actividad y Comentarios</h3>
 
       {comments.length === 0 ? (
-        <p className="text-xs text-[#5B616E]">Todavía no hay comentarios.</p>
+        <p className="text-xs text-tertiary">Todavía no hay comentarios.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {comments.map((c) => (
-            <div key={c.id} className="flex flex-col gap-1 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
+            <div key={c.id} className="flex flex-col gap-1 p-3 bg-elevated border border-default rounded-lg">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[#F7F8F8]">{authorName(c.authorId)}</span>
-                <span className="text-[10px] text-[#5B616E]">{formatTimeAgo(c.createdAt)}</span>
+                <span className="text-xs font-semibold text-primary">{authorName(c.authorId)}</span>
+                <span className="text-[10px] text-tertiary">{formatTimeAgo(c.createdAt)}</span>
               </div>
-              <p className="text-sm text-[#C4C7CD] whitespace-pre-wrap">{c.body}</p>
+              <p className="text-sm text-secondary whitespace-pre-wrap">{c.body}</p>
             </div>
           ))}
         </div>
@@ -88,12 +88,12 @@ function CommentsSection({ workspaceId, issueId, members }: { workspaceId: strin
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Escribí un comentario..."
-          className="flex-1 bg-[#16171A] border border-[#26292F] focus:border-[#5E6AD2] rounded-lg px-3 py-2 text-sm text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors"
+          className="flex-1 bg-elevated border border-default focus:border-accent rounded-lg px-3 py-2 text-sm text-primary placeholder-tertiary outline-none transition-colors"
         />
         <button
           type="submit"
           disabled={!draft.trim() || sending}
-          className="p-2 rounded-lg bg-[#5E6AD2] hover:bg-[#707CE6] text-white disabled:opacity-50 disabled:pointer-events-none transition-colors"
+          className="p-2 rounded-lg bg-accent hover:bg-accent-hover text-white disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
           <Send className="w-4 h-4" />
         </button>
@@ -152,23 +152,23 @@ function GitSection({ issue }: { issue: Issue }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">Git</label>
+      <label className="text-xs font-semibold text-secondary uppercase tracking-wider">Git</label>
 
       {refs.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {refs.map((ref) => (
             <div
               key={ref.repoFullName}
-              className="flex flex-col gap-1.5 p-3 bg-[#16171A] border border-[#26292F] rounded-lg text-xs"
+              className="flex flex-col gap-1.5 p-3 bg-elevated border border-default rounded-lg text-xs"
             >
-              <span className="text-[10px] text-[#5B616E] font-mono truncate">
+              <span className="text-[10px] text-tertiary font-mono truncate">
                 {ref.repoFullName}
               </span>
               <a
                 href={ref.branchUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 text-[#F7F8F8] hover:text-[#5E6AD2] font-mono"
+                className="flex items-center gap-1.5 text-primary hover:text-accent font-mono"
               >
                 <GitBranch className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{ref.branch}</span>
@@ -179,7 +179,7 @@ function GitSection({ issue }: { issue: Issue }) {
                   href={ref.prUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-[#8A8F98] hover:text-[#5E6AD2]"
+                  className="flex items-center gap-1.5 text-secondary hover:text-accent"
                 >
                   PR #{ref.prNumber} · {ref.prState}
                   <ExternalLink className="w-3 h-3 shrink-0" />
@@ -191,12 +191,12 @@ function GitSection({ issue }: { issue: Issue }) {
       )}
 
       {!connected ? (
-        <p className="text-xs text-[#5B616E]">
+        <p className="text-xs text-tertiary">
           Conectá GitHub en Configuración para poder crear ramas.
         </p>
       ) : reposWithoutBranch.length === 0 ? (
         refs.length > 0 && (
-          <p className="text-[11px] text-[#5B616E]">
+          <p className="text-[11px] text-tertiary">
             Ya hay una rama en cada repo permitido por el proyecto.
           </p>
         )
@@ -206,7 +206,7 @@ function GitSection({ issue }: { issue: Issue }) {
             value={selectedRepo}
             onChange={(e) => setSelectedRepo(e.target.value)}
             disabled={creating}
-            className="flex-1 min-w-0 bg-[#16171A] border border-[#26292F] text-[#F7F8F8] text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
+            className="flex-1 min-w-0 bg-elevated border border-default text-primary text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
           >
             <option value="">
               {refs.length > 0 ? 'Crear rama en otro repo…' : 'Crear rama en…'}
@@ -220,7 +220,7 @@ function GitSection({ issue }: { issue: Issue }) {
           <button
             onClick={handleCreateBranch}
             disabled={creating || !selectedRepo}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-[#1E2024] hover:bg-[#26292E] text-[#F7F8F8] border border-[#26292F] rounded-md disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
           >
             {creating ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -232,7 +232,7 @@ function GitSection({ issue }: { issue: Issue }) {
         </div>
       )}
 
-      {error && <p className="text-xs text-[#F75555]">{error}</p>}
+      {error && <p className="text-xs text-priority-urgent">{error}</p>}
     </div>
   );
 }
@@ -314,7 +314,7 @@ function HierarchySection({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
           Jerarquía
         </label>
         <IssueTypeBadge type={type} showLabel />
@@ -327,16 +327,16 @@ function HierarchySection({
             <React.Fragment key={a.id}>
               <button
                 onClick={() => onOpenIssue(a.id)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded bg-[#16171A] border border-[#26292F] text-[#8A8F98] hover:text-[#F7F8F8] hover:border-[#5E6AD2]/40 transition-colors max-w-[200px]"
+                className="flex items-center gap-1.5 px-2 py-1 rounded bg-elevated border border-default text-secondary hover:text-primary hover:border-accent/40 transition-colors max-w-[200px]"
               >
                 <IssueTypeBadge type={a.type ?? 'task'} />
-                <span className="font-mono text-[10px] text-[#5B616E]">{a.identifier}</span>
+                <span className="font-mono text-[10px] text-tertiary">{a.identifier}</span>
                 <span className="truncate">{a.title}</span>
               </button>
-              <ChevronRight className="w-3 h-3 text-[#424651] shrink-0" />
+              <ChevronRight className="w-3 h-3 text-muted shrink-0" />
             </React.Fragment>
           ))}
-          <span className="px-2 py-1 font-mono text-[10px] text-[#5B616E]">
+          <span className="px-2 py-1 font-mono text-[10px] text-tertiary">
             {issue.identifier}
           </span>
         </div>
@@ -344,15 +344,15 @@ function HierarchySection({
 
       {/* Selector de padre */}
       {canBeChild(type) && (
-        <div className="flex items-center justify-between gap-3 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
-          <span className="text-xs text-[#8A8F98] shrink-0">
+        <div className="flex items-center justify-between gap-3 p-3 bg-elevated border border-default rounded-lg">
+          <span className="text-xs text-secondary shrink-0">
             {type === 'subtask' ? 'Historia padre' : 'Épica'}
           </span>
           <select
             value={issue.parentId || ''}
             onChange={(e) => handleReparent(e.target.value)}
             disabled={parentOptions.length === 0}
-            className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[60%] truncate disabled:opacity-50"
+            className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[60%] truncate disabled:opacity-50"
           >
             <option value="">
               {parentOptions.length === 0 ? 'No hay padres disponibles' : 'Sin asignar'}
@@ -372,23 +372,23 @@ function HierarchySection({
           {children.length > 0 && (
             <>
               <EpicProgress progress={progress} />
-              <div className="flex flex-col rounded-lg border border-[#26292F] overflow-hidden">
+              <div className="flex flex-col rounded-lg border border-default overflow-hidden">
                 {children.map((child) => (
                   <button
                     key={child.id}
                     onClick={() => onOpenIssue(child.id)}
-                    className="flex items-center gap-2.5 px-3 py-2 bg-[#16171A] hover:bg-[#1E2024] border-b border-[#1C1E22] last:border-b-0 text-left transition-colors"
+                    className="flex items-center gap-2.5 px-3 py-2 bg-elevated hover:bg-hover border-b border-subtle last:border-b-0 text-left transition-colors"
                   >
                     <StatusBadge status={child.status} />
-                    <span className="font-mono text-[10px] text-[#5B616E] shrink-0">
+                    <span className="font-mono text-[10px] text-tertiary shrink-0">
                       {child.identifier}
                     </span>
                     <span
                       className={cn(
                         'text-xs truncate flex-1',
                         isCompletedStatus(child.status)
-                          ? 'text-[#5B616E] line-through'
-                          : 'text-[#F7F8F8]'
+                          ? 'text-tertiary line-through'
+                          : 'text-primary'
                       )}
                     >
                       {child.title}
@@ -401,7 +401,7 @@ function HierarchySection({
           )}
 
           <form onSubmit={handleCreateChild} className="flex items-center gap-2">
-            <Plus className="w-3.5 h-3.5 text-[#5B616E] shrink-0" />
+            <Plus className="w-3.5 h-3.5 text-tertiary shrink-0" />
             <input
               type="text"
               value={newTitle}
@@ -409,13 +409,13 @@ function HierarchySection({
               placeholder={
                 childType === 'story' ? 'Añadir historia a la épica…' : 'Añadir sub-tarea…'
               }
-              className="flex-1 bg-transparent border-none outline-none text-xs text-[#F7F8F8] placeholder-[#5B616E] py-1.5"
+              className="flex-1 bg-transparent border-none outline-none text-xs text-primary placeholder-tertiary py-1.5"
             />
             {newTitle.trim() && (
               <button
                 type="submit"
                 disabled={creating}
-                className="px-2.5 py-1 text-[11px] rounded bg-[#5E6AD2] hover:bg-[#707CE6] text-white disabled:opacity-50 transition-colors shrink-0"
+                className="px-2.5 py-1 text-[11px] rounded bg-accent hover:bg-accent-hover text-white disabled:opacity-50 transition-colors shrink-0"
               >
                 {creating ? 'Creando…' : 'Crear'}
               </button>
@@ -424,7 +424,7 @@ function HierarchySection({
         </div>
       )}
 
-      {error && <p className="text-xs text-[#F75555]">{error}</p>}
+      {error && <p className="text-xs text-priority-urgent">{error}</p>}
     </div>
   );
 }
@@ -481,10 +481,10 @@ function RepoSection({ issue }: { issue: Issue }) {
   if (loading) {
     return (
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
           Repositorio
         </label>
-        <div className="h-9 rounded-lg bg-[#16171A] border border-[#26292F] animate-pulse" />
+        <div className="h-9 rounded-lg bg-elevated border border-default animate-pulse" />
       </div>
     );
   }
@@ -492,10 +492,10 @@ function RepoSection({ issue }: { issue: Issue }) {
   if (!connected) {
     return (
       <div className="flex flex-col gap-2">
-        <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
           Repositorio
         </label>
-        <p className="text-xs text-[#5B616E]">
+        <p className="text-xs text-tertiary">
           Este workspace no tiene GitHub conectado. Conectalo en Configuración → GitHub para que
           los agentes puedan crear ramas.
         </p>
@@ -505,20 +505,20 @@ function RepoSection({ issue }: { issue: Issue }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+      <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
         {isEpicIssue ? 'Defaults de la épica' : 'Repositorio'}
       </label>
 
-      <div className="flex flex-col gap-2 p-3 bg-[#16171A] border border-[#26292F] rounded-lg">
+      <div className="flex flex-col gap-2 p-3 bg-elevated border border-default rounded-lg">
         <div className="flex items-center justify-between gap-3">
-          <span className="text-xs text-[#8A8F98] shrink-0 flex items-center gap-1.5">
+          <span className="text-xs text-secondary shrink-0 flex items-center gap-1.5">
             <GitBranch className="w-3.5 h-3.5" />
             {isEpicIssue ? 'Repo por defecto' : 'Repo'}
           </span>
           <select
             value={own}
             onChange={(e) => handleRepo(e.target.value)}
-            className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
+            className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
           >
             <option value="">
               {isEpicIssue
@@ -538,12 +538,12 @@ function RepoSection({ issue }: { issue: Issue }) {
         <p
           className={cn(
             'text-[11px]',
-            resolved.source === 'none' ? 'text-[#F09436]' : 'text-[#5B616E]'
+            resolved.source === 'none' ? 'text-priority-high' : 'text-tertiary'
           )}
         >
           {resolved.repo ? (
             <>
-              <span className="font-mono text-[#8A8F98]">{resolved.repo}</span>
+              <span className="font-mono text-secondary">{resolved.repo}</span>
               {' · '}
               {describeRepoSource(resolved)}
             </>
@@ -553,12 +553,12 @@ function RepoSection({ issue }: { issue: Issue }) {
         </p>
 
         {isEpicIssue && (
-          <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#26292F]">
-            <span className="text-xs text-[#8A8F98] shrink-0">Agente por defecto</span>
+          <div className="flex items-center justify-between gap-3 pt-2 border-t border-default">
+            <span className="text-xs text-secondary shrink-0">Agente por defecto</span>
             <select
               value={issue.defaultAssigneeId || ''}
               onChange={(e) => handleDefaultAssignee(e.target.value)}
-              className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
             >
               <option value="">Sin definir</option>
               {members
@@ -574,14 +574,14 @@ function RepoSection({ issue }: { issue: Issue }) {
         )}
 
         {isEpicIssue && (
-          <p className="text-[11px] text-[#5B616E]">
+          <p className="text-[11px] text-tertiary">
             Preselecciona el asignado al crear issues dentro de esta épica. No los reasigna solo:
             un issue que dejaste sin asignar sigue sin asignar.
           </p>
         )}
       </div>
 
-      {error && <p className="text-xs text-[#F75555]">{error}</p>}
+      {error && <p className="text-xs text-priority-urgent">{error}</p>}
     </div>
   );
 }
@@ -603,11 +603,11 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
   }, [titleDraft]);
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-[#0F1012] border-l border-[#26292F] shadow-2xl flex flex-col animate-slide-in-right glass-panel">
+    <div className="fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-surface border-l border-default shadow-2xl flex flex-col animate-slide-in-right glass-panel">
       {/* Header Bar */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1C1E22] bg-[#16171A]">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-subtle bg-elevated">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-[#5B616E] font-medium">
+          <span className="font-mono text-xs text-tertiary font-medium">
             {issue.identifier}
           </span>
           <StatusBadge status={issue.status} showLabel />
@@ -619,7 +619,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               deleteIssue(issue.id);
               onClose();
             }}
-            className="p-1.5 text-[#5B616E] hover:text-[#F75555] hover:bg-[#F75555]/10 rounded transition-colors"
+            className="p-1.5 text-tertiary hover:text-priority-urgent hover:bg-priority-urgent/10 rounded transition-colors"
             title="Eliminar issue"
           >
             <Trash2 className="w-4 h-4" />
@@ -627,7 +627,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           <button
             onClick={onClose}
-            className="p-1.5 text-[#8A8F98] hover:text-[#F7F8F8] hover:bg-[#1E2024] rounded transition-colors"
+            className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
             title="Cerrar (Esc)"
           >
             <X className="w-4 h-4" />
@@ -642,18 +642,18 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
           type="text"
           value={titleDraft}
           onChange={(e) => setTitleDraft(e.target.value)}
-          className="text-xl font-bold text-[#F7F8F8] bg-transparent border-none outline-none focus:ring-0 p-0"
+          className="text-xl font-bold text-primary bg-transparent border-none outline-none focus:ring-0 p-0"
         />
 
         {/* Quick Property Pickers Grid */}
-        <div className="grid grid-cols-2 gap-3 p-3.5 bg-[#16171A] border border-[#26292F] rounded-lg text-xs">
+        <div className="grid grid-cols-2 gap-3 p-3.5 bg-elevated border border-default rounded-lg text-xs">
           {/* Status Dropdown */}
           <div className="flex items-center justify-between">
-            <span className="text-[#8A8F98]">Estado</span>
+            <span className="text-secondary">Estado</span>
             <select
               value={issue.status}
               onChange={(e) => updateIssue(issue.id, { status: e.target.value as IssueStatus })}
-              className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer"
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
             >
               {ISSUE_STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>
@@ -665,13 +665,13 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           {/* Priority Dropdown */}
           <div className="flex items-center justify-between">
-            <span className="text-[#8A8F98]">Prioridad</span>
+            <span className="text-secondary">Prioridad</span>
             <select
               value={issue.priority}
               onChange={(e) =>
                 updateIssue(issue.id, { priority: parseInt(e.target.value, 10) as IssuePriority })
               }
-              className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer"
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
             >
               {ISSUE_PRIORITIES.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -683,14 +683,14 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           {/* Assignee Picker */}
           <div className="flex items-center justify-between">
-            <span className="text-[#8A8F98] flex items-center gap-1.5">
+            <span className="text-secondary flex items-center gap-1.5">
               Asignado a
               {issue.agent?.state && issue.agent.state !== 'idle' && <AgentBadge state={issue.agent.state} />}
             </span>
             <select
               value={issue.assigneeId || ''}
               onChange={(e) => updateIssue(issue.id, { assigneeId: e.target.value || undefined })}
-              className="bg-[#1E2024] text-[#F7F8F8] border border-[#26292F] rounded px-2 py-1 outline-none text-xs cursor-pointer"
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
             >
               <option value="">Sin asignar</option>
               <optgroup label="Humanos">
@@ -716,8 +716,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           {/* Created Date */}
           <div className="flex items-center justify-between">
-            <span className="text-[#8A8F98]">Creado</span>
-            <span className="text-[#F7F8F8] font-mono">{formatTimeAgo(issue.createdAt)}</span>
+            <span className="text-secondary">Creado</span>
+            <span className="text-primary font-mono">{formatTimeAgo(issue.createdAt)}</span>
           </div>
         </div>
 
@@ -727,7 +727,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         {/* Description Section */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
             Descripción
           </label>
           <textarea
@@ -735,13 +735,13 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             onChange={(e) => updateIssue(issue.id, { description: e.target.value })}
             placeholder="Añade una descripción con Markdown..."
             rows={5}
-            className="w-full bg-[#16171A] border border-[#26292F] focus:border-[#5E6AD2] rounded-lg p-3 text-sm text-[#F7F8F8] placeholder-[#5B616E] outline-none transition-colors resize-y font-mono"
+            className="w-full bg-elevated border border-default focus:border-accent rounded-lg p-3 text-sm text-primary placeholder-tertiary outline-none transition-colors resize-y font-mono"
           />
         </div>
 
         {/* Labels Section */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold text-[#8A8F98] uppercase tracking-wider">
+          <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
             Etiquetas
           </label>
           <LabelPicker
@@ -750,7 +750,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
           />
         </div>
 
-        <hr className="border-[#1C1E22]" />
+        <hr className="border-subtle" />
 
         <GitSection issue={issue} />
 

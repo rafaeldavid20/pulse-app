@@ -21,7 +21,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 'md', classNam
         src={src}
         alt={name || 'Avatar'}
         className={cn(
-          'rounded-full object-cover border border-[#26292F] bg-[#16171A]',
+          'rounded-full object-cover border border-default bg-elevated',
           sizeClasses[size],
           className
         )}
@@ -32,7 +32,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 'md', classNam
   return (
     <div
       className={cn(
-        'rounded-full bg-[#26292F] text-[#F7F8F8] font-medium flex items-center justify-center shrink-0 border border-[#32363F]',
+        'rounded-full bg-default text-primary font-medium flex items-center justify-center shrink-0 border border-strong',
         sizeClasses[size],
         className
       )}

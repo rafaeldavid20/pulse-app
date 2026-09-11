@@ -7,24 +7,13 @@ import { Button } from '@/components/ui/Button';
 import { useLabelStore } from '@/stores/labelStore';
 import { useAppStore } from '@/stores/appStore';
 import { Tag } from 'lucide-react';
+import { SWATCH_COLORS, DEFAULT_SWATCH_COLOR } from '@/lib/constants/colors';
 
 interface CreateLabelModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCreated?: (labelName: string) => void;
 }
-
-const PRESET_COLORS = [
-  '#F75555', // Red (Bug)
-  '#5E6AD2', // Indigo (Feature)
-  '#F09436', // Orange (Frontend)
-  '#5E94E4', // Blue (Backend)
-  '#EC4899', // Pink (Design)
-  '#10B981', // Emerald (Auth)
-  '#8B5CF6', // Purple (API)
-  '#F7C948', // Yellow (Perf)
-  '#64748B', // Slate
-];
 
 export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
   isOpen,
@@ -36,7 +25,7 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
   const addLabel = useLabelStore((s) => s.addLabel);
 
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#5E6AD2');
+  const [color, setColor] = useState(DEFAULT_SWATCH_COLOR);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +55,7 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Crear nueva etiqueta" maxWidth="sm">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Nombre de la etiqueta</label>
+          <label className="text-xs font-semibold text-secondary">Nombre de la etiqueta</label>
           <Input
             placeholder="e.g. refactor, security, mobile"
             value={name}
@@ -77,15 +66,15 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold text-[#8A8F98]">Color</label>
+          <label className="text-xs font-semibold text-secondary">Color</label>
           <div className="flex items-center gap-2 flex-wrap">
-            {PRESET_COLORS.map((c) => (
+            {SWATCH_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => setColor(c)}
                 className={`w-6 h-6 rounded-full transition-transform ${
-                  color === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-[#0F1012]' : 'hover:scale-110'
+                  color === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-surface' : 'hover:scale-110'
                 }`}
                 style={{ backgroundColor: c }}
               />
@@ -95,7 +84,7 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
 
         {/* Preview */}
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-[#8A8F98]">Vista previa</label>
+          <label className="text-xs font-semibold text-secondary">Vista previa</label>
           <div className="flex items-center">
             <span
               className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border"
@@ -111,7 +100,7 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2 border-t border-[#1C1E22] mt-2">
+        <div className="flex justify-end gap-2 pt-2 border-t border-subtle mt-2">
           <Button variant="ghost" size="sm" type="button" onClick={onClose}>
             Cancelar
           </Button>
