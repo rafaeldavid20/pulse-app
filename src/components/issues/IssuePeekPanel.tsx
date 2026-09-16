@@ -11,6 +11,7 @@ import { LabelPicker } from '@/components/labels/LabelPicker';
 import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES, canBeChild, canHaveChildren, isCompletedStatus } from '@/lib/constants/issue';
 import { formatTimeAgo, cn } from '@/lib/utils';
+import { markdownToHtml } from '@/lib/markdown';
 import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { ancestorsOf, childrenOf, progressOf, validParentsFor } from '@/lib/hierarchy';
@@ -64,8 +65,6 @@ function CommentsSection({ workspaceId, issueId, members }: { workspaceId: strin
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 className="text-sm font-semibold text-primary">Actividad y Comentarios</h3>
-
       {comments.length === 0 ? (
         <p className="text-xs text-tertiary">Todavía no hay comentarios.</p>
       ) : (
@@ -98,6 +97,69 @@ function CommentsSection({ workspaceId, issueId, members }: { workspaceId: strin
           <Send className="w-4 h-4" />
         </button>
       </form>
+    </div>
+  );
+}
+
+/**
+ * El feed de actividad real (diff de campos, cambios de relación, veredictos de
+ * QA) todavía no existe: el tipo `Activity` no se escribe desde ningún lado —
+ * ver TES-162. Hasta que esa historia entregue el backend, esta pestaña es un
+ * placeholder para no mentir en el título ("Actividad y Comentarios" cuando
+ * solo había comentarios).
+ */
+function ActivitySection() {
+  return (
+    <p className="text-xs text-tertiary">
+      Todavía no hay feed de actividad — se implementa en TES-162.
+    </p>
+  );
+}
+
+function ActivityAndCommentsSection({
+  workspaceId,
+  issueId,
+  members,
+}: {
+  workspaceId: string;
+  issueId: string;
+  members: Member[];
+}) {
+  const [tab, setTab] = useState<'activity' | 'comments'>('comments');
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-primary">Actividad y Comentarios</h3>
+        <div className="flex items-center bg-surface border border-default p-0.5 rounded-md">
+          <button
+            type="button"
+            onClick={() => setTab('activity')}
+            className={cn(
+              'px-2.5 py-1 rounded text-xs font-medium transition-colors',
+              tab === 'activity' ? 'bg-hover text-primary' : 'text-secondary hover:text-primary'
+            )}
+          >
+            Actividad
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('comments')}
+            className={cn(
+              'px-2.5 py-1 rounded text-xs font-medium transition-colors',
+              tab === 'comments' ? 'bg-hover text-primary' : 'text-secondary hover:text-primary'
+            )}
+          >
+            Comentarios
+          </button>
+        </div>
+      </div>
+
+      {tab === 'activity' ? (
+        <ActivitySection />
+      ) : (
+        <CommentsSection workspaceId={workspaceId} issueId={issueId} members={members} />
+      )}
     </div>
   );
 }
@@ -586,7 +648,75 @@ function RepoSection({ issue }: { issue: Issue }) {
   );
 }
 
+/** Textarea de markdown con una pestaña de vista previa renderizada (ver `@/lib/markdown`). */
+function DescriptionSection({
+  issue,
+  updateIssue,
+}: {
+  issue: Issue;
+  updateIssue: (id: string, updates: Partial<Issue>) => void;
+}) {
+  const [mode, setMode] = useState<'write' | 'preview'>('write');
+  const html = useMemo(() => markdownToHtml(issue.description || ''), [issue.description]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
+          Descripción
+        </label>
+        <div className="flex items-center bg-surface border border-default p-0.5 rounded-md">
+          <button
+            type="button"
+            onClick={() => setMode('write')}
+            className={cn(
+              'px-2.5 py-1 rounded text-xs font-medium transition-colors',
+              mode === 'write' ? 'bg-hover text-primary' : 'text-secondary hover:text-primary'
+            )}
+          >
+            Escribir
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('preview')}
+            className={cn(
+              'px-2.5 py-1 rounded text-xs font-medium transition-colors',
+              mode === 'preview' ? 'bg-hover text-primary' : 'text-secondary hover:text-primary'
+            )}
+          >
+            Vista previa
+          </button>
+        </div>
+      </div>
+
+      {mode === 'write' ? (
+        <textarea
+          value={issue.description || ''}
+          onChange={(e) => updateIssue(issue.id, { description: e.target.value })}
+          placeholder="Añade una descripción con Markdown..."
+          rows={5}
+          className="w-full bg-elevated border border-default focus:border-accent rounded-lg p-3 text-sm text-primary placeholder-tertiary outline-none transition-colors resize-y font-mono"
+        />
+      ) : html ? (
+        <div
+          className="min-h-[8rem] w-full bg-elevated border border-default rounded-lg p-3 text-sm text-primary [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-1 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2 [&_li]:mb-0.5 [&_a]:text-accent [&_a]:underline [&_code]:bg-hover [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-xs [&_pre]:bg-hover [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_strong]:font-semibold [&_em]:italic"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      ) : (
+        <p className="min-h-[8rem] w-full bg-elevated border border-default rounded-lg p-3 text-xs text-tertiary">
+          Sin descripción.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Escala de estimación que usa el panel (Fibonacci recortado, 0 = trivial). */
+const ISSUE_ESTIMATES = [0, 1, 2, 3, 5, 8];
+
 const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
+  const projects = useProjectStore((s) => s.projects);
+
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
   const [titleDraft, setTitleDraft] = useState(issue.title);
@@ -714,6 +844,55 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             </select>
           </div>
 
+          {/* Project Picker */}
+          <div className="flex items-center justify-between">
+            <span className="text-secondary">Proyecto</span>
+            <select
+              value={issue.projectId || ''}
+              onChange={(e) => updateIssue(issue.id, { projectId: e.target.value || undefined })}
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[60%] truncate"
+            >
+              <option value="">Sin proyecto</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Due Date */}
+          <div className="flex items-center justify-between">
+            <span className="text-secondary">Vencimiento</span>
+            <input
+              type="date"
+              value={issue.dueDate ? issue.dueDate.slice(0, 10) : ''}
+              onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || undefined })}
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
+            />
+          </div>
+
+          {/* Estimate */}
+          <div className="flex items-center justify-between">
+            <span className="text-secondary">Estimación</span>
+            <select
+              value={issue.estimate ?? ''}
+              onChange={(e) =>
+                updateIssue(issue.id, {
+                  estimate: e.target.value === '' ? undefined : parseInt(e.target.value, 10),
+                })
+              }
+              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
+            >
+              <option value="">Sin estimar</option>
+              {ISSUE_ESTIMATES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Created Date */}
           <div className="flex items-center justify-between">
             <span className="text-secondary">Creado</span>
@@ -725,19 +904,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <RepoSection issue={issue} />
 
-        {/* Description Section */}
-        <div className="flex flex-col gap-2">
-          <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
-            Descripción
-          </label>
-          <textarea
-            value={issue.description || ''}
-            onChange={(e) => updateIssue(issue.id, { description: e.target.value })}
-            placeholder="Añade una descripción con Markdown..."
-            rows={5}
-            className="w-full bg-elevated border border-default focus:border-accent rounded-lg p-3 text-sm text-primary placeholder-tertiary outline-none transition-colors resize-y font-mono"
-          />
-        </div>
+        <DescriptionSection issue={issue} updateIssue={updateIssue} />
 
         {/* Labels Section */}
         <div className="flex flex-col gap-2">
@@ -754,7 +921,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <GitSection issue={issue} />
 
-        <CommentsSection workspaceId={issue.workspaceId} issueId={issue.id} members={members} />
+        <ActivityAndCommentsSection workspaceId={issue.workspaceId} issueId={issue.id} members={members} />
       </div>
     </div>
   );

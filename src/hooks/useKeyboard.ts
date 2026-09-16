@@ -15,6 +15,7 @@ export function useKeyboard() {
   const issues = useIssueStore((s) => s.issues);
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
+  const peekIssueId = useIssueStore((s) => s.peekIssueId);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const updateIssue = useIssueStore((s) => s.updateIssue);
   const deleteIssue = useIssueStore((s) => s.deleteIssue);
@@ -35,6 +36,13 @@ export function useKeyboard() {
         if (e.key === 'Escape') {
           target.blur();
         }
+        return;
+      }
+
+      // Esc: Close the peek panel (blur-while-typing is handled above)
+      if (e.key === 'Escape' && peekIssueId) {
+        e.preventDefault();
+        setPeekIssueId(null);
         return;
       }
 
@@ -73,31 +81,40 @@ export function useKeyboard() {
         return;
       }
 
-      // J / Down Arrow: Move selection down
+      // J / Down Arrow: Move selection down. When the peek panel is open, it
+      // follows along instead of going stale behind the newly-selected row.
       if (e.key.toLowerCase() === 'j' || e.key === 'ArrowDown') {
         e.preventDefault();
         if (issues.length === 0) return;
-        if (!selectedIssueId) {
+        const activeId = peekIssueId ?? selectedIssueId;
+        if (!activeId) {
           setSelectedIssueId(issues[0].id);
+          if (peekIssueId) setPeekIssueId(issues[0].id);
         } else {
-          const currentIndex = issues.findIndex((i) => i.id === selectedIssueId);
+          const currentIndex = issues.findIndex((i) => i.id === activeId);
           if (currentIndex < issues.length - 1) {
-            setSelectedIssueId(issues[currentIndex + 1].id);
+            const nextId = issues[currentIndex + 1].id;
+            setSelectedIssueId(nextId);
+            if (peekIssueId) setPeekIssueId(nextId);
           }
         }
         return;
       }
 
-      // K / Up Arrow: Move selection up
+      // K / Up Arrow: Move selection up (same peek-follows-along behavior as J).
       if (e.key.toLowerCase() === 'k' || e.key === 'ArrowUp') {
         e.preventDefault();
         if (issues.length === 0) return;
-        if (!selectedIssueId) {
+        const activeId = peekIssueId ?? selectedIssueId;
+        if (!activeId) {
           setSelectedIssueId(issues[0].id);
+          if (peekIssueId) setPeekIssueId(issues[0].id);
         } else {
-          const currentIndex = issues.findIndex((i) => i.id === selectedIssueId);
+          const currentIndex = issues.findIndex((i) => i.id === activeId);
           if (currentIndex > 0) {
-            setSelectedIssueId(issues[currentIndex - 1].id);
+            const prevId = issues[currentIndex - 1].id;
+            setSelectedIssueId(prevId);
+            if (peekIssueId) setPeekIssueId(prevId);
           }
         }
         return;
@@ -155,6 +172,7 @@ export function useKeyboard() {
   }, [
     issues,
     selectedIssueId,
+    peekIssueId,
     setCmdKOpen,
     setCreateIssueOpen,
     setShortcutHelpOpen,
