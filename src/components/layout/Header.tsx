@@ -4,6 +4,7 @@ import React from 'react';
 import { LayoutList, LayoutGrid, Plus, Search, Rows3, Zap } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useViewPersistence } from '@/hooks/useViewPersistence';
+import { useListPreferences } from '@/hooks/useListPreferences';
 import { Button } from '@/components/ui/Button';
 import { FilterBar } from './FilterBar';
 
@@ -30,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   const setFilterState = useAppStore((s) => s.setFilterState);
 
   useViewPersistence(showFilterBar);
+  useListPreferences();
 
   return (
     <>

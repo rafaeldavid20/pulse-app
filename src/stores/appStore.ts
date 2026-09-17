@@ -1,5 +1,15 @@
 import { create } from 'zustand';
-import { Workspace, Team, Member, FilterState, IssueGroupBy, IssueSortBy } from '@/types';
+import {
+  Workspace,
+  Team,
+  Member,
+  FilterState,
+  IssueGroupBy,
+  IssueSortBy,
+  IssueListDensity,
+  IssueListColumn,
+  DEFAULT_ISSUE_LIST_COLUMNS,
+} from '@/types';
 
 interface AppState {
   userWorkspaces: Workspace[];
@@ -23,6 +33,10 @@ interface AppState {
   /** Agrupación de la vista lista (barra de filtros). Independiente de `boardGroupBy`. */
   groupBy: IssueGroupBy;
   sortBy: IssueSortBy;
+  /** Densidad de fila de IssueList. Preferencia de UI global, no por vista. */
+  listDensity: IssueListDensity;
+  /** Columnas opcionales visibles en IssueList. Preferencia de UI global, no por vista. */
+  visibleColumns: IssueListColumn[];
 
   setUserWorkspaces: (workspaces: Workspace[]) => void;
   setActiveWorkspace: (workspace: Workspace | null) => void;
@@ -47,6 +61,10 @@ interface AppState {
   setViewState: (view: { filters: FilterState; groupBy: IssueGroupBy; sortBy: IssueSortBy }) => void;
   /** A diferencia de `resetFilters`, también vuelve agrupación y orden a su default. */
   resetView: () => void;
+  setListDensity: (density: IssueListDensity) => void;
+  toggleListColumn: (column: IssueListColumn) => void;
+  /** Restaura densidad + columnas de una sola vez (leído de localStorage). */
+  setListPrefs: (prefs: { density: IssueListDensity; columns: IssueListColumn[] }) => void;
 }
 
 const initialFilters: FilterState = {
@@ -82,6 +100,8 @@ export const useAppStore = create<AppState>((set) => ({
   filterState: initialFilters,
   groupBy: initialGroupBy,
   sortBy: initialSortBy,
+  listDensity: 'comfortable',
+  visibleColumns: DEFAULT_ISSUE_LIST_COLUMNS,
 
   setUserWorkspaces: (userWorkspaces) =>
     set((state) => {
@@ -121,4 +141,13 @@ export const useAppStore = create<AppState>((set) => ({
   setViewState: ({ filters, groupBy, sortBy }) =>
     set({ filterState: filters, groupBy, sortBy }),
   resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy }),
+
+  setListDensity: (listDensity) => set({ listDensity }),
+  toggleListColumn: (column) =>
+    set((state) => ({
+      visibleColumns: state.visibleColumns.includes(column)
+        ? state.visibleColumns.filter((c) => c !== column)
+        : [...state.visibleColumns, column],
+    })),
+  setListPrefs: ({ density, columns }) => set({ listDensity: density, visibleColumns: columns }),
 }));

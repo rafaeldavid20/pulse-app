@@ -27,3 +27,37 @@ export type IssueGroupBy = 'none' | 'status' | 'assignee' | 'priority' | 'projec
 
 /** Criterio de orden de las filas, dentro de cada grupo si hay uno activo. */
 export type IssueSortBy = 'manual' | 'priority' | 'updated' | 'created' | 'estimate';
+
+/** Densidad de las filas en IssueList: cómoda (default) o compacta. */
+export type IssueListDensity = 'comfortable' | 'compact';
+
+/** Columnas opcionales de IssueList. Tipo, estado y título son siempre visibles. */
+export type IssueListColumn =
+  | 'identifier'
+  | 'priority'
+  | 'labels'
+  | 'project'
+  | 'epic'
+  | 'assignee'
+  | 'date'
+  | 'estimate';
+
+export const ISSUE_LIST_COLUMNS: { value: IssueListColumn; label: string }[] = [
+  { value: 'identifier', label: 'Identificador' },
+  { value: 'priority', label: 'Prioridad' },
+  { value: 'labels', label: 'Labels' },
+  { value: 'project', label: 'Proyecto' },
+  { value: 'epic', label: 'Épica' },
+  { value: 'assignee', label: 'Asignado' },
+  { value: 'date', label: 'Fecha' },
+  { value: 'estimate', label: 'Estimación' },
+];
+
+/** Set de columnas que reproduce lo que la lista mostraba antes de A7. */
+export const DEFAULT_ISSUE_LIST_COLUMNS: IssueListColumn[] = [
+  'identifier',
+  'priority',
+  'labels',
+  'assignee',
+  'date',
+];
