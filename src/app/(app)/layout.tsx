@@ -5,10 +5,12 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { MobileHeader } from '@/components/layout/MobileHeader';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { AuthGuard } from '@/components/auth/AuthGuard';
+import { PulseClientReporter } from '@/components/observability/PulseClientReporter';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
+      <PulseClientReporter />
       <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-base">
         {/* Desktop Left Sidebar */}
         <Sidebar />
