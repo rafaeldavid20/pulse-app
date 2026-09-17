@@ -2,11 +2,14 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlignJustify,
   Check,
   ChevronDown,
   CircleDot,
+  Columns3,
   Flag,
   FolderKanban,
+  Rows3,
   Save,
   Tag,
   User,
@@ -17,7 +20,14 @@ import { useAppStore } from '@/stores/appStore';
 import { useIssues } from '@/hooks/useIssues';
 import { useProjectStore } from '@/stores/projectStore';
 import { useLabelStore } from '@/stores/labelStore';
-import { IssueGroupBy, IssuePriority, IssueSortBy, IssueStatus } from '@/types';
+import {
+  IssueGroupBy,
+  IssueListColumn,
+  IssuePriority,
+  IssueSortBy,
+  IssueStatus,
+  ISSUE_LIST_COLUMNS,
+} from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { UNASSIGNED, countActiveFilters } from '@/lib/issueFilters';
 import { StatusBadge } from '@/components/issues/StatusBadge';
@@ -113,6 +123,10 @@ export const FilterBar: React.FC = () => {
   const setGroupBy = useAppStore((s) => s.setGroupBy);
   const sortBy = useAppStore((s) => s.sortBy);
   const setSortBy = useAppStore((s) => s.setSortBy);
+  const listDensity = useAppStore((s) => s.listDensity);
+  const setListDensity = useAppStore((s) => s.setListDensity);
+  const visibleColumns = useAppStore((s) => s.visibleColumns);
+  const toggleListColumn = useAppStore((s) => s.toggleListColumn);
   const members = useAppStore((s) => s.members);
   const activeTeam = useAppStore((s) => s.activeTeam);
   const activeView = useAppStore((s) => s.activeView);
@@ -337,6 +351,60 @@ export const FilterBar: React.FC = () => {
             ))}
           </select>
         </label>
+
+        {/* Densidad y columnas solo tienen efecto en IssueList: en board las
+            filas son tarjetas, no tiene sentido ofrecerlas ahí. */}
+        {activeView !== 'board' && (
+          <>
+            <div className="flex items-center bg-surface border border-default p-0.5 rounded-md">
+              <button
+                type="button"
+                onClick={() => setListDensity('comfortable')}
+                title="Densidad cómoda"
+                className={cn(
+                  'p-1 rounded text-xs transition-colors',
+                  listDensity === 'comfortable'
+                    ? 'bg-hover text-primary'
+                    : 'text-secondary hover:text-primary'
+                )}
+              >
+                <Rows3 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setListDensity('compact')}
+                title="Densidad compacta"
+                className={cn(
+                  'p-1 rounded text-xs transition-colors',
+                  listDensity === 'compact'
+                    ? 'bg-hover text-primary'
+                    : 'text-secondary hover:text-primary'
+                )}
+              >
+                <AlignJustify className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <FilterChip
+              chipKey="columns"
+              label="Columnas"
+              icon={<Columns3 className="w-3.5 h-3.5" />}
+              count={0}
+              openChip={openChip}
+              setOpenChip={setOpenChip}
+            >
+              {ISSUE_LIST_COLUMNS.map((c) => (
+                <OptionRow
+                  key={c.value}
+                  isChecked={visibleColumns.includes(c.value)}
+                  onClick={() => toggleListColumn(c.value as IssueListColumn)}
+                >
+                  {c.label}
+                </OptionRow>
+              ))}
+            </FilterChip>
+          </>
+        )}
 
         <button
           type="button"
