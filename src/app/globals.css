@@ -18,7 +18,9 @@
 
   --color-primary: #F7F8F8;
   --color-secondary: #8A8F98;
-  --color-tertiary: #5B616E;
+  /* #5B616E daba ~3.1:1 sobre --color-surface, por debajo de WCAG AA (4.5:1)
+     para texto chico. #757C8D mantiene el mismo matiz y sube a ~4.55:1. */
+  --color-tertiary: #757C8D;
   --color-muted: #424651;
 
   --color-accent: #5E6AD2;

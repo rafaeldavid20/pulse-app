@@ -162,7 +162,8 @@ export const IssueBoard: React.FC = () => {
 
               <button
                 onClick={() => setCreateIssueOpen(true)}
-                className="text-secondary hover:text-primary p-1 rounded hover:bg-hover transition-colors"
+                aria-label="Añadir issue"
+                className="text-secondary hover:text-primary p-1 rounded-md hover:bg-hover transition-colors"
                 title="Añadir issue"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -170,7 +171,11 @@ export const IssueBoard: React.FC = () => {
             </div>
 
             {/* Column Drop Zone */}
-            <div className="p-2.5 flex flex-col gap-2 overflow-y-auto flex-1 min-h-[150px]">
+            <div
+              role="listbox"
+              aria-label={`Issues en ${getStatusLabel(status)}`}
+              className="p-2.5 flex flex-col gap-2 overflow-y-auto flex-1 min-h-[150px]"
+            >
               {columnIssues.length === 0 ? (
                 <div
                   className={cn(
@@ -187,15 +192,27 @@ export const IssueBoard: React.FC = () => {
                   const assignee = members.find((m) => m.userId === issue.assigneeId);
                   const isBeingDragged = draggedIssueId === issue.id;
 
+                  const openIssue = () => {
+                    setSelectedIssueId(issue.id);
+                    setPeekIssueId(issue.id);
+                  };
+
                   return (
                     <div
                       key={issue.id}
+                      role="option"
+                      aria-selected={false}
+                      aria-label={`${issue.identifier} ${issue.title}`}
+                      tabIndex={0}
                       draggable
                       onDragStart={(e) => handleDragStart(e, issue.id)}
                       onDragEnd={handleDragEnd}
-                      onClick={() => {
-                        setSelectedIssueId(issue.id);
-                        setPeekIssueId(issue.id);
+                      onClick={openIssue}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openIssue();
+                        }
                       }}
                       className={cn(
                         'group flex flex-col gap-2 p-3.5 sm:p-3 bg-elevated hover:bg-hover border border-default hover:border-strong rounded-lg cursor-grab active:cursor-grabbing transition-all shadow-sm select-none',
@@ -224,7 +241,8 @@ export const IssueBoard: React.FC = () => {
                               e.stopPropagation();
                               deleteIssue(issue.id);
                             }}
-                            className="p-1 text-tertiary hover:text-priority-urgent opacity-100 sm:opacity-0 group-hover:opacity-100 hover:bg-priority-urgent/10 rounded transition-all"
+                            aria-label="Eliminar issue"
+                            className="p-1 text-tertiary hover:text-priority-urgent opacity-100 sm:opacity-0 group-hover:opacity-100 hover:bg-priority-urgent/10 rounded-md transition-all"
                             title="Eliminar issue"
                           >
                             <Trash2 className="w-3 h-3" />

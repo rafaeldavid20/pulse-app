@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
 import { resolveRepo, describeRepoSource } from '@/lib/repo';
 import { subscribeIssueComments, createComment, createIssueBranch } from '@/lib/firestore';
+import { SelectPopover } from '@/components/ui/SelectPopover';
 
 interface IssuePeekBodyProps {
   issue: Issue;
@@ -92,6 +93,7 @@ function CommentsSection({ workspaceId, issueId, members }: { workspaceId: strin
         <button
           type="submit"
           disabled={!draft.trim() || sending}
+          aria-label="Publicar comentario"
           className="p-2 rounded-lg bg-accent hover:bg-accent-hover text-white disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
           <Send className="w-4 h-4" />
@@ -264,21 +266,16 @@ function GitSection({ issue }: { issue: Issue }) {
         )
       ) : (
         <div className="flex items-center gap-2">
-          <select
+          <SelectPopover
             value={selectedRepo}
-            onChange={(e) => setSelectedRepo(e.target.value)}
+            onChange={setSelectedRepo}
             disabled={creating}
-            className="flex-1 min-w-0 bg-elevated border border-default text-primary text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
-          >
-            <option value="">
-              {refs.length > 0 ? 'Crear rama en otro repo…' : 'Crear rama en…'}
-            </option>
-            {reposWithoutBranch.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+            ariaLabel={refs.length > 0 ? 'Crear rama en otro repo' : 'Crear rama en'}
+            placeholder={refs.length > 0 ? 'Crear rama en otro repo…' : 'Crear rama en…'}
+            align="left"
+            className="flex-1 min-w-0 [&>button]:w-full"
+            options={reposWithoutBranch.map((r) => ({ value: r, label: r }))}
+          />
           <button
             onClick={handleCreateBranch}
             disabled={creating || !selectedRepo}
@@ -389,7 +386,7 @@ function HierarchySection({
             <React.Fragment key={a.id}>
               <button
                 onClick={() => onOpenIssue(a.id)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded bg-elevated border border-default text-secondary hover:text-primary hover:border-accent/40 transition-colors max-w-[200px]"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-elevated border border-default text-secondary hover:text-primary hover:border-accent/40 transition-colors max-w-[200px]"
               >
                 <IssueTypeBadge type={a.type ?? 'task'} />
                 <span className="font-mono text-[10px] text-tertiary">{a.identifier}</span>
@@ -410,21 +407,18 @@ function HierarchySection({
           <span className="text-xs text-secondary shrink-0">
             {type === 'subtask' ? 'Historia padre' : 'Épica'}
           </span>
-          <select
+          <SelectPopover
             value={issue.parentId || ''}
-            onChange={(e) => handleReparent(e.target.value)}
+            onChange={handleReparent}
             disabled={parentOptions.length === 0}
-            className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[60%] truncate disabled:opacity-50"
-          >
-            <option value="">
-              {parentOptions.length === 0 ? 'No hay padres disponibles' : 'Sin asignar'}
-            </option>
-            {parentOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.identifier} · {p.title}
-              </option>
-            ))}
-          </select>
+            ariaLabel={type === 'subtask' ? 'Historia padre' : 'Épica'}
+            placeholder={parentOptions.length === 0 ? 'No hay padres disponibles' : 'Sin asignar'}
+            className="max-w-[60%]"
+            options={parentOptions.map((p) => ({
+              value: p.id,
+              label: `${p.identifier} · ${p.title}`,
+            }))}
+          />
         </div>
       )}
 
@@ -477,7 +471,7 @@ function HierarchySection({
               <button
                 type="submit"
                 disabled={creating}
-                className="px-2.5 py-1 text-[11px] rounded bg-accent hover:bg-accent-hover text-white disabled:opacity-50 transition-colors shrink-0"
+                className="px-2.5 py-1 text-[11px] rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-50 transition-colors shrink-0"
               >
                 {creating ? 'Creando…' : 'Crear'}
               </button>
@@ -577,24 +571,20 @@ function RepoSection({ issue }: { issue: Issue }) {
             <GitBranch className="w-3.5 h-3.5" />
             {isEpicIssue ? 'Repo por defecto' : 'Repo'}
           </span>
-          <select
+          <SelectPopover
             value={own}
-            onChange={(e) => handleRepo(e.target.value)}
-            className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
-          >
-            <option value="">
-              {isEpicIssue
+            onChange={handleRepo}
+            ariaLabel={isEpicIssue ? 'Repo por defecto' : 'Repo'}
+            placeholder={
+              isEpicIssue
                 ? 'Sin definir'
                 : resolved.source === 'issue'
                   ? 'Heredar'
-                  : `Heredar (${resolved.repo ?? 'sin repo'})`}
-            </option>
-            {repos.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+                  : `Heredar (${resolved.repo ?? 'sin repo'})`
+            }
+            className="max-w-[62%]"
+            options={repos.map((r) => ({ value: r, label: r }))}
+          />
         </div>
 
         <p
@@ -617,21 +607,19 @@ function RepoSection({ issue }: { issue: Issue }) {
         {isEpicIssue && (
           <div className="flex items-center justify-between gap-3 pt-2 border-t border-default">
             <span className="text-xs text-secondary shrink-0">Agente por defecto</span>
-            <select
+            <SelectPopover
               value={issue.defaultAssigneeId || ''}
-              onChange={(e) => handleDefaultAssignee(e.target.value)}
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[62%] truncate"
-            >
-              <option value="">Sin definir</option>
-              {members
+              onChange={handleDefaultAssignee}
+              ariaLabel="Agente por defecto"
+              placeholder="Sin definir"
+              className="max-w-[62%]"
+              options={members
                 .filter((m) => m.isAgent)
-                .map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.displayName}
-                    {m.agentKind ? ` (${m.agentKind})` : ''}
-                  </option>
-                ))}
-            </select>
+                .map((m) => ({
+                  value: m.userId,
+                  label: `${m.displayName}${m.agentKind ? ` (${m.agentKind})` : ''}`,
+                }))}
+            />
           </div>
         )}
 
@@ -714,6 +702,9 @@ function DescriptionSection({
 /** Escala de estimación que usa el panel (Fibonacci recortado, 0 = trivial). */
 const ISSUE_ESTIMATES = [0, 1, 2, 3, 5, 8];
 
+/** Umbral en px para que un swipe hacia abajo del handle mobile cierre el panel. */
+const SWIPE_CLOSE_THRESHOLD = 90;
+
 const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
   const projects = useProjectStore((s) => s.projects);
 
@@ -732,8 +723,65 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [titleDraft]);
 
+  // En mobile el panel ocupa toda la pantalla (ver clase w-full del root):
+  // sin un gesto de cierre, la única salida es el botón X del header. El
+  // handle solo trackea arrastres hacia abajo; para arriba se ignora, así no
+  // compite con el scroll del contenido.
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartY = useRef<number | null>(null);
+
+  // La animación de entrada usa `animation-fill-mode: forwards`, que fija su
+  // transform final por encima de cualquier `style.transform` en línea (el
+  // origen "animations" pisa al inline en la cascada) mientras siga activa.
+  // Sin soltar la clase después de que corre, el translateY del drag nunca se
+  // vería.
+  const [entered, setEntered] = useState(false);
+
+  const handleDragStart = (e: React.TouchEvent) => {
+    dragStartY.current = e.touches[0].clientY;
+    setDragging(true);
+  };
+
+  const handleDragMove = (e: React.TouchEvent) => {
+    if (dragStartY.current === null) return;
+    const delta = e.touches[0].clientY - dragStartY.current;
+    setDragY(Math.max(0, delta));
+  };
+
+  const handleDragEnd = () => {
+    setDragging(false);
+    dragStartY.current = null;
+    if (dragY > SWIPE_CLOSE_THRESHOLD) {
+      onClose();
+    } else {
+      setDragY(0);
+    }
+  };
+
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-surface border-l border-default shadow-2xl flex flex-col animate-slide-in-right glass-panel">
+    <div
+      onAnimationEnd={() => setEntered(true)}
+      className={cn(
+        'fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-surface border-l border-default shadow-2xl flex flex-col glass-panel',
+        !entered && 'animate-slide-in-right'
+      )}
+      style={{
+        transform: dragY ? `translateY(${dragY}px)` : undefined,
+        transition: dragging ? 'none' : 'transform 0.2s ease-out',
+      }}
+    >
+      {/* Drag Handle — solo mobile, gesto de swipe-down para cerrar */}
+      <div
+        aria-hidden="true"
+        onTouchStart={handleDragStart}
+        onTouchMove={handleDragMove}
+        onTouchEnd={handleDragEnd}
+        className="sm:hidden flex items-center justify-center py-2 shrink-0 touch-none"
+      >
+        <div className="w-9 h-1 rounded-full bg-default" />
+      </div>
+
       {/* Header Bar */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-subtle bg-elevated">
         <div className="flex items-center gap-3">
@@ -749,7 +797,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               deleteIssue(issue.id);
               onClose();
             }}
-            className="p-1.5 text-tertiary hover:text-priority-urgent hover:bg-priority-urgent/10 rounded transition-colors"
+            aria-label="Eliminar issue"
+            className="p-1.5 text-tertiary hover:text-priority-urgent hover:bg-priority-urgent/10 rounded-md transition-colors"
             title="Eliminar issue"
           >
             <Trash2 className="w-4 h-4" />
@@ -757,7 +806,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           <button
             onClick={onClose}
-            className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+            aria-label="Cerrar panel"
+            className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded-md transition-colors"
             title="Cerrar (Esc)"
           >
             <X className="w-4 h-4" />
@@ -780,35 +830,26 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
           {/* Status Dropdown */}
           <div className="flex items-center justify-between">
             <span className="text-secondary">Estado</span>
-            <select
+            <SelectPopover
               value={issue.status}
-              onChange={(e) => updateIssue(issue.id, { status: e.target.value as IssueStatus })}
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
-            >
-              {ISSUE_STATUSES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => updateIssue(issue.id, { status: v as IssueStatus })}
+              ariaLabel="Estado"
+              options={ISSUE_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+            />
           </div>
 
           {/* Priority Dropdown */}
           <div className="flex items-center justify-between">
             <span className="text-secondary">Prioridad</span>
-            <select
-              value={issue.priority}
-              onChange={(e) =>
-                updateIssue(issue.id, { priority: parseInt(e.target.value, 10) as IssuePriority })
-              }
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
-            >
-              {ISSUE_PRIORITIES.map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.value} - {p.label}
-                </option>
-              ))}
-            </select>
+            <SelectPopover
+              value={String(issue.priority)}
+              onChange={(v) => updateIssue(issue.id, { priority: parseInt(v, 10) as IssuePriority })}
+              ariaLabel="Prioridad"
+              options={ISSUE_PRIORITIES.map((p) => ({
+                value: String(p.value),
+                label: `${p.value} - ${p.label}`,
+              }))}
+            />
           </div>
 
           {/* Assignee Picker */}
@@ -817,48 +858,30 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               Asignado a
               {issue.agent?.state && issue.agent.state !== 'idle' && <AgentBadge state={issue.agent.state} />}
             </span>
-            <select
+            <SelectPopover
               value={issue.assigneeId || ''}
-              onChange={(e) => updateIssue(issue.id, { assigneeId: e.target.value || undefined })}
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
-            >
-              <option value="">Sin asignar</option>
-              <optgroup label="Humanos">
-                {members
-                  .filter((m) => !m.isAgent)
-                  .map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.displayName}
-                    </option>
-                  ))}
-              </optgroup>
-              <optgroup label="Agentes">
-                {members
-                  .filter((m) => m.isAgent)
-                  .map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.displayName}
-                    </option>
-                  ))}
-              </optgroup>
-            </select>
+              onChange={(v) => updateIssue(issue.id, { assigneeId: v || undefined })}
+              ariaLabel="Asignado a"
+              placeholder="Sin asignar"
+              options={[
+                { value: '', label: 'Sin asignar' },
+                { heading: 'Humanos', options: members.filter((m) => !m.isAgent).map((m) => ({ value: m.userId, label: m.displayName })) },
+                { heading: 'Agentes', options: members.filter((m) => m.isAgent).map((m) => ({ value: m.userId, label: m.displayName })) },
+              ]}
+            />
           </div>
 
           {/* Project Picker */}
           <div className="flex items-center justify-between">
             <span className="text-secondary">Proyecto</span>
-            <select
+            <SelectPopover
               value={issue.projectId || ''}
-              onChange={(e) => updateIssue(issue.id, { projectId: e.target.value || undefined })}
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer max-w-[60%] truncate"
-            >
-              <option value="">Sin proyecto</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => updateIssue(issue.id, { projectId: v || undefined })}
+              ariaLabel="Proyecto"
+              placeholder="Sin proyecto"
+              className="max-w-[60%]"
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            />
           </div>
 
           {/* Due Date */}
@@ -868,29 +891,22 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               type="date"
               value={issue.dueDate ? issue.dueDate.slice(0, 10) : ''}
               onChange={(e) => updateIssue(issue.id, { dueDate: e.target.value || undefined })}
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
+              className="bg-hover text-primary border border-default rounded-md px-2.5 py-1.5 outline-none text-xs cursor-pointer"
             />
           </div>
 
           {/* Estimate */}
           <div className="flex items-center justify-between">
             <span className="text-secondary">Estimación</span>
-            <select
-              value={issue.estimate ?? ''}
-              onChange={(e) =>
-                updateIssue(issue.id, {
-                  estimate: e.target.value === '' ? undefined : parseInt(e.target.value, 10),
-                })
+            <SelectPopover
+              value={issue.estimate != null ? String(issue.estimate) : ''}
+              onChange={(v) =>
+                updateIssue(issue.id, { estimate: v === '' ? undefined : parseInt(v, 10) })
               }
-              className="bg-hover text-primary border border-default rounded px-2 py-1 outline-none text-xs cursor-pointer"
-            >
-              <option value="">Sin estimar</option>
-              {ISSUE_ESTIMATES.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+              ariaLabel="Estimación"
+              placeholder="Sin estimar"
+              options={ISSUE_ESTIMATES.map((n) => ({ value: String(n), label: String(n) }))}
+            />
           </div>
 
           {/* Created Date */}
