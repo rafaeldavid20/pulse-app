@@ -71,6 +71,7 @@ export default function ProjectDetailPage({
         title={project.name}
         subtitle={`Proyecto (${percent}% completado)`}
         showViewToggle
+        showFilterBar
       />
 
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto flex flex-col gap-5 sm:gap-6">
