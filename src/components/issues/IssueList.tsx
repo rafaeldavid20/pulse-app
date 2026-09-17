@@ -112,8 +112,17 @@ const IssueRow: React.FC<IssueRowProps> = ({
   return (
     <div
       onClick={() => onOpen(issue.id)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onOpen(issue.id);
+        }
+      }}
+      tabIndex={0}
+      aria-label={`${issue.identifier} ${issue.title}`}
       className={cn(
         'group relative flex items-center justify-between border-b border-subtle last:border-b-0 cursor-pointer transition-colors select-none',
+        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2',
         isCompact ? 'px-3.5 py-1 text-xs' : 'px-3.5 py-2.5 text-sm',
         isFocused ? 'bg-hover' : 'hover:bg-elevated',
         isChecked && 'bg-accent/10'
@@ -234,7 +243,8 @@ const IssueRow: React.FC<IssueRowProps> = ({
             e.stopPropagation();
             onDelete(issue.id);
           }}
-          className="p-1 text-tertiary hover:text-priority-urgent opacity-0 group-hover:opacity-100 hover:bg-priority-urgent/10 rounded transition-all"
+          aria-label="Eliminar issue"
+          className="p-1 text-tertiary hover:text-priority-urgent opacity-0 group-hover:opacity-100 hover:bg-priority-urgent/10 rounded-md transition-all"
           title="Eliminar issue"
         >
           <Trash2 className="w-3.5 h-3.5" />
