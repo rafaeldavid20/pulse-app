@@ -15,9 +15,16 @@ export function PulseClientReporter() {
 
   useEffect(() => {
     const reportError = (event: ErrorEvent) => {
+      // Script cross-origin opaco: sin stack, sin filename y sin objeto de error. No
+      // aporta nada accionable (no lo genera necesariamente una extensión).
+      const isOpaqueCrossOriginError =
+        event.message === 'Script error.' && !event.filename && !event.error;
+      if (isOpaqueCrossOriginError) return;
+
       void reportPulseClientError(
         event.error instanceof Error ? event.error : new Error(event.message),
         pathname,
+        event.filename,
       );
     };
     const reportRejection = (event: PromiseRejectionEvent) => {
