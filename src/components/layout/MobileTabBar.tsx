@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Layers, FolderKanban, Inbox, UserCheck, Menu } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { cn } from '@/lib/utils';
 import { MobileDrawer } from './MobileDrawer';
 
 export const MobileTabBar: React.FC = () => {
   const pathname = usePathname();
   const activeTeam = useAppStore((s) => s.activeTeam);
+  const unreadCount = useNotificationStore((s) => s.unreadNotifications.length);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const teamId = activeTeam?.id || 'eng';
@@ -56,7 +58,14 @@ export const MobileTabBar: React.FC = () => {
                   : 'text-secondary hover:text-primary'
               )}
             >
-              <Icon className={cn('w-5 h-5 transition-transform', isActive && 'stroke-[2.5px]')} />
+              <div className="relative">
+                <Icon className={cn('w-5 h-5 transition-transform', isActive && 'stroke-[2.5px]')} />
+                {tab.href === '/inbox' && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1.5 inline-flex items-center justify-center min-w-[14px] h-3.5 px-0.5 rounded-full bg-accent text-white text-[9px] font-semibold leading-none">
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
               <span>{tab.label}</span>
             </Link>
           );

@@ -19,6 +19,7 @@ import {
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useCycleStore } from '@/stores/cycleStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import { currentCycle, daysRemaining } from '@/lib/cycles';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,7 @@ export const Sidebar: React.FC = () => {
   const setShortcutHelpOpen = useAppStore((s) => s.setShortcutHelpOpen);
   const { user } = useAuth();
   const cycles = useCycleStore((s) => s.cycles);
+  const unreadCount = useNotificationStore((s) => s.unreadNotifications.length);
 
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -115,9 +117,15 @@ export const Sidebar: React.FC = () => {
                   <Icon className="w-4 h-4 text-secondary" />
                   <span>{item.label}</span>
                 </div>
-                <span className="font-mono text-[10px] text-tertiary">
-                  {item.shortcut}
-                </span>
+                {item.href === '/inbox' && unreadCount > 0 ? (
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-accent text-white text-[10px] font-semibold">
+                    {unreadCount}
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px] text-tertiary">
+                    {item.shortcut}
+                  </span>
+                )}
               </Link>
             );
           })}
