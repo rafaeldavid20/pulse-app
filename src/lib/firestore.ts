@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -490,6 +490,19 @@ export async function createRealCycle(
 export async function updateRealCycle(id: string, updates: Partial<Cycle>) {
   const actionRes = await callPlatformAction('cycles.update', { id, ...updates });
   if (!actionRes) throw new Error('No se pudo actualizar el ciclo.');
+}
+
+/** Actualiza `Team.cycleSettings` (E4: config de ciclos y auto-creación). */
+export async function updateCycleSettings(
+  teamId: string,
+  updates: Partial<CycleSettings>
+): Promise<CycleSettings> {
+  const actionRes = await callPlatformAction<{ cycleSettings: CycleSettings }>('cycles.updateSettings', {
+    teamId,
+    ...updates,
+  });
+  if (!actionRes?.cycleSettings) throw new Error('No se pudo actualizar la configuración de ciclos.');
+  return actionRes.cycleSettings;
 }
 
 // ===============================================================
