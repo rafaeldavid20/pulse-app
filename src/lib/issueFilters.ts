@@ -1,4 +1,5 @@
 import {
+  Cycle,
   FilterState,
   Issue,
   IssueGroupBy,
@@ -120,12 +121,15 @@ export interface GroupIssuesContext {
   projects: Project[];
   /** Épicas indexadas por id, para resolver el título del grupo "epic". */
   epicsById: Record<string, Issue>;
+  /** Ciclos indexados por id, para resolver el nombre del grupo "cycle". */
+  cyclesById?: Record<string, Cycle>;
 }
 
 const UNASSIGNED_LABEL: Record<Exclude<IssueGroupBy, 'none' | 'status' | 'priority'>, string> = {
   assignee: 'Sin asignar',
   project: 'Sin proyecto',
   epic: 'Sin épica',
+  cycle: 'Sin ciclo',
 };
 
 export function groupIssues(
@@ -150,6 +154,8 @@ export function groupIssues(
         return issue.projectId || UNASSIGNED;
       case 'epic':
         return issue.epicId || UNASSIGNED;
+      case 'cycle':
+        return issue.cycleId || UNASSIGNED;
     }
   };
 
@@ -174,6 +180,8 @@ export function groupIssues(
         return ctx.projects.find((p) => p.id === key)?.name ?? key;
       case 'epic':
         return ctx.epicsById[key]?.title ?? key;
+      case 'cycle':
+        return ctx.cyclesById?.[key]?.name ?? key;
     }
   };
 

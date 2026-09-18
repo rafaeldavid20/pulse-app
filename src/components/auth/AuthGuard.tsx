@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useLabelStore } from '@/stores/labelStore';
+import { useCycleStore } from '@/stores/cycleStore';
 import {
   subscribeUserWorkspaces,
   subscribeWorkspaceMembers,
@@ -16,6 +17,7 @@ import {
   subscribeWorkspaceIssues,
   subscribeWorkspaceProjects,
   subscribeWorkspaceLabels,
+  subscribeWorkspaceCycles,
   describeSubscriptionError,
 } from '@/lib/firestore';
 import { CommandPalette } from '@/components/layout/CommandPalette';
@@ -45,6 +47,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const resetIssuesSubscription = useIssueStore((s) => s.resetIssuesSubscription);
   const setProjects = useProjectStore((s) => s.setProjects);
   const setLabels = useLabelStore((s) => s.setLabels);
+  const setCycles = useCycleStore((s) => s.setCycles);
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
@@ -106,6 +109,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     });
     const unsubProjects = subscribeWorkspaceProjects(activeWorkspace.id, setProjects);
     const unsubLabels = subscribeWorkspaceLabels(activeWorkspace.id, setLabels);
+    const unsubCycles = subscribeWorkspaceCycles(activeWorkspace.id, setCycles);
 
     return () => {
       unsubMembers();
@@ -113,8 +117,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       unsubIssues();
       unsubProjects();
       unsubLabels();
+      unsubCycles();
     };
-  }, [activeWorkspace, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels]);
+  }, [activeWorkspace, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
 
   if (loading) {
     return (

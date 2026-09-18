@@ -5,10 +5,12 @@ import { Issue, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, M
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
 import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
+import { CycleBadge } from '@/components/cycles/CycleBadge';
 import { progressOf, isEpic } from '@/lib/hierarchy';
 import { applyIssueFilters, sortIssues, groupIssues } from '@/lib/issueFilters';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
@@ -19,6 +21,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
 import { FolderKanban, Trash2, Zap } from 'lucide-react';
+import type { Cycle } from '@/types';
 
 interface IssueListProps {
   /** Universo base de issues (equipo, proyecto, "mis issues"...). La barra de
@@ -80,6 +83,7 @@ interface IssueRowProps {
   allIssues: Issue[];
   projectsById: Record<string, Project>;
   epicsById: Record<string, Issue>;
+  cyclesById: Record<string, Cycle>;
   members: Member[];
   onOpen: (id: string) => void;
   onToggleSelect: (id: string) => void;
@@ -99,6 +103,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
   allIssues,
   projectsById,
   epicsById,
+  cyclesById,
   members,
   onOpen,
   onToggleSelect,
@@ -108,9 +113,15 @@ const IssueRow: React.FC<IssueRowProps> = ({
   const isCompact = density === 'compact';
   const project = issue.projectId ? projectsById[issue.projectId] : undefined;
   const epic = issue.epicId ? epicsById[issue.epicId] : undefined;
+  const cycle = issue.cycleId ? cyclesById[issue.cycleId] : undefined;
 
   return (
     <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', issue.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
       onClick={() => onOpen(issue.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -211,6 +222,10 @@ const IssueRow: React.FC<IssueRowProps> = ({
           </span>
         )}
 
+        {visibleColumns.includes('cycle') && cycle && (
+          <CycleBadge name={cycle.name} className="hidden lg:inline-flex" />
+        )}
+
         {visibleColumns.includes('estimate') && typeof issue.estimate === 'number' && (
           <span className="text-xs text-tertiary tabular-nums hidden sm:inline" title="Estimación">
             {issue.estimate} pts
@@ -273,6 +288,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const listDensity = useAppStore((s) => s.listDensity);
   const visibleColumns = useAppStore((s) => s.visibleColumns);
   const projects = useProjectStore((s) => s.projects);
+  const cycles = useCycleStore((s) => s.cycles);
   // El árbol se calcula sobre todos los issues del workspace, no sobre los
   // filtrados: una épica no debería mostrar 2/2 solo porque el filtro activo
   // esconde la mitad de sus hijos.
@@ -283,6 +299,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const labels = useLabelStore((s) => s.labels);
   const labelsById = Object.fromEntries(labels.map((l) => [l.id, l]));
   const projectsById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects]);
+  const cyclesById = useMemo(() => Object.fromEntries(cycles.map((c) => [c.id, c])), [cycles]);
 
   const epicsById = useMemo(() => {
     const map: Record<string, Issue> = {};
@@ -295,8 +312,8 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const groups = useMemo(() => {
     const filtered = applyIssueFilters(issues, filterState);
     const sorted = sortIssues(filtered, sortBy);
-    return groupIssues(sorted, groupBy, { members, projects, epicsById });
-  }, [issues, filterState, sortBy, groupBy, members, projects, epicsById]);
+    return groupIssues(sorted, groupBy, { members, projects, epicsById, cyclesById });
+  }, [issues, filterState, sortBy, groupBy, members, projects, epicsById, cyclesById]);
 
   const totalVisible = groups.reduce((sum, g) => sum + g.issues.length, 0);
 
@@ -364,6 +381,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
           allIssues={allIssues}
           projectsById={projectsById}
           epicsById={epicsById}
+          cyclesById={cyclesById}
           members={members}
           onOpen={handleOpen}
           onToggleSelect={toggleIssueSelection}

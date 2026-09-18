@@ -14,9 +14,12 @@ import {
   LogOut,
   ChevronUp,
   Zap,
+  RotateCw,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
+import { useCycleStore } from '@/stores/cycleStore';
+import { currentCycle, daysRemaining } from '@/lib/cycles';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 import { logoutUser } from '@/lib/auth';
@@ -32,6 +35,7 @@ export const Sidebar: React.FC = () => {
   const setCmdKOpen = useAppStore((s) => s.setCmdKOpen);
   const setShortcutHelpOpen = useAppStore((s) => s.setShortcutHelpOpen);
   const { user } = useAuth();
+  const cycles = useCycleStore((s) => s.cycles);
 
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -41,6 +45,7 @@ export const Sidebar: React.FC = () => {
   const teamName = activeTeam?.name || activeWorkspace?.name || 'Orden y Progreso';
   const teamKey = activeTeam?.key || defaultKey;
   const teamId = activeTeam?.id || 'eng';
+  const activeCycle = activeTeam ? currentCycle(cycles, activeTeam.id) : undefined;
 
   const navItems = [
     { label: 'Inbox', icon: Inbox, href: '/inbox', shortcut: 'G I' },
@@ -51,6 +56,12 @@ export const Sidebar: React.FC = () => {
     { label: 'Issues', icon: Layers, href: `/team/${teamId}/issues`, shortcut: 'G B' },
     { label: 'Épicas', icon: Zap, href: `/team/${teamId}/epics`, shortcut: 'G E' },
     { label: 'Proyectos', icon: FolderKanban, href: `/team/${teamId}/projects`, shortcut: 'G P' },
+    {
+      label: 'Ciclos',
+      icon: RotateCw,
+      href: `/team/${teamId}/cycles`,
+      shortcut: activeCycle ? `${daysRemaining(activeCycle)}d` : '',
+    },
     { label: 'Configuración', icon: Settings, href: '/settings', shortcut: '' },
   ];
 
