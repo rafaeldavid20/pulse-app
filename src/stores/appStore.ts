@@ -26,7 +26,7 @@ interface AppState {
   isCreateWorkspaceOpen: boolean;
   isInviteMemberOpen: boolean;
   
-  activeView: 'list' | 'board';
+  activeView: 'list' | 'board' | 'timeline';
   /** Cómo se agrupa el board: columnas por estado, o swimlanes por épica. */
   boardGroupBy: 'status' | 'epic';
   filterState: FilterState;
@@ -51,7 +51,7 @@ interface AppState {
   setCreateIssueOpen: (open: boolean) => void;
   setCreateWorkspaceOpen: (open: boolean) => void;
   setInviteMemberOpen: (open: boolean) => void;
-  setActiveView: (view: 'list' | 'board') => void;
+  setActiveView: (view: 'list' | 'board' | 'timeline') => void;
   setBoardGroupBy: (groupBy: 'status' | 'epic') => void;
   setFilterState: (filters: Partial<FilterState>) => void;
   resetFilters: () => void;

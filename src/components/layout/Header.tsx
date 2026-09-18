@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LayoutList, LayoutGrid, Plus, Search, Rows3, Zap } from 'lucide-react';
+import { LayoutList, LayoutGrid, GanttChartSquare, Plus, Search, Rows3, Zap } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useViewPersistence } from '@/hooks/useViewPersistence';
 import { useListPreferences } from '@/hooks/useListPreferences';
@@ -12,6 +12,10 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   showViewToggle?: boolean;
+  /** El botón "Board" no aplica a páginas sin tablero (p.ej. Épicas). Default `true`. */
+  showBoardOption?: boolean;
+  /** Vista Timeline (E6): solo la entienden Issues y Épicas, así que es opt-in. Default `false`. */
+  showTimelineOption?: boolean;
   /** Fila de filtros (status/priority/assignee/label/project/epic + agrupar/ordenar) bajo el header. */
   showFilterBar?: boolean;
 }
@@ -20,6 +24,8 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   subtitle,
   showViewToggle = true,
+  showBoardOption = true,
+  showTimelineOption = false,
   showFilterBar = false,
 }) => {
   const activeView = useAppStore((s) => s.activeView);
@@ -77,18 +83,34 @@ export const Header: React.FC<HeaderProps> = ({
               <LayoutList className="w-3.5 h-3.5" />
               <span className="hidden md:inline font-medium">Lista</span>
             </button>
-            <button
-              onClick={() => setActiveView('board')}
-              className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
-                activeView === 'board'
-                  ? 'bg-hover text-primary'
-                  : 'text-secondary hover:text-primary'
-              }`}
-              title="Vista Board (Kanban)"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span className="hidden md:inline font-medium">Board</span>
-            </button>
+            {showBoardOption && (
+              <button
+                onClick={() => setActiveView('board')}
+                className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                  activeView === 'board'
+                    ? 'bg-hover text-primary'
+                    : 'text-secondary hover:text-primary'
+                }`}
+                title="Vista Board (Kanban)"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span className="hidden md:inline font-medium">Board</span>
+              </button>
+            )}
+            {showTimelineOption && (
+              <button
+                onClick={() => setActiveView('timeline')}
+                className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                  activeView === 'timeline'
+                    ? 'bg-hover text-primary'
+                    : 'text-secondary hover:text-primary'
+                }`}
+                title="Vista Timeline (épicas x fechas)"
+              >
+                <GanttChartSquare className="w-3.5 h-3.5" />
+                <span className="hidden md:inline font-medium">Timeline</span>
+              </button>
+            )}
           </div>
         )}
 
