@@ -65,3 +65,15 @@ export function averageVelocity(closedCycles: Cycle[], n = 3): number {
   const sum = withSnapshot.reduce((acc, c) => acc + (c.snapshot?.velocity ?? 0), 0);
   return Math.round(sum / withSnapshot.length);
 }
+
+/**
+ * Puntos del scope inicial del ciclo (snapshot tomado al activarse, E5).
+ * `undefined` si el ciclo nunca pasó por ese snapshot — ciclos `upcoming`
+ * todavía, o activados antes de que el backend empezara a escribirlo — para
+ * que quien lo consuma pueda decidir su propio fallback en vez de confundir
+ * "sin snapshot" con "snapshot en cero".
+ */
+export function initialScopePoints(cycle: Pick<Cycle, 'initialScope'>): number | undefined {
+  if (!cycle.initialScope) return undefined;
+  return Object.values(cycle.initialScope.estimates).reduce((sum, points) => sum + points, 0);
+}

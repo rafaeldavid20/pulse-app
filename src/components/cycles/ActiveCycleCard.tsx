@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Cycle } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { Burndown } from './Burndown';
-import { daysRemaining, livePointsOf } from '@/lib/cycles';
+import { daysRemaining, livePointsOf, initialScopePoints } from '@/lib/cycles';
 import { cn, formatDate } from '@/lib/utils';
 import { Zap } from 'lucide-react';
 
@@ -86,7 +86,7 @@ export const ActiveCycleCard: React.FC<ActiveCycleCardProps> = ({ cycle, average
         </div>
       </div>
 
-      <Burndown cycle={cycle} scope={scope} completed={completed} />
+      <Burndown cycle={cycle} scope={scope} completed={completed} initialScope={initialScopePoints(cycle)} />
 
       {isDragOver && (
         <p className="text-center text-xs text-accent font-medium -mt-2">Soltar para sumar al ciclo</p>

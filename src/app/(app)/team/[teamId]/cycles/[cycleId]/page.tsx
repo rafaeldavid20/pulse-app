@@ -9,7 +9,7 @@ import { CyclePlanningPanel } from '@/components/cycles/CyclePlanningPanel';
 import { useCycleStore } from '@/stores/cycleStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
-import { daysRemaining, livePointsOf } from '@/lib/cycles';
+import { daysRemaining, livePointsOf, initialScopePoints } from '@/lib/cycles';
 import { formatDate } from '@/lib/utils';
 import { ArrowLeft, RotateCw } from 'lucide-react';
 
@@ -39,10 +39,11 @@ export default function CycleDetailPage({
   const live = cycle ? livePointsOf(issues, cycle.id) : { scope: 0, completed: 0 };
 
   /**
-   * Scope al entrar a esta página de planeación, para comparar contra el
-   * actual mientras se arrastran issues en esta misma sesión. No es el
-   * snapshot de scope creep entre ciclos cerrados que agrega E5 — este solo
-   * vive mientras el panel está abierto.
+   * Fallback para ciclos sin el snapshot real de E5 (`cycle.initialScope`,
+   * escrito recién al activarse): scope al entrar a esta página, para poder
+   * seguir comparando mientras se arrastran issues en esta misma sesión. No
+   * sobrevive a un refresh — se prefiere siempre el snapshot real cuando
+   * existe, más abajo.
    */
   const [capturedInitialScope, setCapturedInitialScope] = useState<number | null>(null);
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function CycleDetailPage({
     );
   }
 
-  const initialScope = capturedInitialScope ?? live.scope;
+  const initialScope = initialScopePoints(cycle) ?? capturedInitialScope ?? live.scope;
   const scopeDelta = live.scope - initialScope;
   const percent = live.scope > 0 ? Math.round((live.completed / live.scope) * 100) : 0;
   const remaining = daysRemaining(cycle);

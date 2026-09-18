@@ -8,7 +8,7 @@ import { useCycleStore } from '@/stores/cycleStore';
 import { livePointsOf } from '@/lib/cycles';
 import { cn, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
-import { Calendar, CheckCircle2 } from 'lucide-react';
+import { Calendar, CheckCircle2, Zap, Repeat } from 'lucide-react';
 
 interface CycleListItemProps {
   cycle: Cycle;
@@ -78,6 +78,21 @@ export const CycleListItem: React.FC<CycleListItemProps> = ({ cycle, editable })
           <span className="flex items-center gap-1 text-secondary">
             <CheckCircle2 className="w-3.5 h-3.5 text-status-done" />
             {completed}/{scope} pts
+          </span>
+        )}
+        {cycle.snapshot && (
+          <span className="flex items-center gap-1 text-secondary" title="Velocidad de este ciclo">
+            <Zap className="w-3.5 h-3.5 text-tertiary" />
+            {cycle.snapshot.velocity} pts
+          </span>
+        )}
+        {cycle.snapshot && (
+          <span
+            className="flex items-center gap-1 text-secondary"
+            title="% de los puntos de este ciclo que no se completaron y pasaron al siguiente"
+          >
+            <Repeat className="w-3.5 h-3.5 text-tertiary" />
+            {cycle.snapshot.carryover}% carryover
           </span>
         )}
         {editable && (
