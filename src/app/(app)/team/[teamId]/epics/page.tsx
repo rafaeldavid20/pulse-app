@@ -4,6 +4,7 @@ import React from 'react';
 import { Zap, Plus } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { EpicCard } from '@/components/epics/EpicCard';
+import { TimelineView } from '@/components/timeline/TimelineView';
 import { Button } from '@/components/ui/Button';
 import { useIssues } from '@/hooks/useIssues';
 import { useAppStore } from '@/stores/appStore';
@@ -13,6 +14,7 @@ import { progressFrom } from '@/lib/hierarchy';
 export default function TeamEpicsPage() {
   const { epics } = useIssues();
   const activeTeam = useAppStore((s) => s.activeTeam);
+  const activeView = useAppStore((s) => s.activeView);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
   const setDefaultIssueType = useIssueStore((s) => s.setDefaultIssueType);
 
@@ -32,7 +34,9 @@ export default function TeamEpicsPage() {
             ? `${epics.length} épicas · ${overall.closed}/${overall.total} issues cerrados`
             : undefined
         }
-        showViewToggle={false}
+        showViewToggle
+        showBoardOption={false}
+        showTimelineOption
       />
 
       <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-6">
@@ -52,7 +56,9 @@ export default function TeamEpicsPage() {
           </Button>
         </div>
 
-        {epics.length > 0 ? (
+        {activeView === 'timeline' ? (
+          <TimelineView />
+        ) : epics.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {epics.map(({ epic, children }) => (
               <EpicCard key={epic.id} epic={epic} issues={children} />

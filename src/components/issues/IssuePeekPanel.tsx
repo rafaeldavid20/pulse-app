@@ -901,6 +901,17 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             />
           </div>
 
+          {/* Start Date */}
+          <div className="flex items-center justify-between">
+            <span className="text-secondary">Fecha de inicio</span>
+            <input
+              type="date"
+              value={issue.startDate ? issue.startDate.slice(0, 10) : ''}
+              onChange={(e) => updateIssue(issue.id, { startDate: e.target.value || undefined })}
+              className="bg-hover text-primary border border-default rounded-md px-2.5 py-1.5 outline-none text-xs cursor-pointer"
+            />
+          </div>
+
           {/* Due Date */}
           <div className="flex items-center justify-between">
             <span className="text-secondary">Vencimiento</span>

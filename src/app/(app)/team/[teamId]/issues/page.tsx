@@ -4,6 +4,7 @@ import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
+import { TimelineView } from '@/components/timeline/TimelineView';
 import { useIssues } from '@/hooks/useIssues';
 import { useAppStore } from '@/stores/appStore';
 
@@ -21,14 +22,17 @@ export default function TeamIssuesPage() {
         title={`${teamName} Issues`}
         subtitle={`${totalCount} issues en total`}
         showViewToggle
+        showTimelineOption
         showFilterBar
       />
 
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
         {activeView === 'list' ? (
           <IssueList issues={teamIssues} />
-        ) : (
+        ) : activeView === 'board' ? (
           <IssueBoard />
+        ) : (
+          <TimelineView />
         )}
       </div>
     </div>

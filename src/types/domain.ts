@@ -316,6 +316,12 @@ export interface Issue {
   subIssueCount?: number;
   subIssueDoneCount?: number;
   dueDate?: string;
+  /**
+   * Fecha de inicio, sobre todo para épicas: junto con `dueDate` define el
+   * rango que la vista Timeline (E6) dibuja como barra. Opcional y ajeno al
+   * status — una épica puede tener fechas planeadas sin haber arrancado.
+   */
+  startDate?: string;
   estimate?: number;
   /** Ciclo al que pertenece. Ausente significa backlog/sin planear. */
   cycleId?: string;
@@ -524,6 +530,7 @@ export const ISSUE_WRITABLE_FIELDS = [
   'labelIds',
   'parentId',
   'dueDate',
+  'startDate',
   'estimate',
   'defaultAssigneeId',
   'cycleId',
