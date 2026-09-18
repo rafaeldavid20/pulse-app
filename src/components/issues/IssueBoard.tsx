@@ -20,8 +20,14 @@ import { Plus, GripVertical, Trash2, ChevronDown } from 'lucide-react';
 
 const COLUMNS: IssueStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'canceled'];
 
-export const IssueBoard: React.FC = () => {
-  const { issuesByStatus, issuesByEpic, epics } = useIssues();
+interface IssueBoardProps {
+  /** Universo acotado (p.ej. los issues de un ciclo). Sin esto, el board
+   *  muestra todo el equipo activo, como en el resto de las vistas. */
+  issues?: Issue[];
+}
+
+export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) => {
+  const { issuesByStatus, issuesByEpic, epics } = useIssues(scopeIssues);
   const boardGroupBy = useAppStore((s) => s.boardGroupBy);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);

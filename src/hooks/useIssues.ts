@@ -8,7 +8,14 @@ import { ISSUE_STATUSES } from '@/lib/constants/issue';
 import { descendantsOfEpic, isEpic } from '@/lib/hierarchy';
 import { applyIssueFilters, sortIssues } from '@/lib/issueFilters';
 
-export function useIssues() {
+/**
+ * `scopeIssues`, si se pasa, reemplaza el universo "equipo activo" de base
+ * (p.ej. los issues de un ciclo puntual): permite que `IssueBoard` se use
+ * acotado a un subconjunto igual que `IssueList` ya acepta con su prop
+ * `issues`, sin duplicar el resto del pipeline (filtros de la barra, orden,
+ * agrupación por estado/épica).
+ */
+export function useIssues(scopeIssues?: Issue[]) {
   const issues = useIssueStore((s) => s.issues);
   const filterState = useAppStore((s) => s.filterState);
   const sortBy = useAppStore((s) => s.sortBy);
@@ -18,8 +25,9 @@ export function useIssues() {
   // lo usan las páginas que necesitan el universo "sin filtrar" del equipo
   // (p.ej. para que `IssueList` aplique los filtros por su cuenta).
   const teamIssues = useMemo(
-    () => (activeTeam ? issues.filter((issue) => issue.teamId === activeTeam.id) : issues),
-    [issues, activeTeam]
+    () =>
+      scopeIssues ?? (activeTeam ? issues.filter((issue) => issue.teamId === activeTeam.id) : issues),
+    [issues, activeTeam, scopeIssues]
   );
 
   const filteredIssues = useMemo(
