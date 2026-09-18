@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -677,6 +677,35 @@ export async function createComment(issueId: string, body: string): Promise<Comm
   const actionRes = await callPlatformAction<Comment>('comments.create', { issueId, body, source: 'web' });
   if (!actionRes) throw new Error('No se pudo publicar el comentario.');
   return actionRes;
+}
+
+// ===============================================================
+// 7b. NOTIFICATIONS SERVICES
+// ===============================================================
+// No client-side fallback: `notifications` es `allow write: if false` en las
+// reglas de Firestore, solo la genera el Admin SDK (triggers de pulse-backend).
+
+/**
+ * Notificaciones no leídas del usuario, para el badge de contador (F1). Filtra
+ * `read == false` a propósito y no solo `userId`: es lo que hace que la query
+ * calce con el único índice compuesto que existe para esta colección
+ * (`userId asc, read asc, createdAt desc`) — sin el filtro de `read`,
+ * Firestore la rechaza por faltarle índice. La lista completa del inbox
+ * (F3) necesitará su propio índice cuando exista.
+ */
+export function subscribeUserNotifications(
+  userId: string,
+  callback: (notifications: Notification[]) => void
+): Unsubscribe {
+  const q = query(
+    collection(db, 'notifications'),
+    where('userId', '==', userId),
+    where('read', '==', false),
+    orderBy('createdAt', 'desc')
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => d.data() as Notification));
+  });
 }
 
 // ===============================================================

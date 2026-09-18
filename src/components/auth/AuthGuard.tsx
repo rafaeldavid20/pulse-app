@@ -10,6 +10,7 @@ import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useCycleStore } from '@/stores/cycleStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import {
   subscribeUserWorkspaces,
   subscribeWorkspaceMembers,
@@ -18,6 +19,7 @@ import {
   subscribeWorkspaceProjects,
   subscribeWorkspaceLabels,
   subscribeWorkspaceCycles,
+  subscribeUserNotifications,
   describeSubscriptionError,
 } from '@/lib/firestore';
 import { CommandPalette } from '@/components/layout/CommandPalette';
@@ -48,6 +50,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const setProjects = useProjectStore((s) => s.setProjects);
   const setLabels = useLabelStore((s) => s.setLabels);
   const setCycles = useCycleStore((s) => s.setCycles);
+  const setUnreadNotifications = useNotificationStore((s) => s.setUnreadNotifications);
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
@@ -92,7 +95,21 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     return () => unsub();
   }, [user, setUserWorkspaces]);
 
-  // 3. Subscribe to Active Workspace Data (Members, Teams, Issues, Projects, Labels)
+  // 3. Subscribe to Unread Notifications (badge de contador en sidebar / tab bar)
+  //
+  // Por `userId`, no por workspace: el inbox es una vista del usuario a través
+  // de todos sus workspaces, igual que `subscribeUserWorkspaces`.
+  useEffect(() => {
+    if (!user) {
+      setUnreadNotifications([]);
+      return;
+    }
+
+    const unsub = subscribeUserNotifications(user.uid, setUnreadNotifications);
+    return () => unsub();
+  }, [user, setUnreadNotifications]);
+
+  // 4. Subscribe to Active Workspace Data (Members, Teams, Issues, Projects, Labels)
   useEffect(() => {
     if (!activeWorkspace) return;
 

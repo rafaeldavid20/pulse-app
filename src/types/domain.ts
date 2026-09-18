@@ -381,6 +381,37 @@ export interface Activity {
   createdAt: string;
 }
 
+/**
+ * `due_soon` queda en el enum desde F1 pero su generación es de F5
+ * (recordatorios de vencimiento) — todavía no hay nada que la emita.
+ */
+export type NotificationType =
+  | 'assigned'
+  | 'mentioned'
+  | 'comment'
+  | 'status_change'
+  | 'review_result'
+  | 'due_soon';
+
+/**
+ * Generada server-side (Admin SDK) por triggers sobre `issues` y por
+ * `comments.create` — nunca escrita por el cliente. `readAt` es la marca de
+ * cuándo se leyó; `read` es la que filtra el inbox y el badge de contador.
+ */
+export interface Notification {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  type: NotificationType;
+  issueId: string;
+  actorId: string;
+  title: string;
+  body: string;
+  read: boolean;
+  readAt?: string;
+  createdAt: string;
+}
+
 // ---------------------------------------------------------------------------
 // Catálogos de presentación
 // ---------------------------------------------------------------------------
