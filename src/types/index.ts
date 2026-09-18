@@ -23,7 +23,7 @@ export interface FilterState {
 }
 
 /** Cómo se agrupan las filas de la lista de issues bajo la barra de filtros. */
-export type IssueGroupBy = 'none' | 'status' | 'assignee' | 'priority' | 'project' | 'epic';
+export type IssueGroupBy = 'none' | 'status' | 'assignee' | 'priority' | 'project' | 'epic' | 'cycle';
 
 /** Criterio de orden de las filas, dentro de cada grupo si hay uno activo. */
 export type IssueSortBy = 'manual' | 'priority' | 'updated' | 'created' | 'estimate';
@@ -38,6 +38,7 @@ export type IssueListColumn =
   | 'labels'
   | 'project'
   | 'epic'
+  | 'cycle'
   | 'assignee'
   | 'date'
   | 'estimate';
@@ -48,6 +49,7 @@ export const ISSUE_LIST_COLUMNS: { value: IssueListColumn; label: string }[] = [
   { value: 'labels', label: 'Labels' },
   { value: 'project', label: 'Proyecto' },
   { value: 'epic', label: 'Épica' },
+  { value: 'cycle', label: 'Ciclo' },
   { value: 'assignee', label: 'Asignado' },
   { value: 'date', label: 'Fecha' },
   { value: 'estimate', label: 'Estimación' },

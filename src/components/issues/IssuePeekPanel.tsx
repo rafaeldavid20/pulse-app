@@ -5,6 +5,7 @@ import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus }
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
+import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
 import { LabelPicker } from '@/components/labels/LabelPicker';
@@ -707,6 +708,9 @@ const SWIPE_CLOSE_THRESHOLD = 90;
 
 const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
   const projects = useProjectStore((s) => s.projects);
+  // Solo ciclos del propio equipo del issue: asignar uno de otro equipo no
+  // tiene sentido y el picker de proyecto no lo ofrece tampoco.
+  const cycles = useCycleStore((s) => s.cycles).filter((c) => c.teamId === issue.teamId);
 
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
@@ -881,6 +885,19 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               placeholder="Sin proyecto"
               className="max-w-[60%]"
               options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            />
+          </div>
+
+          {/* Cycle Picker */}
+          <div className="flex items-center justify-between">
+            <span className="text-secondary">Ciclo</span>
+            <SelectPopover
+              value={issue.cycleId || ''}
+              onChange={(v) => updateIssue(issue.id, { cycleId: v || undefined })}
+              ariaLabel="Ciclo"
+              placeholder="Sin ciclo"
+              className="max-w-[60%]"
+              options={cycles.map((c) => ({ value: c.id, label: c.name }))}
             />
           </div>
 

@@ -6,10 +6,12 @@ import { Issue, IssueStatus } from '@/types';
 import { useIssues } from '@/hooks/useIssues';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
+import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
 import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
+import { CycleBadge } from '@/components/cycles/CycleBadge';
 import { progressOf } from '@/lib/hierarchy';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -30,6 +32,8 @@ export const IssueBoard: React.FC = () => {
   // Sin filtrar, igual que en IssueList: el progreso describe el árbol real,
   // no el subconjunto que el filtro activo deja ver.
   const allIssues = useIssueStore((s) => s.issues);
+  const cycles = useCycleStore((s) => s.cycles);
+  const cyclesById = Object.fromEntries(cycles.map((c) => [c.id, c]));
   const labels = useLabelStore((s) => s.labels);
   const labelsById = Object.fromEntries(labels.map((l) => [l.id, l]));
   // La card muestra una sola etiqueta: si el issue está marcado "ambigua", es
@@ -255,11 +259,14 @@ export const IssueBoard: React.FC = () => {
                       </p>
 
                       <div className="flex items-center justify-between pt-1 border-t border-subtle mt-1">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           {boardLabel(issue) && (
                             <span className="text-[10px] text-secondary bg-hover px-1.5 py-0.5 rounded border border-default" style={labelsById[boardLabel(issue)!]?.color ? { color: labelsById[boardLabel(issue)!]!.color, borderColor: labelsById[boardLabel(issue)!]!.color } : undefined}>
                               {labelsById[boardLabel(issue)!]?.name ?? boardLabel(issue)}
                             </span>
+                          )}
+                          {issue.cycleId && cyclesById[issue.cycleId] && (
+                            <CycleBadge name={cyclesById[issue.cycleId].name} />
                           )}
                         </div>
 

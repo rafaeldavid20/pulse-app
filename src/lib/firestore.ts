@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -462,6 +462,34 @@ export async function createRealProject(
 export async function updateRealProject(id: string, updates: Partial<Project>) {
   const actionRes = await callPlatformAction('projects.update', { id, ...updates });
   if (!actionRes) throw new Error('No se pudo actualizar el proyecto.');
+}
+
+// ===============================================================
+// 4b. CYCLES SERVICES
+// ===============================================================
+
+export function subscribeWorkspaceCycles(
+  workspaceId: string,
+  callback: (cycles: Cycle[]) => void
+): Unsubscribe {
+  const q = query(collection(db, 'cycles'), where('workspaceId', '==', workspaceId));
+  return onSnapshot(q, (snap) => {
+    const cycles = snap.docs.map((d) => d.data() as Cycle);
+    callback(cycles);
+  });
+}
+
+export async function createRealCycle(
+  data: Partial<Cycle> & { workspaceId: string; teamId: string; startsAt: string; endsAt: string }
+): Promise<Cycle> {
+  const actionRes = await callPlatformAction<Cycle>('cycles.create', data);
+  if (!actionRes?.id) throw new Error('No se pudo crear el ciclo.');
+  return actionRes;
+}
+
+export async function updateRealCycle(id: string, updates: Partial<Cycle>) {
+  const actionRes = await callPlatformAction('cycles.update', { id, ...updates });
+  if (!actionRes) throw new Error('No se pudo actualizar el ciclo.');
 }
 
 // ===============================================================

@@ -41,6 +41,7 @@ const GROUP_BY_OPTIONS: { value: IssueGroupBy; label: string }[] = [
   { value: 'priority', label: 'Prioridad' },
   { value: 'project', label: 'Proyecto' },
   { value: 'epic', label: 'Épica' },
+  { value: 'cycle', label: 'Ciclo' },
 ];
 
 const SORT_BY_OPTIONS: { value: IssueSortBy; label: string }[] = [
