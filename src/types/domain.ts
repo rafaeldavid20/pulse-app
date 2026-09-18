@@ -132,13 +132,29 @@ export interface Project {
  * momento — el ciclo ya cerrado no vuelve a recalcularlas aunque sus issues
  * cambien después. `scope`/`completed` son puntos de estimate; `velocity` es
  * lo que E2 promedia sobre los últimos 3 ciclos para sugerir cuánto meter en
- * el próximo. En E1 `velocity` coincide con `completed` — E5 es el que la
- * separa (scope creep agregado a mitad de ciclo no cuenta para la velocidad).
+ * el próximo. En E1 `velocity` coincidía con `completed`; E5 la separa (el
+ * scope agregado a mitad de ciclo cuenta para `scope`/`completed` pero no
+ * para `velocity`). `carryover` es el % de los puntos de `scope` que no se
+ * completaron y pasaron al ciclo siguiente por el rollover de E5.
  */
 export interface CycleSnapshot {
   scope: number;
   completed: number;
   velocity: number;
+  carryover: number;
+}
+
+/**
+ * Scope del ciclo al momento de arrancar (`upcoming` -> `active`), antes de
+ * que se le agregue o saque nada — la base contra la que el burndown de E2
+ * dibuja la línea ideal y contra la que se mide el scope creep de mitad de
+ * ciclo. `estimates` guarda el puntaje de cada issue en ese momento porque el
+ * `estimate` del issue puede cambiar después y correrle el piso a la
+ * comparación.
+ */
+export interface CycleInitialScope {
+  issueIds: string[];
+  estimates: Record<string, number>;
 }
 
 export interface Cycle {
@@ -151,6 +167,9 @@ export interface Cycle {
   startsAt: string;
   endsAt: string;
   status: CycleStatus;
+  /** Solo presente una vez que el ciclo pasó por `active` (lo escribe el
+   *  mismo paso que hace la transición, sea manual o el scheduler de E4). */
+  initialScope?: CycleInitialScope;
   /** Solo presente una vez que el ciclo pasó por `cycles.close`. */
   snapshot?: CycleSnapshot;
   createdAt: string;
