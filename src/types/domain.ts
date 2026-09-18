@@ -260,6 +260,33 @@ export interface IssueGitRef {
   lastSyncedAt?: string;
 }
 
+/**
+ * Trabajo pendiente en OTRO repo, registrado por el run que lo detectó para que
+ * otro run lo retome (TES-202). Cada run solo tiene credenciales sobre su repo,
+ * así que en vez de empujar a un segundo repo deja este traspaso en el issue: el
+ * backend lo despacha al repo destino y la entrada se cierra sola cuando ese
+ * repo abre su PR.
+ *
+ * Es un campo y no un comentario a propósito: un run nuevo lo lee sin depender
+ * de que el modelo interprete texto libre. El comentario que se publica junto
+ * es solo para las personas.
+ */
+export interface PendingRepoWork {
+  /** Repo donde falta trabajo. Una entrada por repo. */
+  repoFullName: string;
+  /** Qué falta hacer allá. */
+  summary: string;
+  /** Qué ya está hecho en el repo de origen (contexto para quien lo retome). */
+  done?: string;
+  sourceRepoFullName?: string;
+  sourceBranch?: string;
+  sourcePrNumber?: number;
+  requestedBy: string;
+  requestedAt: string;
+  /** Lo marca `agentDispatchTrigger` al despachar el run del repo destino. */
+  dispatchedAt?: string;
+}
+
 export interface Issue {
   id: string;
   workspaceId: string;
@@ -312,6 +339,8 @@ export interface Issue {
    * resto se suma cuando el trabajo abarca varios repos.
    */
   gitRefs?: IssueGitRef[];
+  /** Traspasos a otros repos todavía sin PR. Mientras haya alguno el issue no pasa a `in_review`. */
+  pendingRepoWork?: PendingRepoWork[];
   createdAt: string;
   updatedAt: string;
 }
