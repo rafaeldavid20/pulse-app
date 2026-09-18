@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { LayoutList, LayoutGrid, GanttChartSquare, Plus, Search, Rows3, Zap } from 'lucide-react';
+import { LayoutList, LayoutGrid, GanttChartSquare, CalendarDays, Plus, Search, Rows3, Zap } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useViewPersistence } from '@/hooks/useViewPersistence';
 import { useListPreferences } from '@/hooks/useListPreferences';
@@ -16,6 +16,8 @@ interface HeaderProps {
   showBoardOption?: boolean;
   /** Vista Timeline (E6): solo la entienden Issues y Épicas, así que es opt-in. Default `false`. */
   showTimelineOption?: boolean;
+  /** Vista Calendar (E7): solo la entiende Issues, así que es opt-in. Default `false`. */
+  showCalendarOption?: boolean;
   /** Fila de filtros (status/priority/assignee/label/project/epic + agrupar/ordenar) bajo el header. */
   showFilterBar?: boolean;
 }
@@ -26,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   showViewToggle = true,
   showBoardOption = true,
   showTimelineOption = false,
+  showCalendarOption = false,
   showFilterBar = false,
 }) => {
   const activeView = useAppStore((s) => s.activeView);
@@ -109,6 +112,20 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <GanttChartSquare className="w-3.5 h-3.5" />
                 <span className="hidden md:inline font-medium">Timeline</span>
+              </button>
+            )}
+            {showCalendarOption && (
+              <button
+                onClick={() => setActiveView('calendar')}
+                className={`p-1.5 rounded text-xs flex items-center gap-1.5 transition-colors ${
+                  activeView === 'calendar'
+                    ? 'bg-hover text-primary'
+                    : 'text-secondary hover:text-primary'
+                }`}
+                title="Vista Calendar (issues x dueDate)"
+              >
+                <CalendarDays className="w-3.5 h-3.5" />
+                <span className="hidden md:inline font-medium">Calendar</span>
               </button>
             )}
           </div>

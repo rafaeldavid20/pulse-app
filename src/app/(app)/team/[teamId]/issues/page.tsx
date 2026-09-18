@@ -5,6 +5,7 @@ import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
 import { TimelineView } from '@/components/timeline/TimelineView';
+import { CalendarView } from '@/components/calendar/CalendarView';
 import { useIssues } from '@/hooks/useIssues';
 import { useAppStore } from '@/stores/appStore';
 
@@ -23,6 +24,7 @@ export default function TeamIssuesPage() {
         subtitle={`${totalCount} issues en total`}
         showViewToggle
         showTimelineOption
+        showCalendarOption
         showFilterBar
       />
 
@@ -31,6 +33,8 @@ export default function TeamIssuesPage() {
           <IssueList issues={teamIssues} />
         ) : activeView === 'board' ? (
           <IssueBoard />
+        ) : activeView === 'calendar' ? (
+          <CalendarView />
         ) : (
           <TimelineView />
         )}
