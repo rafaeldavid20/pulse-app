@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Cycle } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { useCycleStore } from '@/stores/cycleStore';
@@ -60,7 +61,12 @@ export const CycleListItem: React.FC<CycleListItemProps> = ({ cycle, editable })
       )}
     >
       <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="text-sm font-medium text-primary truncate">{cycle.name}</span>
+        <Link
+          href={`/team/${cycle.teamId}/cycles/${cycle.id}`}
+          className="text-sm font-medium text-primary truncate hover:text-accent hover:underline w-fit"
+        >
+          {cycle.name}
+        </Link>
         <span className="flex items-center gap-1 text-xs text-tertiary">
           <Calendar className="w-3 h-3" />
           {formatDate(cycle.startsAt)} – {formatDate(cycle.endsAt)}

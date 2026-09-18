@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Cycle } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { Burndown } from './Burndown';
@@ -48,7 +49,12 @@ export const ActiveCycleCard: React.FC<ActiveCycleCardProps> = ({ cycle, average
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-accent" />
-            <h2 className="text-base font-semibold text-primary">{cycle.name}</h2>
+            <Link
+              href={`/team/${cycle.teamId}/cycles/${cycle.id}`}
+              className="text-base font-semibold text-primary hover:text-accent hover:underline"
+            >
+              {cycle.name}
+            </Link>
             <span className="text-xs text-tertiary">
               {formatDate(cycle.startsAt)} – {formatDate(cycle.endsAt)}
             </span>
