@@ -192,6 +192,12 @@ export interface Member {
    * Humanos / Dev / QA sin leer `agents`, que es Admin-SDK-only.
    */
   agentRole?: AgentRole;
+  /**
+   * Tipos de notificación que este miembro apagó para todo el workspace
+   * (F4, ver `notifications.updatePreferences`) — vacío/ausente por default
+   * (todo prendido). Distinto de silenciar un issue puntual (F1/F3).
+   */
+  mutedNotificationTypes?: NotificationType[];
 }
 
 export interface Agent {
@@ -393,6 +399,9 @@ export type NotificationType =
   | 'review_result'
   | 'due_soon';
 
+/** Presets rápidos de snooze (F4, ver `notifications.snooze`). `'clear'` saca el snooze. */
+export type SnoozePreset = '1h' | 'tomorrow' | 'next_week' | 'clear';
+
 /**
  * Generada server-side (Admin SDK) por triggers sobre `issues` y por
  * `comments.create` — nunca escrita por el cliente. `readAt` es la marca de
@@ -410,6 +419,12 @@ export interface Notification {
   read: boolean;
   readAt?: string;
   createdAt: string;
+  /**
+   * Snooze de esta notificación puntual (F4, ver `notifications.snooze`).
+   * Mientras sea futuro, se oculta del inbox — filtrado client-side en
+   * `subscribeUserNotifications`/`subscribeAllUserNotifications`, sin cron.
+   */
+  snoozedUntil?: string;
 }
 
 // ---------------------------------------------------------------------------

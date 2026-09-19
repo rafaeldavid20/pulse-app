@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -761,6 +761,15 @@ export async function createComment(issueId: string, body: string): Promise<Comm
 // reglas de Firestore, solo la genera el Admin SDK (triggers de pulse-backend).
 
 /**
+ * Un snooze futuro oculta la notificación del inbox (F4) — sin cron, la
+ * notificación simplemente deja de matchear este filtro client-side una vez
+ * que `snoozedUntil` queda en el pasado.
+ */
+function isSnoozed(notification: Notification): boolean {
+  return !!notification.snoozedUntil && new Date(notification.snoozedUntil) > new Date();
+}
+
+/**
  * Notificaciones no leídas del usuario, para el badge de contador (F1). Filtra
  * `read == false` a propósito y no solo `userId`: es lo que hace que la query
  * calce con el único índice compuesto que existe para esta colección
@@ -779,7 +788,7 @@ export function subscribeUserNotifications(
     orderBy('createdAt', 'desc')
   );
   return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => d.data() as Notification));
+    callback(snap.docs.map((d) => d.data() as Notification).filter((n) => !isSnoozed(n)));
   });
 }
 
@@ -798,7 +807,7 @@ export function subscribeAllUserNotifications(
   return onSnapshot(
     q,
     (snap) => {
-      const notifications = snap.docs.map((d) => d.data() as Notification);
+      const notifications = snap.docs.map((d) => d.data() as Notification).filter((n) => !isSnoozed(n));
       notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(notifications);
     },
@@ -826,6 +835,30 @@ export async function markAllNotificationsRead(): Promise<void> {
 export async function muteIssueNotifications(issueId: string): Promise<void> {
   const actionRes = await callPlatformAction('notifications.muteIssue', { issueId });
   if (!actionRes) throw new Error('No se pudo silenciar el issue.');
+}
+
+/**
+ * Pospone (o le saca el snooze a, con `preset: 'clear'`) una notificación
+ * puntual (F4). Mientras el snooze esté vigente, `subscribeUserNotifications`
+ * / `subscribeAllUserNotifications` la ocultan del inbox.
+ */
+export async function snoozeNotification(notificationId: string, preset: SnoozePreset): Promise<void> {
+  const actionRes = await callPlatformAction('notifications.snooze', { notificationId, preset });
+  if (!actionRes) throw new Error('No se pudo posponer la notificación.');
+}
+
+/**
+ * Prende/apaga una categoría entera de notificación para el miembro actual
+ * en `workspaceId` (F4) — a diferencia de `muteIssueNotifications`, no
+ * depende de un issue puntual.
+ */
+export async function updateNotificationPreference(
+  workspaceId: string,
+  type: NotificationType,
+  enabled: boolean
+): Promise<void> {
+  const actionRes = await callPlatformAction('notifications.updatePreferences', { workspaceId, type, enabled });
+  if (!actionRes) throw new Error('No se pudo actualizar la preferencia de notificación.');
 }
 
 // ===============================================================
