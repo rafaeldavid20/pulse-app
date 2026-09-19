@@ -69,6 +69,20 @@ export interface Workspace {
   slug: string;
   ownerId: string;
   createdAt: string;
+  /**
+   * Kill switch global (D8/TES-153): en `true`, corta los cuatro caminos de
+   * dispatch de agentes (task, traspaso, re-trabajo y revisión) sin tocar
+   * `enabled`/`autonomousMode` de cada agente.
+   */
+  agentsPaused?: boolean;
+  /** Override por workspace del tope diario compartido de dispatches. Default `DAILY_DISPATCH_LIMIT` (5) si no está seteado. */
+  dailyDispatchLimit?: number;
+  /** Techo de gasto diario del workspace en USD, sumando `agent_runs.costUsd` (D15) de hoy. Sin tope si no está seteado. */
+  dailyCostCapUsd?: number;
+  /** Techo de gasto por issue en USD, sumando `agent_runs.costUsd` (D15) de ese issue. Sin tope si no está seteado. */
+  issueCostCapUsd?: number;
+  /** Tope de runs (dev + QA + traspasos) por issue antes de pasarlo a `needs_human`. Default `DEFAULT_MAX_RUNS_PER_ISSUE` (6) si no está seteado. */
+  maxRunsPerIssue?: number;
 }
 
 export interface Team {
