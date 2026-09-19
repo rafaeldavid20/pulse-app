@@ -8,6 +8,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
+import { ReviewBadge } from './ReviewBadge';
 import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { CycleBadge } from '@/components/cycles/CycleBadge';
@@ -188,6 +189,8 @@ const IssueRow: React.FC<IssueRowProps> = ({
         </span>
 
         <span className="text-primary font-normal truncate">{issue.title}</span>
+
+        {issue.review?.state && <ReviewBadge state={issue.review.state} />}
 
         {/* Progreso solo cuando hay algo colgando: una fila sin hijos no
             gana nada mostrando una barra vacía. */}

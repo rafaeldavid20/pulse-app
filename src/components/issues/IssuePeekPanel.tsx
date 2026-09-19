@@ -9,6 +9,8 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
+import { ReviewBadge } from './ReviewBadge';
+import { QaReviewSection } from './QaReviewSection';
 import { LabelPicker } from '@/components/labels/LabelPicker';
 import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment, AcceptanceCriterion } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES, canBeChild, canHaveChildren, isCompletedStatus } from '@/lib/constants/issue';
@@ -971,6 +973,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             {issue.identifier}
           </span>
           <StatusBadge status={issue.status} showLabel />
+          {issue.review?.state && <ReviewBadge state={issue.review.state} />}
         </div>
 
         <div className="flex items-center gap-2">
@@ -1129,6 +1132,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         <DescriptionSection issue={issue} updateIssue={updateIssue} />
 
         <AcceptanceCriteriaSection issue={issue} updateIssue={updateIssue} />
+
+        {issue.review && <QaReviewSection issue={issue} />}
 
         {/* Labels Section */}
         <div className="flex flex-col gap-2">

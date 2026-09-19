@@ -76,6 +76,7 @@ const initialFilters: FilterState = {
   projectIds: [],
   epicIds: [],
   labelIds: [],
+  reviewStates: [],
 };
 
 const initialGroupBy: IssueGroupBy = 'none';
@@ -138,8 +139,12 @@ export const useAppStore = create<AppState>((set) => ({
   resetFilters: () => set({ filterState: initialFilters }),
   setGroupBy: (groupBy) => set({ groupBy }),
   setSortBy: (sortBy) => set({ sortBy }),
+  // `filters` puede venir de un `localStorage` viejo, de antes de que existiera
+  // algún campo de `FilterState` (p.ej. `reviewStates`, D7) — mergear con
+  // `initialFilters` evita que ese campo quede `undefined` y rompa a quien
+  // hace `.length` sobre él.
   setViewState: ({ filters, groupBy, sortBy }) =>
-    set({ filterState: filters, groupBy, sortBy }),
+    set({ filterState: { ...initialFilters, ...filters }, groupBy, sortBy }),
   resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy }),
 
   setListDensity: (listDensity) => set({ listDensity }),

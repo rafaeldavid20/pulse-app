@@ -9,7 +9,7 @@
  */
 export * from './domain';
 
-import type { IssueStatus, IssuePriority, IssueType } from './domain';
+import type { IssueStatus, IssuePriority, IssueType, ReviewState } from './domain';
 
 export interface FilterState {
   search: string;
@@ -20,6 +20,8 @@ export interface FilterState {
   projectIds: string[];
   epicIds: string[];
   labelIds: string[];
+  /** Estado de revisión de QA (D7) — `review:needs_human` es la cola de trabajo del humano. */
+  reviewStates: ReviewState[];
 }
 
 /** Cómo se agrupan las filas de la lista de issues bajo la barra de filtros. */

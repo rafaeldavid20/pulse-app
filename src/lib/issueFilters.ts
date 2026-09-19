@@ -63,6 +63,10 @@ export function applyIssueFilters(issues: Issue[], filters: FilterState): Issue[
       if (!filters.labelIds.some((id) => labels.includes(id))) return false;
     }
 
+    if (filters.reviewStates.length > 0) {
+      if (!issue.review || !filters.reviewStates.includes(issue.review.state)) return false;
+    }
+
     return true;
   });
 }
@@ -74,7 +78,8 @@ export function countActiveFilters(filters: FilterState): number {
     filters.assigneeIds.length +
     filters.projectIds.length +
     filters.epicIds.length +
-    filters.labelIds.length
+    filters.labelIds.length +
+    filters.reviewStates.length
   );
 }
 
