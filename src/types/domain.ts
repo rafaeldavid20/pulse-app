@@ -558,6 +558,14 @@ export interface IssueReview extends IssueReviewAttempt {
    * quién devolvérselo sin buscarlo a mano en el historial.
    */
   previousAssigneeId?: string;
+  /**
+   * Cuándo se despachó el run de re-trabajo (D9) y para qué `attempt` fue —
+   * la guarda contra doble despacho compara `reworkDispatchedForAttempt`
+   * contra `attempt` en vez de un cooldown de tiempo, porque lo que puede
+   * repetirse es el mismo intento, no el paso del reloj.
+   */
+  reworkDispatchedAt?: string;
+  reworkDispatchedForAttempt?: number;
 }
 
 export interface Comment {
