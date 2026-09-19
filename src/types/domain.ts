@@ -363,6 +363,12 @@ export interface Issue {
    * `ISSUE_STATUSES`, `StatusBadge` y el mapeo del webhook.
    */
   review?: IssueReview;
+  /**
+   * Autoverificación del dev contra la rúbrica antes de abrir el PR (D13).
+   * El QA la recibe en `pulse_get_review_context` para contrastarla, no para
+   * creerla ciegamente.
+   */
+  devSelfCheck?: DevCriterionCheck[];
   createdAt: string;
   updatedAt: string;
 }
@@ -450,6 +456,21 @@ export interface ReviewFinding {
   file?: string;
   line?: number;
   message: string;
+  /** Motivo que da el dev al resolver el finding (D9, `pulse_resolve_finding`): por qué lo considera `fixed` o `disputed`. */
+  resolutionNote?: string;
+}
+
+/**
+ * Resultado de la autoverificación del dev (D13) para un criterio puntual,
+ * antes de abrir el PR. `criterionId` referencia un `AcceptanceCriterion.id`
+ * del issue. El QA la recibe en `pulse_get_review_context` como dato a
+ * contrastar contra el diff, no como una verdad ya confirmada.
+ */
+export interface DevCriterionCheck {
+  criterionId: string;
+  result: 'met' | 'not_met' | 'unverifiable';
+  /** Evidencia puntual: archivo, comando corrido, o salida — texto libre. */
+  evidence: string;
 }
 
 /** PR revisado en un repo puntual, con el SHA exacto que vio el QA (D10, K9/TES-202). */
@@ -478,6 +499,15 @@ export interface IssueReviewAttempt {
   criteriaResults?: ReviewCriterionResult[];
   startedAt?: string;
   completedAt?: string;
+  /**
+   * Presente cuando un humano forzó el veredicto con `reviews.override` (D5)
+   * — "Aprobar igual" en D7. Es un callable autenticado, no una tool MCP: solo
+   * una persona puede pisar el veredicto del QA, y queda en el historial con
+   * su uid para que quede claro que no lo decidió el agente.
+   */
+  overriddenBy?: string;
+  overriddenAt?: string;
+  overrideReason?: string;
 }
 
 /**
@@ -496,11 +526,24 @@ export interface IssueReview extends IssueReviewAttempt {
   claimedBy?: string;
   claimedAt?: string;
   /**
+   * Quién despachó `qaDispatchTrigger` (D4) para este intento y cuándo — el
+   * agente QA que `reviews.start` (D5) debe reclamar, y la base del guard
+   * anti-ping-pong (comparar contra el head SHA actual de cada PR).
+   */
+  dispatchedTo?: string;
+  dispatchedAt?: string;
+  /**
    * Intentos ya cerrados, más viejo primero. Sin esto no hay métricas de D7
    * (intentos promedio, tasa de aprobación al primer intento) — solo
    * quedaría el último intento y se perdería el resto.
    */
   history?: IssueReviewAttempt[];
+  /**
+   * Asignado justo antes de que `reviews.submit` (D5) reasignara el issue al
+   * lead por `needs_human`. Sin esto, "Devolver al agente" (D7) no sabría a
+   * quién devolvérselo sin buscarlo a mano en el historial.
+   */
+  previousAssigneeId?: string;
 }
 
 export interface Comment {
