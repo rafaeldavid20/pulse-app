@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AtSign,
@@ -21,8 +21,82 @@ import { useUserNotifications } from '@/hooks/useUserNotifications';
 import { TriageQueue } from '@/components/issues/TriageQueue';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useIssueStore } from '@/stores/issueStore';
-import { markNotificationRead, markAllNotificationsRead, muteIssueNotifications } from '@/lib/firestore';
-import { Notification, NotificationType } from '@/types';
+import {
+  markNotificationRead,
+  markAllNotificationsRead,
+  muteIssueNotifications,
+  snoozeNotification,
+} from '@/lib/firestore';
+import { Notification, NotificationType, SnoozePreset } from '@/types';
+
+const SNOOZE_OPTIONS: { preset: SnoozePreset; label: string }[] = [
+  { preset: '1h', label: '1 hora' },
+  { preset: 'tomorrow', label: 'Mañana' },
+  { preset: 'next_week', label: 'Próxima semana' },
+];
+
+const SNOOZE_TOAST_LABELS: Record<SnoozePreset, string> = {
+  '1h': '1 hora',
+  tomorrow: 'mañana',
+  next_week: 'la próxima semana',
+  clear: '',
+};
+
+/** Menú de posponer de una fila de notificación (F4) — mismo patrón de click-outside que SelectPopover. */
+function SnoozeMenuButton({ onSnooze, disabled }: { onSnooze: (preset: SnoozePreset) => void; disabled?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen((o) => !o);
+        }}
+        disabled={disabled}
+        title="Posponer"
+        aria-label="Posponer notificación"
+        className={cn(
+          'p-1.5 text-tertiary hover:text-primary opacity-0 group-hover:opacity-100 hover:bg-hover rounded-md transition-all disabled:opacity-40',
+          isOpen && 'opacity-100'
+        )}
+      >
+        <Clock className="w-3.5 h-3.5" />
+      </button>
+
+      {isOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-0 top-full mt-1 z-30 min-w-[9.5rem] bg-surface border border-default rounded-xl p-1.5 shadow-2xl flex flex-col gap-0.5 animate-fade-in-scale"
+        >
+          {SNOOZE_OPTIONS.map((opt) => (
+            <button
+              key={opt.preset}
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onSnooze(opt.preset);
+              }}
+              className="px-2.5 py-1.5 rounded-md text-xs text-left text-secondary hover:bg-hover hover:text-primary transition-colors"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type InboxTab = 'notifications' | 'triage';
 type NotificationFilter = 'all' | 'unread';
@@ -54,6 +128,7 @@ interface NotificationRowProps {
   onOpen: () => void;
   onMarkRead: () => void;
   onMute: () => void;
+  onSnooze: (preset: SnoozePreset) => void;
 }
 
 const NotificationRow: React.FC<NotificationRowProps> = ({
@@ -63,6 +138,7 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
   onOpen,
   onMarkRead,
   onMute,
+  onSnooze,
 }) => {
   const Icon = NOTIFICATION_ICONS[notification.type] ?? CheckCircle2;
 
@@ -109,6 +185,7 @@ const NotificationRow: React.FC<NotificationRowProps> = ({
                 <Check className="w-3.5 h-3.5" />
               </button>
             )}
+            <SnoozeMenuButton onSnooze={onSnooze} />
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -208,6 +285,38 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
     }
   };
 
+  const handleSnooze = async (notification: Notification, preset: SnoozePreset) => {
+    const previous = localNotifications;
+    setBusyId(notification.id);
+    // Un snooze futuro la oculta del inbox (F4) — igual que silenciar, optimista.
+    setLocalNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+    try {
+      await snoozeNotification(notification.id, preset);
+      toast.success(`Pospuesta hasta ${SNOOZE_TOAST_LABELS[preset]}.`, {
+        action: {
+          label: 'Deshacer',
+          onClick: async () => {
+            try {
+              await snoozeNotification(notification.id, 'clear');
+              setLocalNotifications((prev) =>
+                prev.some((n) => n.id === notification.id)
+                  ? prev
+                  : [...prev, { ...notification, snoozedUntil: undefined }]
+              );
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : 'No se pudo deshacer el snooze.');
+            }
+          },
+        },
+      });
+    } catch (err) {
+      setLocalNotifications(previous);
+      toast.error(err instanceof Error ? err.message : 'No se pudo posponer la notificación.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleMute = async (notification: Notification) => {
     const previous = localNotifications;
     setBusyId(notification.id);
@@ -283,6 +392,7 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
               onOpen={() => handleOpen(n)}
               onMarkRead={() => handleMarkRead(n.id)}
               onMute={() => handleMute(n)}
+              onSnooze={(preset) => handleSnooze(n, preset)}
             />
           ))}
         </div>

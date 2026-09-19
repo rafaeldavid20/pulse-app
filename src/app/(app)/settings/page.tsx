@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ApiKeysSection } from '@/components/settings/ApiKeysSection';
 import { GitHubSection } from '@/components/settings/GitHubSection';
 import { AgentsSection } from '@/components/settings/AgentsSection';
+import { NotificationPreferencesSection } from '@/components/settings/NotificationPreferencesSection';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -56,6 +57,8 @@ export default function SettingsPage() {
             <Button size="sm">Actualizar Perfil</Button>
           </div>
         </div>
+
+        <NotificationPreferencesSection />
 
         <GitHubSection />
 
