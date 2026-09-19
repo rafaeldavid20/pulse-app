@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { ApiKeysSection } from '@/components/settings/ApiKeysSection';
 import { GitHubSection } from '@/components/settings/GitHubSection';
 import { AgentsSection } from '@/components/settings/AgentsSection';
+import { AgentGuardrailsSection } from '@/components/settings/AgentGuardrailsSection';
 import { NotificationPreferencesSection } from '@/components/settings/NotificationPreferencesSection';
 
 export default function SettingsPage() {
@@ -63,6 +64,8 @@ export default function SettingsPage() {
         <GitHubSection />
 
         <AgentsSection />
+
+        <AgentGuardrailsSection />
 
         <ApiKeysSection />
       </div>

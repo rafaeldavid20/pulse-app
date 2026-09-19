@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,20 +12,45 @@ import {
   FolderKanban,
   CheckCircle2,
   AlertCircle,
+  Pause,
+  Play,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { StatusBadge } from '@/components/issues/StatusBadge';
 import { PriorityBadge } from '@/components/issues/PriorityBadge';
+import { getWorkspaceAgentBudget, updateWorkspaceGuardrails } from '@/lib/firestore';
 
 export const CommandPalette: React.FC = () => {
   const router = useRouter();
   const isCmdKOpen = useAppStore((s) => s.isCmdKOpen);
   const setCmdKOpen = useAppStore((s) => s.setCmdKOpen);
   const setCreateIssueOpen = useAppStore((s) => s.setCreateIssueOpen);
+  const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
 
   const issues = useIssueStore((s) => s.issues);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
+
+  const [agentsPaused, setAgentsPaused] = useState(false);
+
+  useEffect(() => {
+    if (!isCmdKOpen || !workspaceId) return;
+    getWorkspaceAgentBudget(workspaceId)
+      .then((budget) => setAgentsPaused(budget.agentsPaused))
+      .catch(() => {});
+  }, [isCmdKOpen, workspaceId]);
+
+  const handleToggleAgentsPaused = async () => {
+    if (!workspaceId) return;
+    const nextValue = !agentsPaused;
+    setCmdKOpen(false);
+    try {
+      await updateWorkspaceGuardrails(workspaceId, { agentsPaused: nextValue });
+      setAgentsPaused(nextValue);
+    } catch {
+      // El presupuesto se vuelve a leer la próxima vez que se abra la paleta.
+    }
+  };
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -73,6 +98,15 @@ export const CommandPalette: React.FC = () => {
                 <kbd className="ml-auto font-mono text-[10px] text-tertiary bg-hover px-1 rounded">
                   C
                 </kbd>
+              </Command.Item>
+
+              <Command.Item onSelect={handleToggleAgentsPaused}>
+                {agentsPaused ? (
+                  <Play className="w-4 h-4 text-status-done" />
+                ) : (
+                  <Pause className="w-4 h-4 text-priority-urgent" />
+                )}
+                <span>{agentsPaused ? 'Reanudar agentes' : 'Pausar agentes'}</span>
               </Command.Item>
             </Command.Group>
 

@@ -713,6 +713,52 @@ export async function createAgent(
 }
 
 // ===============================================================
+// 6b. WORKSPACE AGENT GUARDRAILS (D8/TES-153)
+// ===============================================================
+// `agent_dispatch_counters` y `agent_runs` son Admin-SDK-only, así que el
+// resumen de hoy y el kill switch pasan por Platform Actions, no por lectura
+// directa de Firestore.
+
+export interface AgentBudgetRoleSummary {
+  dispatches: number;
+  costUsd: number;
+}
+
+export interface AgentBudgetSummary {
+  agentsPaused: boolean;
+  dispatchesToday: number;
+  dailyDispatchLimit: number;
+  costUsdToday: number;
+  dailyCostCapUsd: number | null;
+  byRole: Record<string, AgentBudgetRoleSummary>;
+}
+
+export async function getWorkspaceAgentBudget(workspaceId: string): Promise<AgentBudgetSummary> {
+  const actionRes = await callPlatformAction<AgentBudgetSummary>('workspaces.getAgentBudget', {
+    workspaceId,
+  });
+  if (!actionRes) throw new Error('No se pudo cargar el presupuesto de agentes.');
+  return actionRes;
+}
+
+export type WorkspaceGuardrails = Pick<
+  Workspace,
+  'agentsPaused' | 'dailyDispatchLimit' | 'dailyCostCapUsd' | 'issueCostCapUsd' | 'maxRunsPerIssue'
+>;
+
+export async function updateWorkspaceGuardrails(
+  workspaceId: string,
+  data: Partial<WorkspaceGuardrails>
+): Promise<Workspace> {
+  const actionRes = await callPlatformAction<{ workspace: Workspace }>('workspaces.update', {
+    workspaceId,
+    ...data,
+  });
+  if (!actionRes) throw new Error('No se pudo actualizar el workspace.');
+  return actionRes.workspace;
+}
+
+// ===============================================================
 // 7. COMMENTS SERVICES
 // ===============================================================
 // No client-side fallback for creating comments: `comments.create`
