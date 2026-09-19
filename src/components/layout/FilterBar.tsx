@@ -11,6 +11,7 @@ import {
   FolderKanban,
   Rows3,
   Save,
+  ShieldCheck,
   Tag,
   User,
   X,
@@ -26,13 +27,28 @@ import {
   IssuePriority,
   IssueSortBy,
   IssueStatus,
+  ReviewState,
   ISSUE_LIST_COLUMNS,
 } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { UNASSIGNED, countActiveFilters } from '@/lib/issueFilters';
 import { StatusBadge } from '@/components/issues/StatusBadge';
 import { PriorityBadge } from '@/components/issues/PriorityBadge';
+import { ReviewBadge } from '@/components/issues/ReviewBadge';
 import { cn } from '@/lib/utils';
+
+/**
+ * `pending`/`running` se ofrecen como un único filtro ("En revisión", con
+ * ambos valores): para un humano filtrando la cola de trabajo, la distinción
+ * entre "todavía no arrancó" y "corriendo ahora" no importa. `stale` tampoco
+ * se ofrece por separado — es un estado transitorio que se re-revisa solo.
+ */
+const REVIEW_STATE_FILTER_OPTIONS: { key: string; values: ReviewState[] }[] = [
+  { key: 'review:running', values: ['pending', 'running'] },
+  { key: 'review:approved', values: ['approved'] },
+  { key: 'review:changes_requested', values: ['changes_requested'] },
+  { key: 'review:needs_human', values: ['needs_human'] },
+];
 
 const GROUP_BY_OPTIONS: { value: IssueGroupBy; label: string }[] = [
   { value: 'none', label: 'Sin agrupar' },
@@ -302,6 +318,34 @@ export const FilterBar: React.FC = () => {
             {epic.title}
           </OptionRow>
         ))}
+      </FilterChip>
+
+      <FilterChip
+        chipKey="review"
+        label="Revisión"
+        icon={<ShieldCheck className="w-3.5 h-3.5" />}
+        count={filterState.reviewStates.length}
+        openChip={openChip}
+        setOpenChip={setOpenChip}
+      >
+        {REVIEW_STATE_FILTER_OPTIONS.map((o) => {
+          const isChecked = o.values.some((v) => filterState.reviewStates.includes(v));
+          return (
+            <OptionRow
+              key={o.key}
+              isChecked={isChecked}
+              onClick={() =>
+                setFilterState({
+                  reviewStates: isChecked
+                    ? filterState.reviewStates.filter((v) => !o.values.includes(v))
+                    : [...filterState.reviewStates, ...o.values],
+                })
+              }
+            >
+              <ReviewBadge state={o.values[0]} />
+            </OptionRow>
+          );
+        })}
       </FilterChip>
 
       {activeCount > 0 && (

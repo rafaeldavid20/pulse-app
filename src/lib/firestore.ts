@@ -668,6 +668,8 @@ export interface AgentSummary {
   defaultRepo?: string;
   defaultTeamId?: string;
   maxConcurrentIssues: number;
+  /** Tope de intentos de revisión de QA (D3) antes de cerrar en `needs_human`. Solo agentes `role: 'qa'`. */
+  maxReviewAttempts?: number;
   enabled: boolean;
   autonomousMode: boolean;
   connectedRepos?: ConnectedRepo[];
@@ -946,4 +948,49 @@ export async function createIssueBranch(issueId: string, repoFullName?: string):
   const actionRes = await callPlatformAction<Issue['git']>('github.createBranch', { issueId, repoFullName });
   if (!actionRes) throw new Error('No se pudo crear la rama en GitHub.');
   return actionRes;
+}
+
+// ===============================================================
+// 9. REVIEWS SERVICES (D5, D7 — panel de revisión de QA)
+// ===============================================================
+
+/** "Aprobar igual" / forzar cambios (D7): un humano pisa el veredicto del QA. Implementado en pulse-backend (`reviews.override`). */
+export async function overrideReview(
+  issueId: string,
+  decision: 'approved' | 'changes_requested',
+  reason?: string
+): Promise<void> {
+  const actionRes = await callPlatformAction('reviews.override', { issueId, decision, reason });
+  if (!actionRes) throw new Error('No se pudo forzar el veredicto de la revisión.');
+}
+
+/**
+ * "Descartar finding" (D7): un humano lo da por no-válido desde la UI, sin que
+ * medie un push del dev (a diferencia de `reviews.resolveFinding`, que es del
+ * dev y solo admite `fixed`/`disputed`). Todavía no tiene handler en
+ * pulse-backend — ver TES-152 y el pedido de trabajo registrado para ese repo.
+ */
+export async function dismissFinding(issueId: string, findingId: string, note?: string): Promise<void> {
+  const actionRes = await callPlatformAction('reviews.dismissFinding', { issueId, findingId, note });
+  if (!actionRes) throw new Error('No se pudo descartar el finding.');
+}
+
+/**
+ * "Re-ejecutar QA" (D7): vuelve a despachar el intento de revisión en curso.
+ * Todavía no tiene handler en pulse-backend — ver TES-152.
+ */
+export async function rerunReview(issueId: string): Promise<void> {
+  const actionRes = await callPlatformAction('reviews.rerun', { issueId });
+  if (!actionRes) throw new Error('No se pudo re-ejecutar la revisión de QA.');
+}
+
+/**
+ * "Devolver al agente" (D7): desde `needs_human`, reasigna al dev original
+ * (`review.previousAssigneeId`) con el comentario del humano y resetea
+ * `review.attempt` para darle una nueva tanda de intentos. Todavía no tiene
+ * handler en pulse-backend — ver TES-152.
+ */
+export async function returnReviewToAgent(issueId: string, comment: string): Promise<void> {
+  const actionRes = await callPlatformAction('reviews.returnToAgent', { issueId, comment });
+  if (!actionRes) throw new Error('No se pudo devolver el issue al agente.');
 }

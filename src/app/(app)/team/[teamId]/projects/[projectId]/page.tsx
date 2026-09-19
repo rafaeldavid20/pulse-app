@@ -13,6 +13,7 @@ import { formatDate } from '@/lib/utils';
 import { Calendar, ArrowLeft, Plus, FolderKanban, ChevronUp, ChevronDown, Edit3 } from 'lucide-react';
 import Link from 'next/link';
 import { ProjectModal } from '@/components/projects/ProjectModal';
+import { QaMetricsCard } from '@/components/projects/QaMetricsCard';
 
 export default function ProjectDetailPage({
   params,
@@ -204,6 +205,8 @@ export default function ProjectDetailPage({
             </div>
           </div>
         )}
+
+        <QaMetricsCard issues={projectIssues} />
 
         {/* Project Issues Section */}
         <div className="flex flex-col gap-4 mt-1">

@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
+import { ReviewBadge } from './ReviewBadge';
 import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { CycleBadge } from '@/components/cycles/CycleBadge';
@@ -263,6 +264,8 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) =
                       <p className="text-xs text-primary font-medium line-clamp-2 leading-relaxed">
                         {issue.title}
                       </p>
+
+                      {issue.review?.state && <ReviewBadge state={issue.review.state} />}
 
                       <div className="flex items-center justify-between pt-1 border-t border-subtle mt-1">
                         <div className="flex items-center gap-1.5">
