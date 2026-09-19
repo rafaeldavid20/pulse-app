@@ -783,6 +783,51 @@ export function subscribeUserNotifications(
   });
 }
 
+/**
+ * Todas las notificaciones del usuario (leídas y no leídas), para el inbox
+ * completo (F3). A propósito sin `orderBy`: combinado con el filtro de
+ * `userId` pediría su propio índice compuesto (distinto del de arriba, que
+ * incluye `read`), así que se ordena en el cliente en su lugar.
+ */
+export function subscribeAllUserNotifications(
+  userId: string,
+  callback: (notifications: Notification[]) => void,
+  onError?: (error: FirestoreError) => void
+): Unsubscribe {
+  const q = query(collection(db, 'notifications'), where('userId', '==', userId));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const notifications = snap.docs.map((d) => d.data() as Notification);
+      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(notifications);
+    },
+    onError
+  );
+}
+
+/**
+ * Marca una notificación como leída. Pasa por Platform Action porque
+ * `notifications` es de solo lectura para el cliente (ver arriba) — la acción
+ * todavía no tiene handler en pulse-backend (TES-193).
+ */
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const actionRes = await callPlatformAction('notifications.markRead', { notificationId });
+  if (!actionRes) throw new Error('No se pudo marcar la notificación como leída.');
+}
+
+/** Marca todas las notificaciones no leídas del usuario como leídas. */
+export async function markAllNotificationsRead(): Promise<void> {
+  const actionRes = await callPlatformAction('notifications.markAllRead', {});
+  if (!actionRes) throw new Error('No se pudieron marcar las notificaciones como leídas.');
+}
+
+/** Silencia las notificaciones futuras de un issue para el usuario actual. */
+export async function muteIssueNotifications(issueId: string): Promise<void> {
+  const actionRes = await callPlatformAction('notifications.muteIssue', { issueId });
+  if (!actionRes) throw new Error('No se pudo silenciar el issue.');
+}
+
 // ===============================================================
 // 8. GITHUB SERVICES
 // ===============================================================
