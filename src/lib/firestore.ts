@@ -436,6 +436,81 @@ export async function reparentIssue(id: string, parentId: string | null): Promis
   if (!actionRes) throw new Error('No se pudo mover el issue.');
 }
 
+/**
+ * Copia un issue (título, descripción, tipo, prioridad, labels, proyecto,
+ * estimate, dueDate, ciclo, repo y padre) en uno nuevo, sin asignado y en
+ * `todo` — la acción "Duplicar" de la cola de triage (F2).
+ */
+export async function duplicateIssue(id: string): Promise<Issue> {
+  const actionRes = await callPlatformAction<Issue>('issues.duplicate', { id });
+  if (!actionRes?.id) throw new Error('No se pudo duplicar el issue.');
+  return actionRes;
+}
+
+/**
+ * Cola de triage (F2): issues huérfanos del workspace — sin proyecto o sin
+ * asignar (creados por webhook de GitHub, por un agente vía MCP sin
+ * `projectId`, o simplemente sueltos). Firestore no tiene OR entre igualdades
+ * de campos distintos, así que son dos queries — cada una golpea su propio
+ * índice compuesto (`workspaceId, projectId, createdAt` /
+ * `workspaceId, assigneeId, createdAt`) — mergeadas y deduplicadas acá, no en
+ * cada consumidor.
+ */
+export function subscribeTriageIssues(
+  workspaceId: string,
+  callback: (issues: Issue[]) => void,
+  onError?: (error: FirestoreError) => void
+): Unsubscribe {
+  const noProject = new Map<string, Issue>();
+  const noAssignee = new Map<string, Issue>();
+
+  const emit = () => {
+    const merged = new Map<string, Issue>();
+    noProject.forEach((issue, id) => merged.set(id, issue));
+    noAssignee.forEach((issue, id) => merged.set(id, issue));
+    const issues = Array.from(merged.values());
+    issues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    callback(issues);
+  };
+
+  const qNoProject = query(
+    collection(db, 'issues'),
+    where('workspaceId', '==', workspaceId),
+    where('projectId', '==', null),
+    orderBy('createdAt', 'desc')
+  );
+  const qNoAssignee = query(
+    collection(db, 'issues'),
+    where('workspaceId', '==', workspaceId),
+    where('assigneeId', '==', null),
+    orderBy('createdAt', 'desc')
+  );
+
+  const unsubProject = onSnapshot(
+    qNoProject,
+    (snap) => {
+      noProject.clear();
+      snap.docs.forEach((d) => noProject.set(d.id, d.data() as Issue));
+      emit();
+    },
+    onError
+  );
+  const unsubAssignee = onSnapshot(
+    qNoAssignee,
+    (snap) => {
+      noAssignee.clear();
+      snap.docs.forEach((d) => noAssignee.set(d.id, d.data() as Issue));
+      emit();
+    },
+    onError
+  );
+
+  return () => {
+    unsubProject();
+    unsubAssignee();
+  };
+}
+
 // ===============================================================
 // 4. PROJECTS SERVICES
 // ===============================================================
