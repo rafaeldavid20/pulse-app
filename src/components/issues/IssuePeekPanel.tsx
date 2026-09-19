@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus } from 'lucide-react';
+import { nanoid } from 'nanoid';
+import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus, Check, Sparkles } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -9,7 +10,7 @@ import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
 import { LabelPicker } from '@/components/labels/LabelPicker';
-import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment } from '@/types';
+import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment, AcceptanceCriterion } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES, canBeChild, canHaveChildren, isCompletedStatus } from '@/lib/constants/issue';
 import { formatTimeAgo, cn } from '@/lib/utils';
 import { markdownToHtml } from '@/lib/markdown';
@@ -637,6 +638,183 @@ function RepoSection({ issue }: { issue: Issue }) {
   );
 }
 
+/**
+ * Rúbrica del issue (D1): checklist editable de criterios de aceptación.
+ *
+ * `accepted` decide si un criterio cuenta para el QA (D6), no si ya se
+ * cumplió — no hay campo de "hecho" en `AcceptanceCriterion`. Por eso el
+ * checkbox tilda/destilda ese campo (ausente cuenta como tildado) en vez de
+ * marcar progreso. Los propuestos por IA (`source: 'generated'` sin
+ * aceptar) se muestran aparte, con acciones de aceptar/descartar en vez del
+ * checkbox, porque el QA no los usa hasta que un humano decide.
+ */
+function AcceptanceCriteriaSection({
+  issue,
+  updateIssue,
+}: {
+  issue: Issue;
+  updateIssue: (id: string, updates: Partial<Issue>) => void;
+}) {
+  const criteria = issue.acceptanceCriteria ?? [];
+  const [newText, setNewText] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState('');
+
+  const save = (next: AcceptanceCriterion[]) => updateIssue(issue.id, { acceptanceCriteria: next });
+
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = newText.trim();
+    if (!text) return;
+    save([...criteria, { id: nanoid(8), text, source: 'manual' }]);
+    setNewText('');
+  };
+
+  const handleToggle = (id: string) => {
+    save(
+      criteria.map((c) => (c.id === id ? { ...c, accepted: c.accepted === false ? true : false } : c))
+    );
+  };
+
+  const handleDelete = (id: string) => save(criteria.filter((c) => c.id !== id));
+
+  const handleAccept = (id: string) =>
+    save(criteria.map((c) => (c.id === id ? { ...c, accepted: true } : c)));
+
+  const startEdit = (c: AcceptanceCriterion) => {
+    setEditingId(c.id);
+    setEditDraft(c.text);
+  };
+
+  const commitEdit = () => {
+    const text = editDraft.trim();
+    if (text) {
+      save(criteria.map((c) => (c.id === editingId ? { ...c, text } : c)));
+    }
+    setEditingId(null);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
+        Criterios de aceptación
+      </label>
+
+      {criteria.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {criteria.map((c) => {
+            const isProposed = c.source === 'generated' && c.accepted !== true;
+
+            if (isProposed) {
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-start gap-2 p-2.5 bg-elevated border border-dashed border-accent/40 rounded-lg text-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
+                  <div className="flex-1 flex flex-col gap-1.5 min-w-0">
+                    <span className="text-primary">{c.text}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-accent font-medium uppercase tracking-wide">
+                        Propuesto
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleAccept(c.id)}
+                        className="text-[11px] text-accent hover:underline font-medium"
+                      >
+                        Aceptar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(c.id)}
+                        className="text-[11px] text-tertiary hover:text-priority-urgent font-medium"
+                      >
+                        Descartar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            const checked = c.accepted !== false;
+
+            return (
+              <div
+                key={c.id}
+                className="flex items-center gap-2 px-2.5 py-1.5 bg-elevated border border-default rounded-lg text-xs group"
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => handleToggle(c.id)}
+                  className="w-3.5 h-3.5 accent-accent shrink-0"
+                  aria-label={checked ? 'Destildar criterio' : 'Tildar criterio'}
+                />
+
+                {editingId === c.id ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={editDraft}
+                    onChange={(e) => setEditDraft(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitEdit();
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-primary"
+                  />
+                ) : (
+                  <span
+                    onClick={() => startEdit(c)}
+                    className={cn(
+                      'flex-1 min-w-0 truncate cursor-text',
+                      checked ? 'text-primary' : 'text-tertiary line-through'
+                    )}
+                  >
+                    {c.text}
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleDelete(c.id)}
+                  aria-label="Eliminar criterio"
+                  className="opacity-0 group-hover:opacity-100 text-tertiary hover:text-priority-urgent shrink-0 transition-opacity"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <form onSubmit={handleAdd} className="flex items-center gap-2">
+        <Plus className="w-3.5 h-3.5 text-tertiary shrink-0" />
+        <input
+          type="text"
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder="Añadir criterio de aceptación…"
+          className="flex-1 bg-transparent border-none outline-none text-xs text-primary placeholder-tertiary py-1.5"
+        />
+        {newText.trim() && (
+          <button
+            type="submit"
+            className="px-2.5 py-1 text-[11px] rounded-md bg-accent hover:bg-accent-hover text-white transition-colors shrink-0 flex items-center gap-1"
+          >
+            <Check className="w-3 h-3" />
+            Añadir
+          </button>
+        )}
+      </form>
+    </div>
+  );
+}
+
 /** Textarea de markdown con una pestaña de vista previa renderizada (ver `@/lib/markdown`). */
 function DescriptionSection({
   issue,
@@ -949,6 +1127,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         <RepoSection issue={issue} />
 
         <DescriptionSection issue={issue} updateIssue={updateIssue} />
+
+        <AcceptanceCriteriaSection issue={issue} updateIssue={updateIssue} />
 
         {/* Labels Section */}
         <div className="flex flex-col gap-2">
