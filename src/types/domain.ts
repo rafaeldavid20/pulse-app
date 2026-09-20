@@ -278,6 +278,10 @@ export interface IssueGitRef {
   prUrl?: string;
   prState?: 'open' | 'draft' | 'merged' | 'closed';
   lastSyncedAt?: string;
+  /** SHA de `pull_request.head` en el último evento de webhook procesado. */
+  headSha?: string;
+  /** Cuándo se registró `headSha` por última vez. */
+  headShaAt?: string;
 }
 
 /**
