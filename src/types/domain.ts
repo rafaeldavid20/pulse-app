@@ -137,8 +137,31 @@ export interface Project {
   leadId?: string;
   color?: string;
   targetDate?: string;
+  /**
+   * Reglas que valen para todos los issues del proyecto (D14), a diferencia
+   * de `Issue.acceptanceCriteria` que es por issue. El QA las verifica
+   * siempre, además de la rúbrica del issue puntual — un finding que viola
+   * una de estas referencia `ReviewFinding.dodId` en vez de `criterionId`.
+   * Ausente o vacío: sin reglas de proyecto además de las del issue.
+   */
+  definitionOfDone?: DefinitionOfDoneCriterion[];
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Un ítem de la Definition of Done de un proyecto (D14). A diferencia de
+ * `AcceptanceCriterion`, no tiene `source`/`accepted`: no hay propuesta de IA
+ * ni aceptación manual acá, todos los ítems valen apenas se guardan. Tampoco
+ * admite severidad `minor`/`nit` ni `unverifiable` como resultado: una regla
+ * de proyecto que no vale la pena bloquear un PR no debería estar acá, sino
+ * en `AcceptanceCriterion` del issue puntual o en ningún lado.
+ */
+export interface DefinitionOfDoneCriterion {
+  /** nanoid estable, no un índice: los findings lo referencian por `dodId`. */
+  id: string;
+  text: string;
+  severity: 'blocker' | 'major';
 }
 
 /**
@@ -468,9 +491,9 @@ export type FindingStatus = 'open' | 'fixed' | 'disputed' | 'dismissed';
 /**
  * Resultado de verificar un criterio puntual de la rúbrica contra el código
  * revisado. `criterionId` referencia un `AcceptanceCriterion.id` del issue, o
- * (cuando exista, D14/TES-210) un criterio de la Definition of Done a nivel
- * workspace — en ambos casos es solo un id, no hace falta distinguir la
- * procedencia acá. `unverifiable` es su propio resultado, no un `fail`: un
+ * (D14/TES-210) un `DefinitionOfDoneCriterion.id` del proyecto — en ambos
+ * casos es solo un id, no hace falta distinguir la procedencia acá.
+ * `unverifiable` es su propio resultado, no un `fail`: un
  * criterio que no se puede confirmar automáticamente no debería tumbar el PR
  * por las mismas razones que uno que sí falla.
  */
@@ -493,6 +516,8 @@ export interface ReviewFinding {
   severity: FindingSeverity;
   status: FindingStatus;
   criterionId?: string;
+  /** Referencia a un `DefinitionOfDoneCriterion.id` del proyecto (D14), en vez de `criterionId`, cuando el finding viola una regla de proyecto y no un criterio del issue. */
+  dodId?: string;
   repoFullName?: string;
   file?: string;
   line?: number;
@@ -831,6 +856,7 @@ export const PROJECT_WRITABLE_FIELDS = [
   'leadId',
   'color',
   'targetDate',
+  'definitionOfDone',
 ] as const;
 
 export type ProjectWritableField = (typeof PROJECT_WRITABLE_FIELDS)[number];

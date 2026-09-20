@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { nanoid } from 'nanoid';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -8,8 +9,8 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
-import { Project, ProjectStatus } from '@/types';
-import { AlertCircle } from 'lucide-react';
+import { Project, ProjectStatus, DefinitionOfDoneCriterion } from '@/types';
+import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { SWATCH_COLORS, DEFAULT_SWATCH_COLOR } from '@/lib/constants/colors';
 
 interface ProjectModalProps {
@@ -38,6 +39,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [leadId, setLeadId] = useState<string>('');
   const [targetDate, setTargetDate] = useState('');
   const [repoFullNames, setRepoFullNames] = useState<string[]>([]);
+  const [definitionOfDone, setDefinitionOfDone] = useState<DefinitionOfDoneCriterion[]>([]);
+  const [newDodText, setNewDodText] = useState('');
+  const [newDodSeverity, setNewDodSeverity] = useState<'blocker' | 'major'>('blocker');
   const [loading, setLoading] = useState(false);
   const [nameError, setNameError] = useState(false);
 
@@ -50,6 +54,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setLeadId(projectToEdit.leadId || '');
       setTargetDate(projectToEdit.targetDate ? projectToEdit.targetDate.split('T')[0] : '');
       setRepoFullNames(projectToEdit.repoFullNames || []);
+      setDefinitionOfDone(projectToEdit.definitionOfDone || []);
     } else {
       setName('');
       setDescription('');
@@ -58,9 +63,23 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setLeadId('');
       setTargetDate('');
       setRepoFullNames([]);
+      setDefinitionOfDone([]);
     }
+    setNewDodText('');
+    setNewDodSeverity('blocker');
     setNameError(false);
   }, [projectToEdit, isOpen]);
+
+  const handleAddDodCriterion = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = newDodText.trim();
+    if (!text) return;
+    setDefinitionOfDone((prev) => [...prev, { id: nanoid(8), text, severity: newDodSeverity }]);
+    setNewDodText('');
+  };
+
+  const handleRemoveDodCriterion = (id: string) =>
+    setDefinitionOfDone((prev) => prev.filter((c) => c.id !== id));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +102,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           leadId: leadId || undefined,
           targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
           repoFullNames,
+          definitionOfDone,
         });
       } else {
         if (!activeWorkspace || !activeTeam) return;
@@ -96,6 +116,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           leadId: leadId || user?.uid || undefined,
           targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
           repoFullNames,
+          definitionOfDone,
         });
       }
 
@@ -237,6 +258,76 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               </p>
             </>
           )}
+        </div>
+
+        {/* Definition of Done — reglas que valen para todos los issues del proyecto (D14) */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold text-secondary">
+            Definition of Done{' '}
+            <span className="text-[10px] text-tertiary font-normal">(Opcional)</span>
+          </label>
+          {definitionOfDone.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              {definitionOfDone.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center gap-2 px-2.5 py-1.5 bg-elevated border border-default rounded-lg text-xs group"
+                >
+                  <span
+                    className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      c.severity === 'blocker'
+                        ? 'bg-priority-urgent/15 text-priority-urgent'
+                        : 'bg-priority-high/15 text-priority-high'
+                    }`}
+                  >
+                    {c.severity === 'blocker' ? 'Blocker' : 'Major'}
+                  </span>
+                  <span className="flex-1 min-w-0 truncate text-primary">{c.text}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveDodCriterion(c.id)}
+                    aria-label="Eliminar regla"
+                    className="opacity-0 group-hover:opacity-100 text-tertiary hover:text-priority-urgent shrink-0 transition-opacity"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <select
+              value={newDodSeverity}
+              onChange={(e) => setNewDodSeverity(e.target.value as 'blocker' | 'major')}
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer shrink-0"
+            >
+              <option value="blocker">Blocker</option>
+              <option value="major">Major</option>
+            </select>
+            <form onSubmit={handleAddDodCriterion} className="flex-1 flex items-center gap-2">
+              <input
+                type="text"
+                value={newDodText}
+                onChange={(e) => setNewDodText(e.target.value)}
+                placeholder="Añadir regla, ej. 'no editar domain.generated.ts a mano'…"
+                className="flex-1 min-w-0 bg-surface border border-default focus:border-accent rounded-md p-2 text-xs text-primary placeholder-tertiary outline-none"
+              />
+              {newDodText.trim() && (
+                <button
+                  type="submit"
+                  className="px-2.5 py-2 text-[11px] rounded-md bg-accent hover:bg-accent-hover text-white transition-colors shrink-0 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  Añadir
+                </button>
+              )}
+            </form>
+          </div>
+          <p className="text-[10px] text-tertiary">
+            Se verifican en todos los issues del proyecto, además de los criterios de aceptación
+            de cada uno.
+          </p>
         </div>
 
         {/* Color Palette */}
