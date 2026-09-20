@@ -664,6 +664,8 @@ export interface AgentSummary {
   id: string;
   workspaceId: string;
   kind: string;
+  /** Default `'dev'` — determina qué workflow/secret escribe `agents.connectRepo` (D12/TES-208). */
+  role?: string;
   displayName: string;
   defaultRepo?: string;
   defaultTeamId?: string;
@@ -928,19 +930,42 @@ export interface GithubStatus {
 export interface ConnectedRepo {
   repoFullName: string;
   apiKeyId: string;
+  /** Ausente en conexiones de antes de D12/TES-208. */
+  workflowPath?: string;
   workflowSha?: string;
   workflowVersion?: number;
+  /** Ausente en conexiones de antes de D12/TES-208. */
+  secretName?: string;
   connectedAt: string;
 }
 
 export interface ConnectRepoResult {
   repoFullName: string;
+  workflowPath: string;
   workflowCreated: boolean;
+  workflowVersion: number;
+  mcpSecretName: string;
   anthropicSecretPresent: boolean;
   anthropicSecretName: string;
   /** Comando a copiar para el secret que Pulse deliberadamente no gestiona. */
   manualStep: string | null;
 }
+
+/**
+ * Última versión de cada plantilla de workflow (`WORKFLOW_VERSION`/
+ * `QA_WORKFLOW_VERSION` en `pulse-backend/functions/src/github/templates/`),
+ * para que Settings pueda marcar como atrasado un repo cuyo
+ * `ConnectedRepo.workflowVersion` quedó por debajo. `agents.connectRepo` no
+ * expone esto por lectura (D12/TES-208 no agregó ese endpoint), así que se
+ * duplica a mano acá — mismo patrón de copia manual entre repos que
+ * `domain.generated.ts` en pulse-backend, y con el mismo riesgo: si sube la
+ * versión del lado del backend y nadie actualiza esto, un repo desactualizado
+ * deja de detectarse como tal hasta que se bumpee a mano.
+ */
+export const LATEST_AGENT_WORKFLOW_VERSION: Record<'dev' | 'qa', number> = {
+  dev: 6,
+  qa: 1,
+};
 
 /**
  * Deja un repo listo para recibir dispatches: crea una key de MCP dedicada, la
