@@ -59,6 +59,22 @@ export type AgentRole = 'dev' | 'qa';
 
 export type AgentIssueState = 'idle' | 'claimed' | 'working' | 'pr_open' | 'blocked';
 
+/** Camino de dispatch que originó el run (D15). */
+export type AgentRunMode = 'task' | 'rework' | 'handoff' | 'review';
+
+/**
+ * Cómo terminó un run (D15). `failed`/`timeout` cubren los runs que no
+ * llegan a ningún cierre limpio — sin ellos el costo de esos runs quedaría
+ * fuera de cualquier total.
+ */
+export type AgentRunOutcome =
+  | 'pr_opened'
+  | 'verdict_submitted'
+  | 'released'
+  | 'ambiguous'
+  | 'failed'
+  | 'timeout';
+
 // ---------------------------------------------------------------------------
 // Entidades
 // ---------------------------------------------------------------------------
@@ -286,6 +302,49 @@ export interface IssueAgentState {
   blockedReason?: string;
 }
 
+/**
+ * Un dispatch de agente (D15). Colección `agent_runs/{runId}`, Admin-SDK-only
+ * (igual que `agent_dispatch_counters`): el trigger de dispatch crea el
+ * registro con `outcome` ausente, y el paso de reporte del workflow lo
+ * completa con lo que trae el mensaje `result` del execution file
+ * (`total_cost_usd`, `num_turns`) al terminar — incluidos los runs que
+ * fallan o agotan el tiempo, para que el costo de un issue no quede
+ * subestimado.
+ */
+export interface AgentRun {
+  id: string;
+  issueId: string;
+  workspaceId: string;
+  agentId: string;
+  role: AgentRole;
+  mode: AgentRunMode;
+  repo: string;
+  runUrl?: string;
+  startedAt: string;
+  endedAt?: string;
+  turns?: number;
+  costUsd?: number;
+  outcome?: AgentRunOutcome;
+  /** Solo para `role: 'qa'` — a qué intento de `IssueReview` corresponde este run. */
+  reviewAttempt?: number;
+  /**
+   * Fecha (`YYYY-MM-DD`, UTC) de `startedAt`, denormalizada. Permite sumar
+   * `costUsd`/contar runs del día con un `where('date','==',x)` en vez de un
+   * rango sobre `startedAt`, igual que `agent_dispatch_counters` (D8).
+   */
+  date: string;
+}
+
+/**
+ * Costo acumulado de un issue (D15), denormalizado en `Issue.agentStats` para
+ * no tener que sumar sus `agent_runs` en cada lectura.
+ */
+export interface IssueAgentStats {
+  runs: number;
+  costUsd: number;
+  lastRunAt: string;
+}
+
 export interface IssueGitState {
   /**
    * El repo al que pertenece el issue. En una épica hace de default para todos
@@ -433,6 +492,8 @@ export interface Issue {
    * creerla ciegamente.
    */
   devSelfCheck?: DevCriterionCheck[];
+  /** Runs y costo acumulados del issue (D15), denormalizado desde `agent_runs`. Ausente: todavía no corrió ningún agente. */
+  agentStats?: IssueAgentStats;
   createdAt: string;
   updatedAt: string;
 }
