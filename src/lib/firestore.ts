@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentQaMode, QaCalibrationRecord } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -675,6 +675,8 @@ export interface AgentSummary {
   enabled: boolean;
   autonomousMode: boolean;
   connectedRepos?: ConnectedRepo[];
+  /** Solo relevante para `role: 'qa'` (D17). Ausente se trata como `'shadow'`. */
+  qaMode?: AgentQaMode;
 }
 
 export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
@@ -685,7 +687,9 @@ export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
 
 export async function updateAgent(
   agentId: string,
-  data: Partial<Pick<AgentSummary, 'autonomousMode' | 'enabled' | 'maxConcurrentIssues' | 'defaultRepo' | 'defaultTeamId'>>
+  data: Partial<
+    Pick<AgentSummary, 'autonomousMode' | 'enabled' | 'maxConcurrentIssues' | 'defaultRepo' | 'defaultTeamId' | 'qaMode'>
+  >
 ): Promise<AgentSummary> {
   const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.update', {
     agentId,
@@ -712,6 +716,31 @@ export async function createAgent(
   });
   if (!actionRes) throw new Error('No se pudo crear el agente.');
   return actionRes.agent;
+}
+
+export interface QaCalibrationSummary {
+  agentId: string;
+  qaMode: AgentQaMode;
+  sampleSize: number;
+  agreed: number;
+  disagreed: number;
+  /** `null` sin muestras todavía (`sampleSize === 0`). */
+  agreementRate: number | null;
+  records: QaCalibrationRecord[];
+}
+
+/**
+ * Tasa de acuerdo humano/QA de las últimas N revisiones (D17), para la vista
+ * del agente QA en Settings. `qa_calibration_records` es Admin-SDK-only, así
+ * que pasa por Platform Action igual que `agents.list`.
+ */
+export async function getQaCalibration(agentId: string, limit?: number): Promise<QaCalibrationSummary> {
+  const actionRes = await callPlatformAction<QaCalibrationSummary>('agents.getQaCalibration', {
+    agentId,
+    ...(limit ? { limit } : {}),
+  });
+  if (!actionRes) throw new Error('No se pudo cargar la tasa de acuerdo del QA.');
+  return actionRes;
 }
 
 // ===============================================================

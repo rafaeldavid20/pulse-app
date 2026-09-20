@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bot, Loader2, Plus, GitBranch } from 'lucide-react';
+import { Bot, Loader2, Plus, GitBranch, Scale } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -10,13 +10,16 @@ import {
   AgentSummary,
   ConnectRepoResult,
   LATEST_AGENT_WORKFLOW_VERSION,
+  QaCalibrationSummary,
   connectAgentRepo,
   createAgent,
   disconnectAgentRepo,
   getGithubStatus,
+  getQaCalibration,
   listAgents,
   updateAgent,
 } from '@/lib/firestore';
+import { AgentQaMode } from '@/types';
 
 function slugify(text: string): string {
   return text
@@ -364,6 +367,62 @@ function AgentRepoConnections({
   );
 }
 
+/**
+ * Tasa de acuerdo humano/QA de un agente QA (D17): mientras está en `shadow`,
+ * es la única señal de si el veredicto del agente coincide con lo que decide
+ * el humano al mergear o cerrar el PR — sin esto, pasar a `enforce` sería a
+ * ciegas.
+ */
+function QaCalibrationPanel({ agentId }: { agentId: string }) {
+  const [summary, setSummary] = useState<QaCalibrationSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    getQaCalibration(agentId)
+      .then((res) => {
+        if (!cancelled) setSummary(res);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'No se pudo cargar la tasa de acuerdo.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  if (loading) {
+    return (
+      <p className="flex items-center gap-1.5 text-[11px] text-tertiary">
+        <Loader2 className="w-3 h-3 animate-spin" /> Cargando tasa de acuerdo…
+      </p>
+    );
+  }
+
+  if (error) return <p className="text-[11px] text-priority-urgent">{error}</p>;
+  if (!summary) return null;
+
+  return (
+    <div className="flex items-center gap-3 text-[11px] text-secondary">
+      <span className="flex items-center gap-1 font-medium text-primary">
+        <Scale className="w-3 h-3 text-accent" />
+        Tasa de acuerdo humano/QA
+      </span>
+      {summary.sampleSize === 0 ? (
+        <span className="text-tertiary">Todavía no hay cierres humanos para comparar.</span>
+      ) : (
+        <span className="tabular-nums">
+          {Math.round((summary.agreementRate ?? 0) * 100)}% ({summary.agreed}/{summary.sampleSize} últimas revisiones)
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function AgentsSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
@@ -416,6 +475,20 @@ export function AgentsSection() {
       await updateAgent(agent.id, { autonomousMode: nextValue });
     } catch (err) {
       setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, autonomousMode: agent.autonomousMode } : a)));
+      alert(err instanceof Error ? err.message : 'Error al actualizar el agente.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleQaModeChange = async (agent: AgentSummary, value: AgentQaMode) => {
+    const prevValue = agent.qaMode;
+    setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, qaMode: value } : a)));
+    setSavingId(agent.id);
+    try {
+      await updateAgent(agent.id, { qaMode: value });
+    } catch (err) {
+      setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, qaMode: prevValue } : a)));
       alert(err instanceof Error ? err.message : 'Error al actualizar el agente.');
     } finally {
       setSavingId(null);
@@ -478,6 +551,20 @@ export function AgentsSection() {
                 </span>
               </div>
               <div className="flex items-center gap-4 shrink-0">
+                {agent.role === 'qa' && (
+                  <label className="flex items-center gap-1.5 text-xs text-secondary">
+                    Modo QA
+                    <select
+                      value={agent.qaMode ?? 'shadow'}
+                      disabled={savingId === agent.id}
+                      onChange={(e) => handleQaModeChange(agent, e.target.value as AgentQaMode)}
+                      className="bg-surface border border-default rounded-md px-2 py-1 text-primary text-xs"
+                    >
+                      <option value="shadow">Sombra</option>
+                      <option value="enforce">Activo</option>
+                    </select>
+                  </label>
+                )}
                 <label className="flex items-center gap-1.5 text-xs text-secondary">
                   Máx. concurrentes
                   <input
@@ -509,6 +596,12 @@ export function AgentsSection() {
               missingPermissions={missingPermissions}
               onChanged={refresh}
             />
+
+            {agent.role === 'qa' && (
+              <div className="pl-3 mt-1.5 border-l border-default">
+                <QaCalibrationPanel agentId={agent.id} />
+              </div>
+            )}
             </div>
           ))}
         </div>
