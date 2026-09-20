@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/appStore';
 import {
   AgentSummary,
   ConnectRepoResult,
+  LATEST_AGENT_WORKFLOW_VERSION,
   connectAgentRepo,
   createAgent,
   disconnectAgentRepo,
@@ -197,11 +198,13 @@ function AgentRepoConnections({
   const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
   const [selected, setSelected] = useState('');
   const [busy, setBusy] = useState(false);
+  const [updatingRepo, setUpdatingRepo] = useState('');
   const [error, setError] = useState('');
   const [result, setResult] = useState<ConnectRepoResult | null>(null);
 
   const connected = agent.connectedRepos ?? [];
   const available = repos.filter((r) => !connected.some((c) => c.repoFullName === r));
+  const latestVersion = LATEST_AGENT_WORKFLOW_VERSION[agent.role === 'qa' ? 'qa' : 'dev'];
 
   const handleConnect = async () => {
     if (!workspaceId || !selected) return;
@@ -216,6 +219,25 @@ function AgentRepoConnections({
       setError(err instanceof Error ? err.message : 'No se pudo conectar el repo.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleUpdateWorkflow = async (repoFullName: string) => {
+    if (!workspaceId) return;
+    setUpdatingRepo(repoFullName);
+    setError('');
+    setResult(null);
+    try {
+      // Reconectar reescribe el workflow con la plantilla más reciente y
+      // reemplaza la entrada de `connectedRepos` para este repo — no crea
+      // una key ni un secret nuevos por las dudas, hace exactamente lo mismo
+      // que "Conectar".
+      setResult(await connectAgentRepo(workspaceId, agent.id, repoFullName));
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo actualizar el workflow.');
+    } finally {
+      setUpdatingRepo('');
     }
   };
 
@@ -237,21 +259,40 @@ function AgentRepoConnections({
     <div className="flex flex-col gap-2 pl-3 mt-1 border-l border-default">
       {connected.length > 0 && (
         <div className="flex flex-col gap-1">
-          {connected.map((c) => (
-            <div key={c.repoFullName} className="flex items-center justify-between gap-2 text-xs">
-              <span className="flex items-center gap-1.5 text-secondary font-mono truncate">
-                <GitBranch className="w-3 h-3 shrink-0 text-status-done" />
-                {c.repoFullName}
-              </span>
-              <button
-                onClick={() => handleDisconnect(c.repoFullName)}
-                disabled={busy}
-                className="text-[11px] text-tertiary hover:text-priority-urgent disabled:opacity-50 shrink-0"
-              >
-                Desconectar
-              </button>
-            </div>
-          ))}
+          {connected.map((c) => {
+            const outdated = typeof c.workflowVersion === 'number' && c.workflowVersion < latestVersion;
+            return (
+              <div key={c.repoFullName} className="flex items-center justify-between gap-2 text-xs">
+                <span className="flex items-center gap-1.5 text-secondary font-mono truncate">
+                  <GitBranch className="w-3 h-3 shrink-0 text-status-done" />
+                  {c.repoFullName}
+                  {typeof c.workflowVersion === 'number' && (
+                    <span className="text-[10px] text-tertiary shrink-0">
+                      · workflow v{c.workflowVersion}
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2 shrink-0">
+                  {outdated && (
+                    <button
+                      onClick={() => handleUpdateWorkflow(c.repoFullName)}
+                      disabled={busy || updatingRepo === c.repoFullName}
+                      className="text-[11px] text-priority-high hover:text-accent disabled:opacity-50"
+                    >
+                      {updatingRepo === c.repoFullName ? 'Actualizando…' : `Actualizar a v${latestVersion}`}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDisconnect(c.repoFullName)}
+                    disabled={busy || updatingRepo === c.repoFullName}
+                    className="text-[11px] text-tertiary hover:text-priority-urgent disabled:opacity-50"
+                  >
+                    Desconectar
+                  </button>
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -296,8 +337,8 @@ function AgentRepoConnections({
         <div className="flex flex-col gap-1.5 p-2.5 bg-elevated border border-default rounded-md">
           <p className="text-[11px] text-status-done">
             ✓ {result.repoFullName} conectado
-            {result.workflowCreated ? ' · workflow creado' : ' · workflow actualizado'} · key de MCP
-            provisionada
+            {result.workflowCreated ? ' · workflow creado' : ' · workflow actualizado'} (v
+            {result.workflowVersion}) · key de MCP provisionada
           </p>
 
           {result.anthropicSecretPresent ? (
