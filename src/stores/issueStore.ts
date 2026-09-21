@@ -67,7 +67,7 @@ export const useIssueStore = create<IssueState>((set) => ({
   clearSelection: () => set({ selectedIssueIds: [] }),
 
   addIssue: async (data) => {
-    const newIssue = await createRealIssue(data as any);
+    const newIssue = await createRealIssue(data);
     return newIssue;
   },
 

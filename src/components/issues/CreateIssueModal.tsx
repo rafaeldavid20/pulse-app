@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -13,6 +13,7 @@ import { IssueStatus, IssuePriority, IssueType } from '@/types';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES, ISSUE_TYPES } from '@/lib/constants/issue';
 import { validParentsFor } from '@/lib/hierarchy';
 import { AlertCircle } from 'lucide-react';
+import { errorMessage } from '@/lib/errors';
 
 export const CreateIssueModal: React.FC = () => {
   const { user } = useAuth();
@@ -44,16 +45,22 @@ export const CreateIssueModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [titleError, setTitleError] = useState(false);
 
-  // Sync defaultProjectId when modal opens
-  useEffect(() => {
-    if (isCreateIssueOpen && defaultProjectId) {
-      setProjectId(defaultProjectId);
-    }
+  // Al abrirse, el modal toma el proyecto y el tipo por defecto del contexto
+  // desde donde se lo abrió. Se ajusta durante el render y no en un efecto: en
+  // un efecto, el primer frame mostraba el tipo de la apertura anterior.
+  const [syncedOpen, setSyncedOpen] = useState({ isCreateIssueOpen, defaultProjectId, defaultIssueType });
+  if (
+    syncedOpen.isCreateIssueOpen !== isCreateIssueOpen ||
+    syncedOpen.defaultProjectId !== defaultProjectId ||
+    syncedOpen.defaultIssueType !== defaultIssueType
+  ) {
+    setSyncedOpen({ isCreateIssueOpen, defaultProjectId, defaultIssueType });
     if (isCreateIssueOpen) {
+      if (defaultProjectId) setProjectId(defaultProjectId);
       setType(defaultIssueType);
     }
     setTitleError(false);
-  }, [isCreateIssueOpen, defaultProjectId, defaultIssueType]);
+  }
 
   // Los padres válidos dependen del tipo elegido (tabla `ALLOWED_PARENT_TYPES`),
   // así que cambiar el tipo puede invalidar el padre ya seleccionado.
@@ -133,9 +140,9 @@ export const CreateIssueModal: React.FC = () => {
       setSelectedLabels(['feature']);
       handleClose();
       if (created?.id) setPeekIssueId(created.id);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating issue:', err);
-      setErrorMsg(err?.message || 'Error al guardar el issue en Cloud Firestore.');
+      setErrorMsg(errorMessage(err, 'Error al guardar el issue en Cloud Firestore.'));
     } finally {
       setLoading(false);
     }

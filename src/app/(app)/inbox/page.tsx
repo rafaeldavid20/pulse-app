@@ -219,13 +219,18 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
   // para poder aplicar updates optimistas (marcar leído/silenciar) sin
   // esperar la confirmación del backend.
   const [localNotifications, setLocalNotifications] = useState<Notification[]>(notifications);
+  const [mirroredFrom, setMirroredFrom] = useState(notifications);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [markingAll, setMarkingAll] = useState(false);
 
-  useEffect(() => {
+  // Ajuste durante el render en vez de un efecto: cuando el listener trae una
+  // lista nueva, reemplaza a la copia optimista sin pintar antes un frame con
+  // la anterior (el render en cascada que marca el lint).
+  if (notifications !== mirroredFrom) {
+    setMirroredFrom(notifications);
     setLocalNotifications(notifications);
-  }, [notifications]);
+  }
 
   const unreadCount = localNotifications.filter((n) => !n.read).length;
 
@@ -237,11 +242,11 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
   const todayItems = visible.filter((n) => isToday(n.createdAt));
   const beforeItems = visible.filter((n) => !isToday(n.createdAt));
 
-  useEffect(() => {
-    if (!focusedId || !visible.some((n) => n.id === focusedId)) {
-      setFocusedId(visible[0]?.id ?? null);
-    }
-  }, [visible, focusedId]);
+  // El foco no se guarda "corregido" en estado: se deriva. Si el elemento
+  // enfocado desapareció de la lista visible (se marcó leído, cambió el
+  // filtro), el foco efectivo es el primero. Guardarlo con un setState dentro
+  // de un efecto obligaba a un render extra en cada cambio de lista.
+  const focused = focusedId && visible.some((n) => n.id === focusedId) ? focusedId : (visible[0]?.id ?? null);
 
   const handleMarkRead = async (id: string) => {
     let previous: Notification | undefined;
@@ -337,9 +342,9 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (!focusedId || !visible.some((n) => n.id === focusedId)) return;
+      if (!focused) return;
 
-      const idx = visible.findIndex((n) => n.id === focusedId);
+      const idx = visible.findIndex((n) => n.id === focused);
       const key = e.key.toLowerCase();
 
       if (key === 'j' || e.key === 'ArrowDown') {
@@ -350,7 +355,7 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
         if (idx > 0) setFocusedId(visible[idx - 1].id);
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        const current = visible.find((n) => n.id === focusedId);
+        const current = visible.find((n) => n.id === focused);
         if (current) handleOpen(current);
       }
     };
@@ -358,7 +363,7 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedId, visible]);
+  }, [focused, visible]);
 
   if (error) {
     return (
@@ -387,7 +392,7 @@ function NotificationsTab({ notifications, loaded, error }: NotificationsTabProp
             <NotificationRow
               key={n.id}
               notification={n}
-              isFocused={focusedId === n.id}
+              isFocused={focused === n.id}
               busy={busyId === n.id}
               onOpen={() => handleOpen(n)}
               onMarkRead={() => handleMarkRead(n.id)}

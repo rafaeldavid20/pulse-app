@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use, useEffect, useMemo, useState } from 'react';
+import React, { use, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
@@ -45,12 +45,15 @@ export default function CycleDetailPage({
    * sobrevive a un refresh — se prefiere siempre el snapshot real cuando
    * existe, más abajo.
    */
+  // Se captura durante el render y no en un efecto: en un efecto, cada carga
+  // del ciclo costaba un render extra (el render en cascada que marca el lint),
+  // y además el primer frame se pintaba sin el valor. Un `useRef` tampoco sirve
+  // acá — escribirlo durante el render es justamente lo que prohíbe
+  // `react-hooks`.
   const [capturedInitialScope, setCapturedInitialScope] = useState<number | null>(null);
-  useEffect(() => {
-    if (cycle && issuesLoaded && capturedInitialScope === null) {
-      setCapturedInitialScope(live.scope);
-    }
-  }, [cycle, issuesLoaded, live.scope, capturedInitialScope]);
+  if (capturedInitialScope === null && cycle && issuesLoaded) {
+    setCapturedInitialScope(live.scope);
+  }
 
   if (!cycle) {
     return (

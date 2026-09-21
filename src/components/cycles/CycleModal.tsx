@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +37,13 @@ export const CycleModal: React.FC<CycleModalProps> = ({ isOpen, onClose, hasActi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // El formulario se limpia al abrirse, ajustando el estado durante el render
+  // en vez de en un efecto: así el primer frame del modal ya muestra los
+  // valores por defecto, en lugar de pintar los de la vez anterior y
+  // corregirlos después (el render en cascada que marca el lint).
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
     if (isOpen) {
       setName('');
       setStartsAt(todayIso());
@@ -45,7 +51,7 @@ export const CycleModal: React.FC<CycleModalProps> = ({ isOpen, onClose, hasActi
       setMarkActive(false);
       setError(null);
     }
-  }, [isOpen]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

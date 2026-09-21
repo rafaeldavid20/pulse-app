@@ -17,6 +17,12 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 'md', classNam
 
   if (src) {
     return (
+      /* `src` es la URL de avatar que devuelve el proveedor de auth
+         (googleusercontent y demás): un host arbitrario que habría que declarar
+         en `images.remotePatterns` uno por uno. Un avatar de 20-36px no
+         justifica esa configuración ni el riesgo de que una cuenta nueva quede
+         sin foto porque su host no estaba en la lista. */
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={name || 'Avatar'}

@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/appStore';
 import { inviteUserToWorkspace } from '@/lib/firestore';
 import { MemberRole } from '@/types';
 import { Check, AlertCircle } from 'lucide-react';
+import { errorMessage } from '@/lib/errors';
 
 export const InviteMemberModal: React.FC = () => {
   const { user } = useAuth();
@@ -52,9 +53,9 @@ export const InviteMemberModal: React.FC = () => {
         setErrorMsg('');
         setInviteMemberOpen(false);
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error inviting member:', err);
-      setErrorMsg(err?.message || 'Error al enviar la invitación. Intenta nuevamente.');
+      setErrorMsg(errorMessage(err, 'Error al enviar la invitación. Intenta nuevamente.'));
     } finally {
       setLoading(false);
     }

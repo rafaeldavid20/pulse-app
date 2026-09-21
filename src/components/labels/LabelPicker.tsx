@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Tag, Plus, Check } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
 import { useLabelStore } from '@/stores/labelStore';
 import { Badge } from '@/components/ui/Badge';
 import { CreateLabelModal } from './CreateLabelModal';

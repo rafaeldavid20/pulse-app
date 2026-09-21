@@ -10,8 +10,6 @@ import {
   UserCheck,
   Layers,
   FolderKanban,
-  CheckCircle2,
-  AlertCircle,
   Pause,
   Play,
 } from 'lucide-react';

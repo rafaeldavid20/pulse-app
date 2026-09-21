@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { signUpWithEmail, signInWithGoogle, getFirebaseErrorMessage } from '@/lib/auth';
+import { firebaseErrorCode } from '@/lib/errors';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -24,8 +25,8 @@ export default function SignupPage() {
     try {
       await signUpWithEmail(email.trim(), password, name.trim(), workspaceName.trim());
       router.push('/team/eng/issues');
-    } catch (err: any) {
-      const msg = getFirebaseErrorMessage(err?.code || err?.message);
+    } catch (err: unknown) {
+      const msg = getFirebaseErrorMessage(firebaseErrorCode(err));
       setError(msg);
     } finally {
       setLoading(false);
@@ -38,8 +39,8 @@ export default function SignupPage() {
     try {
       await signInWithGoogle();
       router.push('/team/eng/issues');
-    } catch (err: any) {
-      const msg = getFirebaseErrorMessage(err?.code || err?.message);
+    } catch (err: unknown) {
+      const msg = getFirebaseErrorMessage(firebaseErrorCode(err));
       setError(msg);
     } finally {
       setLoading(false);
