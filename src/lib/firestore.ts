@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentQaMode, AgentRole, QaCalibrationRecord } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentQaMode, AgentRole, QaCalibrationRecord, Environment, EnvironmentWritableField, SalesforceLoginHost, SalesforceTestLevel } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -1144,4 +1144,144 @@ export async function rerunReview(issueId: string): Promise<void> {
 export async function returnReviewToAgent(issueId: string, comment: string): Promise<void> {
   const actionRes = await callPlatformAction('reviews.returnToAgent', { issueId, comment });
   if (!actionRes) throw new Error('No se pudo devolver el issue al agente.');
+}
+
+// ===============================================================
+// 10. ENVIRONMENTS / SALESFORCE (épica O — O1)
+// ===============================================================
+
+/**
+ * Vista saneada de un entorno, tal como la devuelve `environments.list`. No
+ * incluye el campo `auth` del doc (refresh token cifrado + access token): la
+ * colección es Admin-SDK-only justamente para que eso no salga nunca de
+ * pulse-backend.
+ */
+export type EnvironmentSummary = Environment & {
+  /**
+   * La org se reconectó y los repos que tenían el `SFDX_AUTH_URL` viejo ya no
+   * pueden desplegar: ese secret embebe el refresh token que acaba de
+   * invalidarse. O3 lo reescribe; hasta entonces la UI lo avisa.
+   */
+  repoSecretsStale?: boolean;
+};
+
+export interface CreateEnvironmentInput {
+  /** Clave corta y única por workspace: `dev`, `demo`, `uat`, `prod`. */
+  key: string;
+  displayName: string;
+  /** Orden en la cadena de promoción: dev=0, demo=1, uat=2, prod=3. */
+  position: number;
+  trackingBranch: string;
+  repoFullName: string;
+  isProduction: boolean;
+  requiresApproval?: boolean;
+  defaultTestLevel?: SalesforceTestLevel;
+  allowDirectWrites?: boolean;
+  loginHost: SalesforceLoginHost;
+  /** My Domain de la org, obligatorio si `loginHost` es `custom`. */
+  customDomain?: string;
+  /** Presente sólo al reconectar un entorno que ya existe. */
+  environmentId?: string;
+}
+
+export async function listEnvironments(workspaceId: string): Promise<EnvironmentSummary[]> {
+  const res = await callPlatformAction<{ environments: EnvironmentSummary[] }>('environments.list', { workspaceId });
+  if (!res) throw new Error('No se pudieron cargar los entornos.');
+  return res.environments ?? [];
+}
+
+/**
+ * Arranca la conexión de una org: valida la configuración y devuelve la URL de
+ * autorización de Salesforce. El entorno **no** queda creado hasta que el
+ * usuario autoriza y Salesforce redirige de vuelta a `salesforceCallback`; si
+ * cancela en la pantalla de login, no queda nada a medias.
+ *
+ * El caller manda el navegador a esa URL (`window.location.href`), igual que
+ * con la instalación de GitHub.
+ */
+export async function beginConnectEnvironment(
+  workspaceId: string,
+  input: CreateEnvironmentInput
+): Promise<string> {
+  const res = await callPlatformAction<{ authorizeUrl: string }>('environments.create', {
+    workspaceId,
+    ...input,
+  });
+  if (!res?.authorizeUrl) throw new Error('No se pudo iniciar la conexión con Salesforce.');
+  return res.authorizeUrl;
+}
+
+export async function updateEnvironment(
+  environmentId: string,
+  updates: Partial<Pick<Environment, EnvironmentWritableField>>
+): Promise<EnvironmentSummary> {
+  const res = await callPlatformAction<{ environment: EnvironmentSummary }>('environments.update', {
+    environmentId,
+    ...updates,
+  });
+  if (!res?.environment) throw new Error('No se pudo actualizar el entorno.');
+  return res.environment;
+}
+
+export interface VerifyEnvironmentResult {
+  ok: boolean;
+  /** Por qué falló, en castellano. Sólo cuando `ok` es false. */
+  reason?: string;
+  environment: EnvironmentSummary;
+  dailyApiRequests?: { max: number; remaining: number };
+}
+
+/**
+ * Comprueba contra la org que la credencial sigue viva. Una credencial
+ * revocada **no** es una excepción: vuelve con `ok: false` y el entorno en
+ * `expired`, porque es un estado que la UI tiene que poder mostrar.
+ */
+export async function verifyEnvironment(environmentId: string): Promise<VerifyEnvironmentResult> {
+  const res = await callPlatformAction<VerifyEnvironmentResult>('environments.verify', { environmentId });
+  if (!res) throw new Error('No se pudo verificar la conexión con la org.');
+  return res;
+}
+
+export interface DisconnectEnvironmentResult {
+  environmentId: string;
+  key: string;
+  /** Lo que no se pudo limpiar (revocar el token, borrar un secret). La desconexión igual se completó. */
+  warnings: string[];
+}
+
+export async function disconnectEnvironment(environmentId: string): Promise<DisconnectEnvironmentResult> {
+  const res = await callPlatformAction<DisconnectEnvironmentResult>('environments.disconnect', { environmentId });
+  if (!res) throw new Error('No se pudo desconectar el entorno.');
+  return res;
+}
+
+/**
+ * Traduce el `reason` con el que `salesforceCallback` vuelve a la app. Son
+ * códigos de Salesforce o del propio flujo; mostrarlos crudos no le dice nada
+ * a nadie.
+ */
+export function describeSalesforceConnectError(reason: string): string {
+  switch (reason) {
+    case 'access_denied':
+      return 'Cancelaste la autorización en Salesforce.';
+    case 'OAUTH_APP_BLOCKED':
+      return 'Un admin de esa org bloqueó la app de Pulse. Tiene que aprobarla en Setup → Connected Apps OAuth Usage.';
+    case 'invalid_client_id':
+    case 'invalid_client':
+      return 'La app de Pulse no está configurada correctamente en Salesforce. Avisale a quien administra Pulse.';
+    case 'redirect_uri_mismatch':
+      return 'La URL de callback no coincide con la configurada en el Connected App.';
+    case 'no_refresh_token':
+      return 'Salesforce no devolvió un refresh token: al Connected App le faltan los scopes refresh_token y offline_access.';
+    case 'state_expired':
+      return 'El link de conexión expiró. Volvé a intentarlo.';
+    case 'state_mismatch':
+      return 'El link de conexión no corresponde a esta sesión. Volvé a intentarlo.';
+    case 'not_admin':
+      return 'Sólo un admin u owner del workspace puede conectar una org.';
+    case 'missing_code':
+      return 'Salesforce no devolvió el código de autorización. Volvé a intentarlo.';
+    default:
+      return `No se pudo conectar la org (${reason}).`;
+  }
 }

@@ -2,21 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { useAppStore } from '@/stores/appStore';
-import { getGithubStatus, listAgents, AgentSummary } from '@/lib/firestore';
+import { getGithubStatus, listAgents, listEnvironments, AgentSummary, EnvironmentSummary } from '@/lib/firestore';
 
 /**
- * Repos conectados y agentes del workspace activo.
+ * Repos conectados, agentes y entornos del workspace activo.
  *
- * Ninguno de los dos se puede leer de Firestore desde el cliente
- * (`github_installations` y `agents` son `allow read: if false`), así que salen
- * de Platform Actions — o sea, de un fetch, no de una suscripción. Se cachea
- * por workspace a nivel de módulo porque el panel del issue se monta y
- * desmonta con cada issue que abrís, y sin esto serían dos llamadas por cada
- * apertura para datos que casi nunca cambian.
+ * Ninguno de los tres se puede leer de Firestore desde el cliente
+ * (`github_installations`, `agents` y `environments` son `allow read: if
+ * false`), así que salen de Platform Actions — o sea, de un fetch, no de una
+ * suscripción. Se cachea por workspace a nivel de módulo porque el panel del
+ * issue se monta y desmonta con cada issue que abrís, y sin esto serían tres
+ * llamadas por cada apertura para datos que casi nunca cambian.
  */
 interface Infra {
   repos: string[];
   agents: AgentSummary[];
+  environments: EnvironmentSummary[];
   connected: boolean;
   loading: boolean;
 }
@@ -32,17 +33,20 @@ async function load(workspaceId: string): Promise<Omit<Infra, 'loading'>> {
   if (pending) return pending;
 
   const promise = (async () => {
-    // Uno de los dos puede fallar sin que eso invalide al otro: un workspace
-    // sin GitHub conectado igual tiene agentes que mostrar.
-    const [status, agents] = await Promise.allSettled([
+    // Cualquiera puede fallar sin invalidar a los otros: un workspace sin
+    // GitHub conectado igual tiene agentes que mostrar, y uno sin orgs de
+    // Salesforce es el caso normal.
+    const [status, agents, environments] = await Promise.allSettled([
       getGithubStatus(workspaceId),
       listAgents(workspaceId),
+      listEnvironments(workspaceId),
     ]);
 
     const result = {
       repos: status.status === 'fulfilled' ? status.value.repositories ?? [] : [],
       connected: status.status === 'fulfilled' ? status.value.connected : false,
       agents: agents.status === 'fulfilled' ? agents.value : [],
+      environments: environments.status === 'fulfilled' ? environments.value : [],
     };
     cache.set(workspaceId, result);
     return result;
@@ -52,13 +56,13 @@ async function load(workspaceId: string): Promise<Omit<Infra, 'loading'>> {
   return promise;
 }
 
-/** Invalida el cache — llamalo después de conectar GitHub o crear un agente. */
+/** Invalida el cache — llamalo después de conectar GitHub, crear un agente o conectar una org. */
 export function refreshWorkspaceInfra(workspaceId?: string) {
   if (workspaceId) cache.delete(workspaceId);
   else cache.clear();
 }
 
-const EMPTY: Omit<Infra, 'loading'> = { repos: [], agents: [], connected: false };
+const EMPTY: Omit<Infra, 'loading'> = { repos: [], agents: [], environments: [], connected: false };
 
 export function useWorkspaceInfra(): Infra {
   const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
