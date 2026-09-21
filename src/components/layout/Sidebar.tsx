@@ -142,7 +142,8 @@ export const Sidebar: React.FC = () => {
 
           <div className="flex flex-col gap-0.5">
             {teamNavItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive =
+                pathname === item.href || (pathname?.startsWith(`${item.href}/`) ?? false);
               const Icon = item.icon;
 
               return (

@@ -60,29 +60,42 @@ export function GitHubSection() {
           <Loader2 className="w-4 h-4 animate-spin" />
         </div>
       ) : error ? (
-        <p className="text-xs text-priority-urgent">{error}</p>
+        <p className="text-xs text-priority-urgent break-words">{error}</p>
       ) : status?.connected ? (
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <span className="text-sm text-primary">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-sm text-primary truncate" title={status.accountLogin}>
               Conectado a <span className="font-semibold">{status.accountLogin}</span>
             </span>
-            <span className="text-xs text-tertiary">
+            <span
+              className="text-xs text-tertiary truncate"
+              title={
+                status.repositories && status.repositories.length > 0
+                  ? status.repositories.join(', ')
+                  : undefined
+              }
+            >
               {status.repositories && status.repositories.length > 0
                 ? status.repositories.join(', ')
                 : 'Sin repos autorizados'}
             </span>
           </div>
-          <Button size="sm" variant="secondary" onClick={handleConnect} disabled={connecting}>
+          <Button size="sm" variant="secondary" onClick={handleConnect} disabled={connecting} className="shrink-0">
             {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Gestionar'}
           </Button>
         </div>
       ) : (
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-secondary max-w-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-xs text-secondary sm:max-w-xs min-w-0">
             Conectá un repositorio para que los issues puedan generar ramas de GitHub directamente desde Pulse.
           </p>
-          <Button size="sm" icon={<ExternalLink className="w-3.5 h-3.5" />} onClick={handleConnect} disabled={connecting}>
+          <Button
+            size="sm"
+            icon={<ExternalLink className="w-3.5 h-3.5" />}
+            onClick={handleConnect}
+            disabled={connecting}
+            className="shrink-0"
+          >
             {connecting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Conectar GitHub'}
           </Button>
         </div>

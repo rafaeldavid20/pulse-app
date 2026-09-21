@@ -623,14 +623,14 @@ export function AgentsSection() {
         <div className="flex flex-col gap-1">
           {agents.map((agent) => (
             <div key={agent.id} className="flex flex-col px-3 py-2.5 rounded-md hover:bg-hover transition-colors">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-sm text-primary truncate">{agent.displayName}</span>
                 <span className="text-xs text-tertiary font-mono truncate">
                   {agent.kind} · {agent.defaultRepo || 'sin repo por defecto'}
                 </span>
               </div>
-              <div className="flex items-center gap-4 shrink-0">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                 {agent.role === 'qa' && (
                   <label className="flex items-center gap-1.5 text-xs text-secondary">
                     Repo a revisar
