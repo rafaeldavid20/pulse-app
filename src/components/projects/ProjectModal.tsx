@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState} from 'react';
 import { nanoid } from 'nanoid';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
@@ -45,7 +45,13 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [nameError, setNameError] = useState(false);
 
-  useEffect(() => {
+  // El formulario se sincroniza con el proyecto a editar (o se limpia para uno
+  // nuevo) durante el render, no en un efecto: en un efecto, abrir el modal
+  // sobre el proyecto B después de haber editado el A mostraba por un frame los
+  // datos de A. Es el render en cascada que marca el lint, y acá además se veía.
+  const [syncedWith, setSyncedWith] = useState({ projectToEdit, isOpen });
+  if (syncedWith.projectToEdit !== projectToEdit || syncedWith.isOpen !== isOpen) {
+    setSyncedWith({ projectToEdit, isOpen });
     if (projectToEdit) {
       setName(projectToEdit.name || '');
       setDescription(projectToEdit.description || '');
@@ -68,7 +74,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     setNewDodText('');
     setNewDodSeverity('blocker');
     setNameError(false);
-  }, [projectToEdit, isOpen]);
+  }
 
   const handleAddDodCriterion = (e: React.FormEvent) => {
     e.preventDefault();

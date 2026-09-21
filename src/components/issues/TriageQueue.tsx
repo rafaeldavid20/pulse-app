@@ -264,11 +264,10 @@ export const TriageQueue: React.FC = () => {
   const [openPanel, setOpenPanel] = useState<OpenPanel | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!focusedId || !issues.some((i) => i.id === focusedId)) {
-      setFocusedId(issues[0]?.id ?? null);
-    }
-  }, [issues, focusedId]);
+  // Foco derivado, no corregido con un setState en un efecto: si el issue
+  // enfocado ya no está en la cola (se aceptó, se descartó), el foco efectivo
+  // pasa al primero sin un render extra.
+  const focused = focusedId && issues.some((i) => i.id === focusedId) ? focusedId : (issues[0]?.id ?? null);
 
   const handleAccept = async (id: string, updates: { projectId?: string; priority: IssuePriority }) => {
     setOpenPanel(null);
@@ -322,9 +321,9 @@ export const TriageQueue: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (!focusedId || !issues.some((i) => i.id === focusedId)) return;
+      if (!focused) return;
 
-      const idx = issues.findIndex((i) => i.id === focusedId);
+      const idx = issues.findIndex((i) => i.id === focused);
       const key = e.key.toLowerCase();
 
       if (key === 'j' || e.key === 'ArrowDown') {
@@ -335,20 +334,20 @@ export const TriageQueue: React.FC = () => {
         if (idx > 0) setFocusedId(issues[idx - 1].id);
       } else if (key === 'a') {
         e.preventDefault();
-        setOpenPanel({ issueId: focusedId, kind: 'accept' });
+        setOpenPanel({ issueId: focused, kind: 'accept' });
       } else if (key === 'x') {
         e.preventDefault();
-        handleDiscard(focusedId);
+        handleDiscard(focused);
       } else if (key === 'm') {
         e.preventDefault();
-        setOpenPanel({ issueId: focusedId, kind: 'move' });
+        setOpenPanel({ issueId: focused, kind: 'move' });
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedId, issues]);
+  }, [focused, issues]);
 
   if (error) {
     return (
@@ -382,7 +381,7 @@ export const TriageQueue: React.FC = () => {
         <TriageRow
           key={issue.id}
           issue={issue}
-          isFocused={focusedId === issue.id}
+          isFocused={focused === issue.id}
           busy={busyId === issue.id}
           openPanel={openPanel?.issueId === issue.id ? openPanel.kind : null}
           allIssues={allIssues}

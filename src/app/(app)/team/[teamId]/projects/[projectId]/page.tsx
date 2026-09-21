@@ -14,6 +14,7 @@ import { Calendar, ArrowLeft, Plus, FolderKanban, ChevronUp, ChevronDown, Edit3 
 import Link from 'next/link';
 import { ProjectModal } from '@/components/projects/ProjectModal';
 import { QaMetricsCard } from '@/components/projects/QaMetricsCard';
+import type { ProjectStatus } from '@/types';
 
 export default function ProjectDetailPage({
   params,
@@ -134,7 +135,7 @@ export default function ProjectDetailPage({
                   <select
                     value={project.status}
                     onChange={(e) =>
-                      updateProject(project.id, { status: e.target.value as any })
+                      updateProject(project.id, { status: e.target.value as ProjectStatus })
                     }
                     className="bg-elevated border border-default text-primary text-xs font-semibold rounded-md px-2.5 py-1 outline-none cursor-pointer capitalize"
                   >

@@ -86,14 +86,23 @@ function logPlatformActionFallback(actionCode: string, reason: 'error' | 'unsucc
   );
 }
 
-export async function callPlatformAction<T = any>(
+/**
+ * Forma de la respuesta del callable: el backend siempre devuelve
+ * `{ success, data }` (ver `PlatformActionResponse` en pulse-backend).
+ */
+interface PlatformActionEnvelope<T> {
+  success?: boolean;
+  data?: T;
+}
+
+export async function callPlatformAction<T = unknown>(
   actionCode: string,
-  data: Record<string, any>
+  data: Record<string, unknown>
 ): Promise<T | null> {
   try {
     const pulsePlatformAction = httpsCallable(functions, 'pulsePlatformAction');
     const result = await pulsePlatformAction({ actionCode, data });
-    const payload = result.data as any;
+    const payload = result.data as PlatformActionEnvelope<T>;
     if (payload && payload.success) {
       return payload.data as T;
     }
@@ -223,7 +232,7 @@ export function subscribeUserWorkspaces(
         if (wsSnap.exists()) {
           workspaces.push(wsSnap.data() as Workspace);
         }
-      } catch (e) {
+      } catch {
         // Fallback
       }
     }

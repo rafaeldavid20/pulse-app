@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { BellRing } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,11 +31,18 @@ export function NotificationPreferencesSection() {
   const currentMember = members.find((m) => m.userId === user?.uid);
 
   const [localMuted, setLocalMuted] = useState<NotificationType[]>(currentMember?.mutedNotificationTypes ?? []);
+  const [syncedFrom, setSyncedFrom] = useState(currentMember);
   const [savingType, setSavingType] = useState<NotificationType | null>(null);
 
-  useEffect(() => {
+  // Ajuste de estado durante el render, no en un efecto: cuando llega una
+  // versión nueva del member (la suscripción de Firestore, o el rollback de un
+  // toggle fallido), el valor optimista local se descarta y se vuelve al de
+  // servidor. Hacerlo en un `useEffect` obligaba a pintar un frame con el valor
+  // viejo antes de corregirlo — el render en cascada que marca el lint.
+  if (currentMember !== syncedFrom) {
+    setSyncedFrom(currentMember);
     setLocalMuted(currentMember?.mutedNotificationTypes ?? []);
-  }, [currentMember]);
+  }
 
   const handleToggle = async (type: NotificationType, enabled: boolean) => {
     if (!workspaceId) return;
