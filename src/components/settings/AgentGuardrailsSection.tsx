@@ -93,10 +93,10 @@ export function AgentGuardrailsSection() {
 
   return (
     <div className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-secondary" />
-          <h3 className="text-base font-semibold text-primary">Guardarraíles de agentes</h3>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <ShieldAlert className="w-4 h-4 text-secondary shrink-0" />
+          <h3 className="text-base font-semibold text-primary truncate">Guardarraíles de agentes</h3>
         </div>
         <Button
           size="sm"
@@ -104,6 +104,7 @@ export function AgentGuardrailsSection() {
           icon={budget?.agentsPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
           onClick={handleTogglePaused}
           disabled={loading || saving || !budget}
+          className="shrink-0"
         >
           {budget?.agentsPaused ? 'Reanudar agentes' : 'Pausar agentes'}
         </Button>
@@ -120,11 +121,11 @@ export function AgentGuardrailsSection() {
           <Loader2 className="w-4 h-4 animate-spin" />
         </div>
       ) : loadError ? (
-        <p className="text-xs text-priority-urgent">{loadError}</p>
+        <p className="text-xs text-priority-urgent break-words">{loadError}</p>
       ) : budget ? (
         <>
-          <div className="flex flex-col gap-1 p-3 bg-elevated border border-default rounded-md">
-            <p className="text-sm text-primary">
+          <div className="flex flex-col gap-1 p-3 bg-elevated border border-default rounded-md min-w-0">
+            <p className="text-sm text-primary break-words">
               hoy: {budget.dispatchesToday}/{budget.dailyDispatchLimit} dispatches · USD{' '}
               {formatUsd(budget.costUsdToday)}
               {budget.dailyCostCapUsd != null ? ` / ${formatUsd(budget.dailyCostCapUsd)}` : ''}
@@ -132,9 +133,9 @@ export function AgentGuardrailsSection() {
                 <span className="ml-2 text-priority-urgent font-medium">· agentes pausados</span>
               )}
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
               {Object.entries(budget.byRole).map(([role, summary]) => (
-                <span key={role} className="text-xs text-tertiary">
+                <span key={role} className="text-xs text-tertiary truncate">
                   {ROLE_LABELS[role] ?? role}: {summary.dispatches} dispatches · USD{' '}
                   {formatUsd(summary.costUsd)}
                 </span>
@@ -142,7 +143,7 @@ export function AgentGuardrailsSection() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-secondary">Tope diario de dispatches</label>
               <input
@@ -198,7 +199,7 @@ export function AgentGuardrailsSection() {
             </div>
           </div>
 
-          {saveError && <p className="text-xs text-priority-urgent">{saveError}</p>}
+          {saveError && <p className="text-xs text-priority-urgent break-words">{saveError}</p>}
         </>
       ) : null}
     </div>

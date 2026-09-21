@@ -305,6 +305,15 @@ export async function inviteUserToWorkspace(
   }
 }
 
+export async function updateWorkspaceName(workspaceId: string, name: string): Promise<Workspace> {
+  const actionRes = await callPlatformAction<{ workspace: Workspace }>('workspaces.update', {
+    workspaceId,
+    name,
+  });
+  if (!actionRes) throw new Error('No se pudo actualizar el workspace.');
+  return actionRes.workspace;
+}
+
 export async function processPendingInvitations(userId: string, email: string, displayName: string) {
   const q = query(
     collection(db, 'invitations'),
