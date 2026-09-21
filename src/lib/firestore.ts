@@ -992,7 +992,11 @@ export interface ConnectRepoResult {
  * deja de detectarse como tal hasta que se bumpee a mano.
  */
 export const LATEST_AGENT_WORKFLOW_VERSION: Record<'dev' | 'qa', number> = {
-  dev: 6,
+  // v10 (TES-219): el prompt distingue los tres desenlaces de un criterio
+  // `not_met` y nombra `pulse_report_pending_work`. Un repo conectado antes de
+  // esto no se entera de que la tool existe, que es exactamente cómo
+  // `pulse_report_criteria` quedó sin usarse desde v5.
+  dev: 10,
   qa: 1,
 };
 
