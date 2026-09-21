@@ -1020,13 +1020,13 @@ export const LATEST_AGENT_WORKFLOW_VERSION: Record<'dev' | 'qa', number> = {
   // `not_met` y nombra `pulse_report_pending_work`. Un repo conectado antes de
   // esto no se entera de que la tool existe, que es exactamente cómo
   // `pulse_report_criteria` quedó sin usarse desde v5.
-  // v11 (TES-228/M1): los workflows ya no llevan el prompt ni las listas de
-  // tools — los piden al arrancar con `pulse_get_run_config`. Es el último
-  // bump que obliga a reconectar por un cambio de instrucciones.
-  dev: 11,
+  // v12 (TES-230/M3): el paso de configuración además inventaria y valida los
+  // skills de `.claude/skills/` del repo. v11 (M1) nunca llegó a instalarse:
+  // los repos pasan de v10 a v12 en una sola reconexión.
+  dev: 12,
   // v4: `pulse-qa.yml` (`QA_WORKFLOW_VERSION` en
   // `pulse-backend/functions/src/github/templates/pulse-qa-workflow.ts`).
-  qa: 4,
+  qa: 5,
 };
 
 /**
