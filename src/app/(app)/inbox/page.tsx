@@ -472,7 +472,13 @@ export default function InboxPage() {
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <Header title="Inbox" subtitle="Notificaciones e hilados" showViewToggle={false} />
+      <Header
+        title="Inbox"
+        subtitle="Notificaciones e hilados"
+        showViewToggle={false}
+        showSearch={false}
+        showCreateButton={false}
+      />
 
       <div className="px-6 pt-4 shrink-0">
         <div className="inline-flex items-center bg-surface border border-default p-0.5 rounded-md">
