@@ -20,6 +20,10 @@ interface HeaderProps {
   showCalendarOption?: boolean;
   /** Fila de filtros (status/priority/assignee/label/project/epic + agrupar/ordenar) bajo el header. */
   showFilterBar?: boolean;
+  /** Campo "Filtrar...": solo tiene sentido en pantallas con una lista de issues a la que aplicarlo. Default `true`. */
+  showSearch?: boolean;
+  /** Botón "+ Nuevo" (crea un issue): solo tiene sentido en pantallas de issues. Default `true`. */
+  showCreateButton?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +34,8 @@ export const Header: React.FC<HeaderProps> = ({
   showTimelineOption = false,
   showCalendarOption = false,
   showFilterBar = false,
+  showSearch = true,
+  showCreateButton = true,
 }) => {
   const activeView = useAppStore((s) => s.activeView);
   const setActiveView = useAppStore((s) => s.setActiveView);
@@ -60,16 +66,18 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Right: Controls & View Toggle */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Search Input */}
-        <div className="relative flex items-center">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 text-tertiary" />
-          <input
-            type="text"
-            placeholder="Filtrar..."
-            value={filterState.search}
-            onChange={(e) => setFilterState({ search: e.target.value })}
-            className="w-28 sm:w-48 bg-surface border border-default focus:border-accent rounded-md pl-8 pr-2.5 py-1 text-xs text-primary placeholder-tertiary outline-none transition-colors"
-          />
-        </div>
+        {showSearch && (
+          <div className="relative flex items-center">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 text-tertiary" />
+            <input
+              type="text"
+              placeholder="Filtrar..."
+              value={filterState.search}
+              onChange={(e) => setFilterState({ search: e.target.value })}
+              className="w-28 sm:w-48 bg-surface border border-default focus:border-accent rounded-md pl-8 pr-2.5 py-1 text-xs text-primary placeholder-tertiary outline-none transition-colors"
+            />
+          </div>
+        )}
 
         {/* View Toggle (List vs Board) */}
         {showViewToggle && (
@@ -163,14 +171,16 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         {/* Create Dialog Trigger Button */}
-        <Button
-          size="sm"
-          icon={<Plus className="w-3.5 h-3.5" />}
-          onClick={() => setCreateMenuOpen(true)}
-        >
-          <span className="hidden sm:inline">+ Nuevo</span>
-          <span className="sm:hidden">+</span>
-        </Button>
+        {showCreateButton && (
+          <Button
+            size="sm"
+            icon={<Plus className="w-3.5 h-3.5" />}
+            onClick={() => setCreateMenuOpen(true)}
+          >
+            <span className="hidden sm:inline">+ Nuevo</span>
+            <span className="sm:hidden">+</span>
+          </Button>
+        )}
       </div>
     </header>
 

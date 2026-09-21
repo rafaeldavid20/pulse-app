@@ -20,6 +20,8 @@ export default function TeamProjectsPage() {
         title={`Proyectos de ${activeTeam?.name || 'Engineering'}`}
         subtitle={`${projects.length} iniciativas activas`}
         showViewToggle={false}
+        showSearch={false}
+        showCreateButton={false}
       />
 
       <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-6">
