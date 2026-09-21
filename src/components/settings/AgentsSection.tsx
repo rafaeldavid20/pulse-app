@@ -633,7 +633,9 @@ export function AgentsSection() {
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-1 min-w-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium text-primary truncate">{agent.displayName}</span>
+                    <span className="text-sm font-medium text-primary truncate" title={agent.displayName}>
+                      {agent.displayName}
+                    </span>
                     <Badge variant="outline">{agent.role === 'qa' ? 'QA' : 'Dev'}</Badge>
                   </div>
                   <span
