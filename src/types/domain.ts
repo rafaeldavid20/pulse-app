@@ -453,6 +453,66 @@ export interface PendingRepoWork {
   dispatchedAt?: string;
 }
 
+/**
+ * Por qué un run no pudo terminar algo que el issue pedía (TES-219). No es
+ * texto libre a propósito: el motivo decide quién tiene que retomarlo — una
+ * decisión de producto va a una persona, una operación de producción a quien
+ * tenga las credenciales, y nada de eso lo puede resolver otro run.
+ */
+export type PendingWorkReason =
+  | 'needs_prod_credentials'
+  | 'product_decision'
+  | 'out_of_scope'
+  | 'blocked'
+  /** Solo lo pone QA: el criterio no se puede verificar desde un run, hay que hacerlo a mano. */
+  | 'needs_manual_verification';
+
+/**
+ * Trabajo que quedó sin hacer y que **ningún run puede retomar** (TES-219).
+ *
+ * Es el caso hermano de `PendingRepoWork`, y existe por el mismo motivo: antes
+ * de esto un agente que no podía terminar algo lo escribía en el cuerpo del PR,
+ * el merge cerraba el issue y el aviso se perdía (ver TES-218, cuya migración de
+ * keys quedó sin correr exactamente así). La diferencia con `PendingRepoWork` es
+ * el desenlace: aquello se despacha a otro repo, esto **crea un issue de
+ * seguimiento** que hereda el pendiente, porque no hay run que lo pueda tomar.
+ *
+ * `followUpIssueId` lo completa el servidor al crear ese hijo. Una entrada sin
+ * él es un pendiente declarado que no llegó a materializarse en un issue: eso
+ * es lo que bloquea el cierre del padre.
+ */
+export interface PendingWork {
+  /** nanoid estable: el gate de cierre y el follow-up lo referencian. */
+  id: string;
+  /** Qué falta hacer, en una línea — es el título del issue de seguimiento. */
+  summary: string;
+  reason: PendingWorkReason;
+  /** Contexto para quien lo retome: qué se intentó, qué quedó escrito, qué falta. */
+  context?: string;
+  /** `AcceptanceCriterion.id` del issue que queda sin cumplir, si aplica. */
+  criterionId?: string;
+  /** Issue de seguimiento creado por el servidor. Ausente: no se pudo crear. */
+  followUpIssueId?: string;
+  /** ej. "TES-220" — denormalizado para no tener que leer el hijo al mostrarlo. */
+  followUpIdentifier?: string;
+  /** `'dev'`: lo declaró el agente que hizo el trabajo. `'qa'`: lo dedujo la revisión de un criterio `unverifiable`. */
+  source: 'dev' | 'qa';
+  reportedBy: string;
+  reportedAt: string;
+}
+
+/**
+ * Marca en el issue de seguimiento de dónde salió (TES-219). El vínculo fuerte
+ * es `parentId` (el follow-up cuelga del issue original); esto guarda lo que la
+ * jerarquía sola no dice: qué criterio quedó colgando y por qué motivo.
+ */
+export interface FollowUpOrigin {
+  issueId: string;
+  identifier: string;
+  reason: PendingWorkReason;
+  criterionId?: string;
+}
+
 export interface Issue {
   id: string;
   workspaceId: string;
@@ -513,6 +573,14 @@ export interface Issue {
   gitRefs?: IssueGitRef[];
   /** Traspasos a otros repos todavía sin PR. Mientras haya alguno el issue no pasa a `in_review`. */
   pendingRepoWork?: PendingRepoWork[];
+  /**
+   * Trabajo declarado pendiente que ningún run puede retomar (TES-219). No
+   * bloquea el cierre por sí mismo: lo que lo bloquea es una entrada sin
+   * `followUpIssueId`, o un criterio `not_met` sin entrada que lo cubra.
+   */
+  pendingWork?: PendingWork[];
+  /** Solo en un issue creado como seguimiento de otro (TES-219). */
+  followUpOf?: FollowUpOrigin;
   /** Rúbrica del issue (D1). Ausente o vacío: sin criterios, el QA (D6) no tiene contra qué verificar. */
   acceptanceCriteria?: AcceptanceCriterion[];
   /**
