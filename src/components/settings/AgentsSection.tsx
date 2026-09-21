@@ -5,7 +5,10 @@ import { Bot, Loader2, Plus, GitBranch, Scale } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { SelectPopover } from '@/components/ui/SelectPopover';
 import { useAppStore } from '@/stores/appStore';
+import { cn } from '@/lib/utils';
 import {
   AgentSummary,
   ConnectRepoResult,
@@ -320,7 +323,11 @@ function AgentRepoConnections({
   };
 
   return (
-    <div className="flex flex-col gap-2 pl-3 mt-1 border-l border-default">
+    <div className="flex flex-col gap-2">
+      <span className="text-[11px] font-semibold text-tertiary uppercase tracking-wide">
+        Repos conectados
+      </span>
+
       {connected.length > 0 && (
         <div className="flex flex-col gap-1">
           {connected.map((c) => {
@@ -374,19 +381,16 @@ function AgentRepoConnections({
         </p>
       ) : (
         <div className="flex items-center gap-2">
-          <select
+          <SelectPopover
             value={selected}
-            onChange={(e) => setSelected(e.target.value)}
+            onChange={setSelected}
             disabled={busy}
-            className="flex-1 min-w-0 bg-elevated border border-default text-primary text-xs rounded-md px-2 py-1.5 outline-none cursor-pointer truncate disabled:opacity-50"
-          >
-            <option value="">Conectar a un repo…</option>
-            {available.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+            ariaLabel="Conectar a un repo"
+            placeholder="Conectar a un repo…"
+            align="left"
+            className="flex-1 min-w-0 [&>button]:w-full"
+            options={available.map((r) => ({ value: r, label: r }))}
+          />
           <button
             onClick={handleConnect}
             disabled={busy || !selected}
@@ -620,61 +624,26 @@ export function AgentsSection() {
       ) : agents.length === 0 ? (
         <p className="text-xs text-tertiary py-2">Todavía no hay agentes en este workspace.</p>
       ) : (
-        <div className="flex flex-col gap-1">
-          {agents.map((agent) => (
-            <div key={agent.id} className="flex flex-col px-3 py-2.5 rounded-md hover:bg-hover transition-colors">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm text-primary truncate">{agent.displayName}</span>
-                <span className="text-xs text-tertiary font-mono truncate">
-                  {agent.kind} · {agent.defaultRepo || 'sin repo por defecto'}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                {agent.role === 'qa' && (
-                  <label className="flex items-center gap-1.5 text-xs text-secondary">
-                    Repo a revisar
-                    <select
-                      value={agent.reviewRepo ?? ''}
-                      disabled={savingId === agent.id}
-                      onChange={(e) => handleReviewRepoChange(agent, e.target.value)}
-                      className="bg-surface border border-default rounded-md px-2 py-1 text-primary text-xs"
-                    >
-                      <option value="">Sin repo</option>
-                      {repos.map((repo) => (
-                        <option key={repo} value={repo}>
-                          {repo}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {agent.role === 'qa' && (
-                  <label className="flex items-center gap-1.5 text-xs text-secondary">
-                    Modo QA
-                    <select
-                      value={agent.qaMode ?? 'shadow'}
-                      disabled={savingId === agent.id}
-                      onChange={(e) => handleQaModeChange(agent, e.target.value as AgentQaMode)}
-                      className="bg-surface border border-default rounded-md px-2 py-1 text-primary text-xs"
-                    >
-                      <option value="shadow">Sombra</option>
-                      <option value="enforce">Activo</option>
-                    </select>
-                  </label>
-                )}
-                <label className="flex items-center gap-1.5 text-xs text-secondary">
-                  Máx. concurrentes
-                  <input
-                    type="number"
-                    min={1}
-                    value={agent.maxConcurrentIssues}
-                    disabled={savingId === agent.id}
-                    onChange={(e) => handleMaxConcurrentChange(agent, parseInt(e.target.value, 10))}
-                    className="w-14 bg-surface border border-default rounded-md px-2 py-1 text-primary text-xs"
-                  />
-                </label>
-                <label className="flex items-center gap-1.5 text-xs text-secondary cursor-pointer">
+        <div className="flex flex-col">
+          {agents.map((agent, index) => (
+            <div
+              key={agent.id}
+              className={cn('flex flex-col gap-3 py-4', index > 0 && 'border-t border-subtle')}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm font-medium text-primary truncate">{agent.displayName}</span>
+                    <Badge variant="outline">{agent.role === 'qa' ? 'QA' : 'Dev'}</Badge>
+                  </div>
+                  <span
+                    className="text-xs text-tertiary font-mono truncate"
+                    title={`${agent.kind} · ${agent.defaultRepo || 'sin repo por defecto'}`}
+                  >
+                    {agent.kind} · {agent.defaultRepo || 'sin repo por defecto'}
+                  </span>
+                </div>
+                <label className="flex items-center gap-1.5 text-xs text-secondary shrink-0 cursor-pointer">
                   Autónomo
                   <input
                     type="checkbox"
@@ -685,28 +654,74 @@ export function AgentsSection() {
                   />
                 </label>
               </div>
-            </div>
 
-            <AgentRepoConnections
-              agent={agent}
-              repos={repos}
-              canConnect={canConnect}
-              missingPermissions={missingPermissions}
-              onChanged={refresh}
-            />
-
-            {agent.role === 'qa' && qaDispatchBlockers(agent).length > 0 && (
-              <p className="pl-3 mt-1.5 text-[11px] text-priority-urgent">
-                Este agente no va a recibir revisiones: {qaDispatchBlockers(agent).join('; ')}. El dispatch
-                no falla — descarta al agente en silencio.
-              </p>
-            )}
-
-            {agent.role === 'qa' && (
-              <div className="pl-3 mt-1.5 border-l border-default">
-                <QaCalibrationPanel agentId={agent.id} />
+              <div
+                className={cn(
+                  'grid gap-x-4 gap-y-2 p-3 bg-elevated border border-default rounded-lg text-xs',
+                  agent.role === 'qa' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
+                )}
+              >
+                {agent.role === 'qa' && (
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-secondary shrink-0">Repo a revisar</span>
+                    <SelectPopover
+                      value={agent.reviewRepo ?? ''}
+                      onChange={(v) => handleReviewRepoChange(agent, v)}
+                      disabled={savingId === agent.id}
+                      ariaLabel="Repo a revisar"
+                      placeholder="Sin repo"
+                      options={[{ value: '', label: 'Sin repo' }, ...repos.map((repo) => ({ value: repo, label: repo }))]}
+                    />
+                  </div>
+                )}
+                {agent.role === 'qa' && (
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <span className="text-secondary shrink-0">Modo QA</span>
+                    <SelectPopover
+                      value={agent.qaMode ?? 'shadow'}
+                      onChange={(v) => handleQaModeChange(agent, v as AgentQaMode)}
+                      disabled={savingId === agent.id}
+                      ariaLabel="Modo QA"
+                      options={[
+                        { value: 'shadow', label: 'Sombra' },
+                        { value: 'enforce', label: 'Activo' },
+                      ]}
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-secondary shrink-0">Máx. concurrentes</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={agent.maxConcurrentIssues}
+                    disabled={savingId === agent.id}
+                    onChange={(e) => handleMaxConcurrentChange(agent, parseInt(e.target.value, 10))}
+                    className="w-16 bg-surface border border-default rounded-md px-2 py-1 text-right text-primary text-xs"
+                  />
+                </div>
               </div>
-            )}
+
+              <AgentRepoConnections
+                agent={agent}
+                repos={repos}
+                canConnect={canConnect}
+                missingPermissions={missingPermissions}
+                onChanged={refresh}
+              />
+
+              {agent.role === 'qa' && qaDispatchBlockers(agent).length > 0 && (
+                <p className="text-[11px] text-priority-urgent">
+                  Este agente no va a recibir revisiones: {qaDispatchBlockers(agent).join('; ')}. El dispatch
+                  no falla — descarta al agente en silencio.
+                </p>
+              )}
+
+              {agent.role === 'qa' && (
+                <div className="pt-1 border-t border-subtle">
+                  <QaCalibrationPanel agentId={agent.id} />
+                </div>
+              )}
             </div>
           ))}
         </div>
