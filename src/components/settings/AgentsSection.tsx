@@ -19,7 +19,22 @@ import {
   listAgents,
   updateAgent,
 } from '@/lib/firestore';
-import { AgentQaMode } from '@/types';
+import { AgentQaMode, AgentRole } from '@/types';
+
+/**
+ * Las condiciones que `qaDispatchTrigger` exige para elegir un agente QA
+ * (`role: 'qa'`, `enabled`, `autonomousMode` y `reviewRepo` igual al repo del
+ * issue). Cuando alguna falta, el trigger loguea un skip y sigue: no hay error
+ * en ningún lado, el QA simplemente nunca corre. Esto lo hace visible en
+ * Settings en vez de en los logs de Cloud Functions.
+ */
+function qaDispatchBlockers(agent: AgentSummary): string[] {
+  const blockers: string[] = [];
+  if (!agent.reviewRepo) blockers.push('no tiene repo a revisar');
+  if (!agent.enabled) blockers.push('está deshabilitado');
+  if (!agent.autonomousMode) blockers.push('no está en modo autónomo');
+  return blockers;
+}
 
 function slugify(text: string): string {
   return text
@@ -34,12 +49,14 @@ function CreateAgentModal({
   onClose,
   workspaceId,
   existingIds,
+  repos,
   onCreated,
 }: {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
   existingIds: string[];
+  repos: string[];
   onCreated: (agent: AgentSummary) => void;
 }) {
   const teams = useAppStore((s) => s.teams);
@@ -47,6 +64,8 @@ function CreateAgentModal({
   const [agentId, setAgentId] = useState('');
   const [agentIdEdited, setAgentIdEdited] = useState(false);
   const [kind, setKind] = useState('claude');
+  const [role, setRole] = useState<AgentRole>('dev');
+  const [reviewRepo, setReviewRepo] = useState('');
   const [defaultRepo, setDefaultRepo] = useState('');
   const [defaultTeamId, setDefaultTeamId] = useState('');
   const [maxConcurrentIssues, setMaxConcurrentIssues] = useState(1);
@@ -58,6 +77,8 @@ function CreateAgentModal({
     setAgentId('');
     setAgentIdEdited(false);
     setKind('claude');
+    setRole('dev');
+    setReviewRepo('');
     setDefaultRepo('');
     setDefaultTeamId('');
     setMaxConcurrentIssues(1);
@@ -87,9 +108,11 @@ function CreateAgentModal({
         agentId: agentId.trim(),
         kind,
         displayName: displayName.trim(),
-        defaultRepo: defaultRepo.trim() || undefined,
+        defaultRepo: role === 'qa' ? undefined : defaultRepo.trim() || undefined,
         defaultTeamId: defaultTeamId || undefined,
         maxConcurrentIssues,
+        role,
+        reviewRepo: role === 'qa' ? reviewRepo || undefined : undefined,
       });
       onCreated(agent);
       handleClose();
@@ -135,9 +158,47 @@ function CreateAgentModal({
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-secondary">Repo por defecto (opcional)</label>
-          <Input placeholder="Ej: owner/repo" value={defaultRepo} onChange={(e) => setDefaultRepo(e.target.value)} />
+          <label className="text-xs font-semibold text-secondary">Rol</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as AgentRole)}
+            className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
+          >
+            <option value="dev">Dev — implementa issues y abre PRs</option>
+            <option value="qa">QA — revisa los PRs de otros agentes</option>
+          </select>
+          <p className="text-[11px] text-tertiary">
+            El rol decide qué workflow y qué secret escribe &quot;Conectar repo&quot;, y con qué permisos
+            nace su key. Se puede cambiar después, pero hay que reconectar los repos.
+          </p>
         </div>
+        {role === 'qa' ? (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-secondary">Repo a revisar</label>
+            <select
+              value={reviewRepo}
+              onChange={(e) => setReviewRepo(e.target.value)}
+              className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
+            >
+              <option value="">Elegir repo…</option>
+              {repos.map((repo) => (
+                <option key={repo} value={repo}>
+                  {repo}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-tertiary">
+              Un agente QA revisa un repo. Para revisar varios hacen falta varios agentes, uno por repo.
+              Sin esto no recibe revisiones: el dispatch lo elige comparando este campo contra el repo del
+              issue.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-secondary">Repo por defecto (opcional)</label>
+            <Input placeholder="Ej: owner/repo" value={defaultRepo} onChange={(e) => setDefaultRepo(e.target.value)} />
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-secondary">Team por defecto (opcional)</label>
           <select
@@ -481,6 +542,25 @@ export function AgentsSection() {
     }
   };
 
+  /**
+   * Un agente QA sin `reviewRepo` —o con uno que no es el repo del issue— nunca
+   * recibe un dispatch, y no falla nada: `qaDispatchTrigger` simplemente no lo
+   * encuentra y loguea un skip que nadie mira. Por eso se edita acá y se avisa
+   * abajo cuando falta.
+   */
+  const handleReviewRepoChange = async (agent: AgentSummary, value: string) => {
+    const prevValue = agent.reviewRepo;
+    setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, reviewRepo: value || undefined } : a)));
+    setSavingId(agent.id);
+    try {
+      await updateAgent(agent.id, { reviewRepo: value });
+    } catch {
+      setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, reviewRepo: prevValue } : a)));
+    } finally {
+      setSavingId('');
+    }
+  };
+
   const handleQaModeChange = async (agent: AgentSummary, value: AgentQaMode) => {
     const prevValue = agent.qaMode;
     setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, qaMode: value } : a)));
@@ -553,6 +633,24 @@ export function AgentsSection() {
               <div className="flex items-center gap-4 shrink-0">
                 {agent.role === 'qa' && (
                   <label className="flex items-center gap-1.5 text-xs text-secondary">
+                    Repo a revisar
+                    <select
+                      value={agent.reviewRepo ?? ''}
+                      disabled={savingId === agent.id}
+                      onChange={(e) => handleReviewRepoChange(agent, e.target.value)}
+                      className="bg-surface border border-default rounded-md px-2 py-1 text-primary text-xs"
+                    >
+                      <option value="">Sin repo</option>
+                      {repos.map((repo) => (
+                        <option key={repo} value={repo}>
+                          {repo}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                {agent.role === 'qa' && (
+                  <label className="flex items-center gap-1.5 text-xs text-secondary">
                     Modo QA
                     <select
                       value={agent.qaMode ?? 'shadow'}
@@ -597,6 +695,13 @@ export function AgentsSection() {
               onChanged={refresh}
             />
 
+            {agent.role === 'qa' && qaDispatchBlockers(agent).length > 0 && (
+              <p className="pl-3 mt-1.5 text-[11px] text-priority-urgent">
+                Este agente no va a recibir revisiones: {qaDispatchBlockers(agent).join('; ')}. El dispatch
+                no falla — descarta al agente en silencio.
+              </p>
+            )}
+
             {agent.role === 'qa' && (
               <div className="pl-3 mt-1.5 border-l border-default">
                 <QaCalibrationPanel agentId={agent.id} />
@@ -613,6 +718,7 @@ export function AgentsSection() {
           onClose={() => setModalOpen(false)}
           workspaceId={workspaceId}
           existingIds={agents.map((a) => a.id)}
+          repos={repos}
           onCreated={(agent) => setAgents((prev) => [agent, ...prev])}
         />
       )}

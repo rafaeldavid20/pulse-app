@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentQaMode, QaCalibrationRecord } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentQaMode, AgentRole, QaCalibrationRecord } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -669,6 +669,12 @@ export interface AgentSummary {
   displayName: string;
   defaultRepo?: string;
   defaultTeamId?: string;
+  /**
+   * Solo `role: 'qa'`: el repo cuyos PRs revisa. `qaDispatchTrigger` elige al
+   * QA comparando este campo contra el repo del issue, así que es un campo por
+   * repo: revisar dos repos son dos agentes QA, no uno con dos valores.
+   */
+  reviewRepo?: string;
   maxConcurrentIssues: number;
   /** Tope de intentos de revisión de QA (D3) antes de cerrar en `needs_human`. Solo agentes `role: 'qa'`. */
   maxReviewAttempts?: number;
@@ -688,7 +694,17 @@ export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
 export async function updateAgent(
   agentId: string,
   data: Partial<
-    Pick<AgentSummary, 'autonomousMode' | 'enabled' | 'maxConcurrentIssues' | 'defaultRepo' | 'defaultTeamId' | 'qaMode'>
+    Pick<
+      AgentSummary,
+      | 'autonomousMode'
+      | 'enabled'
+      | 'maxConcurrentIssues'
+      | 'defaultRepo'
+      | 'defaultTeamId'
+      | 'qaMode'
+      | 'role'
+      | 'reviewRepo'
+    >
   >
 ): Promise<AgentSummary> {
   const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.update', {
@@ -708,6 +724,14 @@ export async function createAgent(
     defaultRepo?: string;
     defaultTeamId?: string;
     maxConcurrentIssues?: number;
+    role?: AgentRole;
+    /**
+     * Solo para `role: 'qa'`: el repo cuyos PRs revisa este agente.
+     * `qaDispatchTrigger` elige al QA comparando este campo contra el repo del
+     * issue, así que un agente QA sin `reviewRepo` nunca recibe un dispatch —
+     * y no hay ningún error, simplemente no pasa nada.
+     */
+    reviewRepo?: string;
   }
 ): Promise<AgentSummary> {
   const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.create', {
@@ -997,7 +1021,9 @@ export const LATEST_AGENT_WORKFLOW_VERSION: Record<'dev' | 'qa', number> = {
   // esto no se entera de que la tool existe, que es exactamente cómo
   // `pulse_report_criteria` quedó sin usarse desde v5.
   dev: 10,
-  qa: 1,
+  // v3: `pulse-qa.yml` (`QA_WORKFLOW_VERSION` en
+  // `pulse-backend/functions/src/github/templates/pulse-qa-workflow.ts`).
+  qa: 3,
 };
 
 /**
