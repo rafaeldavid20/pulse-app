@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Cloud, Loader2, Plus, RefreshCw, Unplug, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Cloud, Loader2, Plus, RefreshCw, Unplug, AlertTriangle, CheckCircle2, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { useAppStore } from '@/stores/appStore';
@@ -10,6 +10,7 @@ import {
   listEnvironments,
   verifyEnvironment,
   disconnectEnvironment,
+  connectEnvironmentRepo,
   describeSalesforceConnectError,
   getGithubStatus,
   EnvironmentSummary,
@@ -39,7 +40,23 @@ function OrgRow({
   onChanged: () => void;
   onReconnect: (env: EnvironmentSummary) => void;
 }) {
-  const [busy, setBusy] = useState<'verify' | 'disconnect' | null>(null);
+  const [busy, setBusy] = useState<'verify' | 'disconnect' | 'repo' | null>(null);
+  const repoConnected = (env.connectedRepos || []).some((c) => c.repoFullName === env.repoFullName);
+
+  const handleConnectRepo = async () => {
+    setBusy('repo');
+    try {
+      const res = await connectEnvironmentRepo(env.id);
+      toast.success(
+        `${env.displayName}: atado a ${res.repoFullName}. Un push a ${res.trackingBranches.join(', ')} despliega.`
+      );
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo atar el entorno al repo.');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const handleVerify = async () => {
     setBusy('verify');
@@ -125,6 +142,19 @@ function OrgRow({
           >
             Verificar
           </Button>
+          {!needsReconnect && (!repoConnected || env.repoSecretsStale) && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleConnectRepo}
+              disabled={busy !== null}
+              icon={
+                busy === 'repo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />
+              }
+            >
+              {repoConnected ? 'Volver a atar' : 'Atar al repo'}
+            </Button>
+          )}
           {needsReconnect && (
             <Button size="sm" variant="secondary" onClick={() => onReconnect(env)} disabled={busy !== null}>
               Reconectar
