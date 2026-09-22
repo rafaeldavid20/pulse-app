@@ -14,6 +14,7 @@ import { EpicProgress } from './EpicProgress';
 import { CycleBadge } from '@/components/cycles/CycleBadge';
 import { progressOf, isEpic } from '@/lib/hierarchy';
 import { applyIssueFilters, sortIssues, groupIssues } from '@/lib/issueFilters';
+import { buildLabelIndex, resolveLabel, LabelIndex } from '@/lib/labels';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
@@ -80,7 +81,7 @@ interface IssueRowProps {
   visibleColumns: IssueListColumn[];
   assigneeName?: string;
   assigneePhoto?: string;
-  labelsById: Record<string, { name: string; color: string }>;
+  labelIndex: LabelIndex;
   allIssues: Issue[];
   projectsById: Record<string, Project>;
   epicsById: Record<string, Issue>;
@@ -100,7 +101,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
   visibleColumns,
   assigneeName,
   assigneePhoto,
-  labelsById,
+  labelIndex,
   allIssues,
   projectsById,
   epicsById,
@@ -203,11 +204,14 @@ const IssueRow: React.FC<IssueRowProps> = ({
       <div className="flex items-center gap-3 shrink-0">
         {visibleColumns.includes('labels') && issue.labelIds && issue.labelIds.length > 0 && (
           <div className="hidden md:flex items-center gap-1">
-            {issue.labelIds.map((labelId) => (
-              <Badge key={labelId} variant="subtle" className="text-[11px] px-1.5 py-0" color={labelsById[labelId]?.color}>
-                {labelsById[labelId]?.name ?? labelId}
-              </Badge>
-            ))}
+            {issue.labelIds.map((rawValue) => {
+              const label = resolveLabel(labelIndex, rawValue);
+              return (
+                <Badge key={rawValue} variant="subtle" className="text-[11px] px-1.5 py-0" color={label?.color}>
+                  {label?.name ?? rawValue}
+                </Badge>
+              );
+            })}
           </div>
         )}
 
@@ -297,10 +301,11 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   // esconde la mitad de sus hijos.
   const allIssues = useIssueStore((s) => s.issues);
   // Los issues guardan ids de etiqueta; mostrar el id crudo ("lbl-XXXX") no le
-  // dice nada a nadie. Los ids viejos que no son etiquetas ("feature") se
-  // muestran tal cual.
+  // dice nada a nadie. Hasta que corra la migración de TES-265, algunos
+  // issues todavía tienen el nombre en vez del id: `labelIndex` resuelve
+  // ambos antes de caer al valor crudo.
   const labels = useLabelStore((s) => s.labels);
-  const labelsById = Object.fromEntries(labels.map((l) => [l.id, l]));
+  const labelIndex = useMemo(() => buildLabelIndex(labels), [labels]);
   const projectsById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects]);
   const cyclesById = useMemo(() => Object.fromEntries(cycles.map((c) => [c.id, c])), [cycles]);
 
@@ -380,7 +385,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
           visibleColumns={visibleColumns}
           assigneeName={assignee?.displayName}
           assigneePhoto={assignee?.photoURL}
-          labelsById={labelsById}
+          labelIndex={labelIndex}
           allIssues={allIssues}
           projectsById={projectsById}
           epicsById={epicsById}

@@ -40,7 +40,7 @@ export const CreateIssueModal: React.FC = () => {
   const [projectId, setProjectId] = useState<string>('');
   const [type, setType] = useState<IssueType>('task');
   const [parentId, setParentId] = useState<string>('');
-  const [selectedLabels, setSelectedLabels] = useState<string[]>(['feature']);
+  const [selectedLabels, setSelectedLabels] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [titleError, setTitleError] = useState(false);
@@ -131,13 +131,13 @@ export const CreateIssueModal: React.FC = () => {
         assigneeId: effectiveAssigneeId || undefined,
         type,
         parentId: effectiveParentId || undefined,
-        labelIds: selectedLabels.length > 0 ? selectedLabels : ['feature'],
+        labelIds: selectedLabels,
       });
 
       // Reset fields & close modal
       setTitle('');
       setDescription('');
-      setSelectedLabels(['feature']);
+      setSelectedLabels([]);
       handleClose();
       if (created?.id) setPeekIssueId(created.id);
     } catch (err: unknown) {

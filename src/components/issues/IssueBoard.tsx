@@ -14,6 +14,7 @@ import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { CycleBadge } from '@/components/cycles/CycleBadge';
 import { progressOf } from '@/lib/hierarchy';
+import { buildLabelIndex, resolveLabel } from '@/lib/labels';
 import { Avatar } from '@/components/ui/Avatar';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { getStatusLabel, cn } from '@/lib/utils';
@@ -42,11 +43,11 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) =
   const cycles = useCycleStore((s) => s.cycles);
   const cyclesById = Object.fromEntries(cycles.map((c) => [c.id, c]));
   const labels = useLabelStore((s) => s.labels);
-  const labelsById = Object.fromEntries(labels.map((l) => [l.id, l]));
+  const labelIndex = buildLabelIndex(labels);
   // La card muestra una sola etiqueta: si el issue está marcado "ambigua", es
   // esa, porque es la que le pide una acción a quien mira el tablero.
   const boardLabel = (iss: Issue) =>
-    iss.labelIds?.find((id) => labelsById[id]?.name === 'ambigua') ?? iss.labelIds?.[0];
+    iss.labelIds?.find((v) => resolveLabel(labelIndex, v)?.name === 'ambigua') ?? iss.labelIds?.[0];
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
 
@@ -269,11 +270,18 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) =
 
                       <div className="flex items-center justify-between pt-1 border-t border-subtle mt-1">
                         <div className="flex items-center gap-1.5">
-                          {boardLabel(issue) && (
-                            <span className="text-[10px] text-secondary bg-hover px-1.5 py-0.5 rounded border border-default" style={labelsById[boardLabel(issue)!]?.color ? { color: labelsById[boardLabel(issue)!]!.color, borderColor: labelsById[boardLabel(issue)!]!.color } : undefined}>
-                              {labelsById[boardLabel(issue)!]?.name ?? boardLabel(issue)}
-                            </span>
-                          )}
+                          {boardLabel(issue) && (() => {
+                            const rawValue = boardLabel(issue)!;
+                            const label = resolveLabel(labelIndex, rawValue);
+                            return (
+                              <span
+                                className="text-[10px] text-secondary bg-hover px-1.5 py-0.5 rounded border border-default"
+                                style={label?.color ? { color: label.color, borderColor: label.color } : undefined}
+                              >
+                                {label?.name ?? rawValue}
+                              </span>
+                            );
+                          })()}
                           {issue.cycleId && cyclesById[issue.cycleId] && (
                             <CycleBadge name={cyclesById[issue.cycleId].name} />
                           )}
