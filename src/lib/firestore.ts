@@ -1121,18 +1121,20 @@ export async function overrideReview(
 /**
  * "Descartar finding" (D7): un humano lo da por no-válido desde la UI, sin que
  * medie un push del dev (a diferencia de `reviews.resolveFinding`, que es del
- * dev y solo admite `fixed`/`disputed`). Todavía no tiene handler en
- * pulse-backend — ver TES-152 y el pedido de trabajo registrado para ese repo.
+ * dev y solo admite `fixed`/`disputed`).
+ *
+ * Es la única salida humana ante un finding que no corresponde, y por eso
+ * `reviews.dismissFinding` exige ser miembro del workspace y **no** se expone
+ * por MCP: un agente no descarta sus propios findings. Desde TES-271 un
+ * finding `blocker` abierto además frena el cierre automático del issue, así
+ * que este botón es lo que destraba ese caso.
  */
 export async function dismissFinding(issueId: string, findingId: string, note?: string): Promise<void> {
   const actionRes = await callPlatformAction('reviews.dismissFinding', { issueId, findingId, note });
   if (!actionRes) throw new Error('No se pudo descartar el finding.');
 }
 
-/**
- * "Re-ejecutar QA" (D7): vuelve a despachar el intento de revisión en curso.
- * Todavía no tiene handler en pulse-backend — ver TES-152.
- */
+/** "Re-ejecutar QA" (D7): vuelve a despachar el intento de revisión en curso. */
 export async function rerunReview(issueId: string): Promise<void> {
   const actionRes = await callPlatformAction('reviews.rerun', { issueId });
   if (!actionRes) throw new Error('No se pudo re-ejecutar la revisión de QA.');
