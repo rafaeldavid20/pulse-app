@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Plus, Check } from 'lucide-react';
 import { useLabelStore } from '@/stores/labelStore';
 import { Badge } from '@/components/ui/Badge';
+import { buildLabelIndex, resolveLabel } from '@/lib/labels';
+import { Label } from '@/types';
 import { CreateLabelModal } from './CreateLabelModal';
 
 interface LabelPickerProps {
@@ -16,32 +18,41 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
   onChange,
 }) => {
   const labels = useLabelStore((s) => s.labels);
+  const labelIndex = useMemo(() => buildLabelIndex(labels), [labels]);
   const [isOpen, setIsOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const toggleLabel = (labelName: string) => {
-    const exists = selectedLabelIds.includes(labelName);
-    if (exists) {
-      onChange(selectedLabelIds.filter((l) => l !== labelName));
+  const removeValue = (rawValue: string) => {
+    onChange(selectedLabelIds.filter((v) => v !== rawValue));
+  };
+
+  // Hasta que corra la migración, `selectedLabelIds` puede traer un nombre
+  // legado en vez de un id. Tocar la etiqueta siempre escribe el id — así el
+  // dato se normaliza solo con el uso — pero para destildarla hay que borrar
+  // el valor crudo que esté guardado, sea id o nombre.
+  const toggleLabel = (label: Label) => {
+    const existingValue = selectedLabelIds.find((v) => v === label.id || v === label.name);
+    if (existingValue !== undefined) {
+      removeValue(existingValue);
     } else {
-      onChange([...selectedLabelIds, labelName]);
+      onChange([...selectedLabelIds, label.id]);
     }
   };
 
   return (
     <div className="flex flex-col gap-2 relative">
       <div className="flex items-center gap-1.5 flex-wrap">
-        {selectedLabelIds.map((labelName) => {
-          const matched = labels.find((l) => l.name === labelName);
+        {selectedLabelIds.map((rawValue) => {
+          const matched = resolveLabel(labelIndex, rawValue);
           return (
             <Badge
-              key={labelName}
+              key={rawValue}
               variant="accent"
               color={matched?.color}
               className="cursor-pointer hover:opacity-80"
-              onClick={() => toggleLabel(labelName)}
+              onClick={() => removeValue(rawValue)}
             >
-              {labelName} ×
+              {matched?.name ?? rawValue} ×
             </Badge>
           );
         })}
@@ -77,12 +88,12 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
 
           <div className="max-h-48 overflow-y-auto flex flex-col gap-0.5">
             {labels.map((l) => {
-              const isChecked = selectedLabelIds.includes(l.name);
+              const isChecked = selectedLabelIds.includes(l.id) || selectedLabelIds.includes(l.name);
               return (
                 <button
                   key={l.id}
                   type="button"
-                  onClick={() => toggleLabel(l.name)}
+                  onClick={() => toggleLabel(l)}
                   className={`flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors ${
                     isChecked ? 'bg-accent/15 text-primary' : 'hover:bg-hover text-secondary'
                   }`}
@@ -103,8 +114,8 @@ export const LabelPicker: React.FC<LabelPickerProps> = ({
       <CreateLabelModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onCreated={(labelName) => {
-          toggleLabel(labelName);
+        onCreated={(label) => {
+          toggleLabel(label);
         }}
       />
     </div>

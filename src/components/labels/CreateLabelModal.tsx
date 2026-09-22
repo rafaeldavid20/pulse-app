@@ -8,11 +8,12 @@ import { useLabelStore } from '@/stores/labelStore';
 import { useAppStore } from '@/stores/appStore';
 import { Tag } from 'lucide-react';
 import { SWATCH_COLORS, DEFAULT_SWATCH_COLOR } from '@/lib/constants/colors';
+import { Label } from '@/types';
 
 interface CreateLabelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onCreated?: (labelName: string) => void;
+  onCreated?: (label: Label) => void;
 }
 
 export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
@@ -43,7 +44,7 @@ export const CreateLabelModal: React.FC<CreateLabelModalProps> = ({
 
       setName('');
       onClose();
-      if (onCreated && created?.name) onCreated(created.name);
+      if (onCreated && created) onCreated(created);
     } catch (err) {
       console.error('Error creating label:', err);
     } finally {
