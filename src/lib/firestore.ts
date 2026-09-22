@@ -1044,7 +1044,10 @@ export const LATEST_AGENT_WORKFLOW_VERSION: Record<'dev' | 'qa', number> = {
   dev: 12,
   // v4: `pulse-qa.yml` (`QA_WORKFLOW_VERSION` en
   // `pulse-backend/functions/src/github/templates/pulse-qa-workflow.ts`).
-  qa: 5,
+  // v6 (TES-269): el job `verify` instala donde estén los lockfiles, no sólo
+  // en la raíz. Un repo en v5 sigue dándole al QA un `build: failure` falso
+  // en cada PR, así que conviene reconectarlo.
+  qa: 6,
 };
 
 /**
