@@ -117,6 +117,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     // del workspace anterior siguen mostrándose (o la lista queda vacía) hasta
     // que llega la primera snapshot del nuevo, en vez de ver el skeleton.
     resetIssuesSubscription();
+    useProjectStore.getState().resetProjects();
 
     const unsubMembers = subscribeWorkspaceMembers(activeWorkspace.id, setMembers);
     const unsubTeams = subscribeWorkspaceTeams(activeWorkspace.id, setTeams);
