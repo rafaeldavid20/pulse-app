@@ -66,6 +66,11 @@ export function ConnectOrgModal({
   const [allowDirectWrites, setAllowDirectWrites] = useState(reconnecting?.allowDirectWrites ?? false);
   const [loginHost, setLoginHost] = useState<SalesforceLoginHost>(reconnecting?.salesforce?.loginHost ?? 'test');
   const [customDomain, setCustomDomain] = useState('');
+  // El secret nunca vuelve del backend, así que al reconectar hay que
+  // pegarlo de nuevo. Es a propósito: una credencial que se puede leer de
+  // vuelta es una credencial que se puede filtrar.
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +89,7 @@ export function ConnectOrgModal({
 
   const keyTaken = existing.some((e) => e.key === key && e.id !== reconnecting?.id);
   const canSubmit = !!key && !!repoFullName && !!trackingBranch && !keyTaken &&
+    !!clientId.trim() && !!clientSecret.trim() &&
     (loginHost !== 'custom' || !!customDomain.trim());
 
   const handleSubmit = async () => {
@@ -92,6 +98,8 @@ export function ConnectOrgModal({
     setError(null);
     try {
       const input: CreateEnvironmentInput = {
+        clientId: clientId.trim(),
+        clientSecret: clientSecret.trim(),
         key,
         displayName,
         position,
@@ -256,7 +264,57 @@ export function ConnectOrgModal({
           </div>
         )}
 
-        <div className="flex flex-col gap-2 pt-1 border-t border-subtle">
+        <div className="flex flex-col gap-3 pt-3 border-t border-subtle">
+          <div className="flex flex-col gap-1">
+            <span className={labelClass}>External Client App de esta org</span>
+            <p className="text-xs text-tertiary">
+              En la org: Setup → External Client App Manager → New. Callback URL{' '}
+              <code className="text-secondary break-all">
+                https://us-east4-pulse-app-93.cloudfunctions.net/salesforceCallback
+              </code>
+              , scopes <code className="text-secondary">api</code>,{' '}
+              <code className="text-secondary">id</code> y{' '}
+              <code className="text-secondary">refresh_token</code>, y el flujo &ldquo;Code and
+              Credential&rdquo;. Después copiá el Consumer Key y el Secret desde su pestaña de OAuth
+              Settings.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label className={labelClass} htmlFor="env-client-id">
+                Consumer Key
+              </label>
+              <Input
+                id="env-client-id"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                placeholder="3MVG9..."
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <label className={labelClass} htmlFor="env-client-secret">
+                Consumer Secret
+              </label>
+              <Input
+                id="env-client-secret"
+                type="password"
+                value={clientSecret}
+                onChange={(e) => setClientSecret(e.target.value)}
+                placeholder="••••••••"
+                autoComplete="off"
+              />
+              {reconnecting && (
+                <span className="text-xs text-tertiary">
+                  Hay que pegarlo de nuevo: el secret guardado no se puede leer de vuelta.
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 pt-3 border-t border-subtle">
           <label className="flex items-center gap-2 text-xs text-secondary cursor-pointer pt-2">
             <input
               type="checkbox"

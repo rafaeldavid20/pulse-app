@@ -1166,6 +1166,16 @@ export type EnvironmentSummary = Environment & {
 };
 
 export interface CreateEnvironmentInput {
+  /**
+   * Consumer key y secret de la External Client App de **esta** org.
+   *
+   * Son por org y no de Pulse: Salesforce deshabilitó la creación de
+   * Connected Apps en Spring '26, y su reemplazo con Distribution State
+   * `Local` sólo funciona en la org donde se creó. El secret viaja una única
+   * vez y el backend lo guarda cifrado; nunca vuelve al frontend.
+   */
+  clientId: string;
+  clientSecret: string;
   /** Clave corta y única por workspace: `dev`, `demo`, `uat`, `prod`. */
   key: string;
   displayName: string;
