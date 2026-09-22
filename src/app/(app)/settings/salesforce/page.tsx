@@ -12,6 +12,11 @@ export default function SalesforceSettingsPage() {
   // habilitarla en vez de un 404. No es un control de acceso — ver
   // `hasSalesforceProject`.
   const enabled = useProjectStore((s) => hasSalesforceProject(s.projects));
+  const loaded = useProjectStore((s) => s.loaded);
+
+  // Hasta que llegan los proyectos no se sabe si el workspace es Salesforce:
+  // mostrar "no tiene proyectos Salesforce" en ese instante sería falso.
+  if (!loaded) return null;
 
   if (!enabled) {
     return (
