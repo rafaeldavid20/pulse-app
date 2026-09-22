@@ -10,6 +10,7 @@ const SETTINGS_TABS = [
   { href: '/settings/cuenta', label: 'Mi cuenta' },
   { href: '/settings/integraciones', label: 'Integraciones' },
   { href: '/settings/agentes', label: 'Agentes' },
+  { href: '/settings/salesforce', label: 'Salesforce' },
 ] as const;
 
 export function SettingsTabs() {
