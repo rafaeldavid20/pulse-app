@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Cloud, Loader2, Plus, RefreshCw, Unplug, AlertTriangle, CheckCircle2, GitBranch } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { useAppStore } from '@/stores/appStore';
 import {
   listEnvironments,
@@ -33,20 +34,36 @@ function StateDot({ state }: { state: EnvironmentSummary['connectionState'] }) {
 
 function OrgRow({
   env,
+  repos,
   onChanged,
   onReconnect,
 }: {
   env: EnvironmentSummary;
+  repos: string[];
   onChanged: () => void;
   onReconnect: (env: EnvironmentSummary) => void;
 }) {
   const [busy, setBusy] = useState<'verify' | 'disconnect' | 'repo' | null>(null);
-  const repoConnected = (env.connectedRepos || []).some((c) => c.repoFullName === env.repoFullName);
+  const repoConnected =
+    !!env.repoFullName && (env.connectedRepos || []).some((c) => c.repoFullName === env.repoFullName);
+  // Un entorno conectado sin repo (TES-277) elige repo y rama recién al atarse.
+  const needsTarget = !env.repoFullName || !env.trackingBranch;
+  const [picking, setPicking] = useState(false);
+  const [targetRepo, setTargetRepo] = useState(env.repoFullName || repos[0] || '');
+  const [targetBranch, setTargetBranch] = useState(env.trackingBranch || '');
 
   const handleConnectRepo = async () => {
+    if (needsTarget && !picking) {
+      setPicking(true);
+      return;
+    }
     setBusy('repo');
     try {
-      const res = await connectEnvironmentRepo(env.id);
+      const res = await connectEnvironmentRepo(
+        env.id,
+        needsTarget ? { repoFullName: targetRepo, trackingBranch: targetBranch.trim() } : undefined
+      );
+      setPicking(false);
       toast.success(
         `${env.displayName}: atado a ${res.repoFullName}. Un push a ${res.trackingBranches.join(', ')} despliega.`
       );
@@ -121,8 +138,13 @@ function OrgRow({
               ? `${env.salesforce.username} · ${env.salesforce.instanceUrl}`
               : 'Sin datos de la org'}
           </span>
-          <span className="text-xs text-tertiary truncate" title={`${env.repoFullName} · ${env.trackingBranch}`}>
-            {env.repoFullName} · rama {env.trackingBranch}
+          <span
+            className="text-xs text-tertiary truncate"
+            title={env.repoFullName ? `${env.repoFullName} · ${env.trackingBranch ?? ''}` : undefined}
+          >
+            {env.repoFullName
+              ? `${env.repoFullName} · rama ${env.trackingBranch ?? '—'}`
+              : 'Sin repo: se puede consultar, no desplegar'}
           </span>
         </div>
 
@@ -147,7 +169,8 @@ function OrgRow({
               size="sm"
               variant="secondary"
               onClick={handleConnectRepo}
-              disabled={busy !== null}
+              disabled={busy !== null || (needsTarget && repos.length === 0)}
+              title={needsTarget && repos.length === 0 ? 'Conectá GitHub desde Integraciones para atar un repo.' : undefined}
               icon={
                 busy === 'repo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />
               }
@@ -177,6 +200,42 @@ function OrgRow({
           </Button>
         </div>
       </div>
+
+      {picking && (
+        <div className="flex flex-col sm:flex-row sm:items-end gap-2 pt-1">
+          <label className="flex flex-col gap-1 min-w-0 flex-1 text-xs text-secondary">
+            Repositorio
+            <select
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer"
+              value={targetRepo}
+              onChange={(e) => setTargetRepo(e.target.value)}
+            >
+              {repos.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 min-w-0 flex-1 text-xs text-secondary">
+            Rama que despliega acá
+            <Input value={targetBranch} onChange={(e) => setTargetBranch(e.target.value)} placeholder="develop" />
+          </label>
+          <div className="flex gap-1.5 shrink-0">
+            <Button size="sm" variant="ghost" onClick={() => setPicking(false)} disabled={busy !== null}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleConnectRepo}
+              disabled={busy !== null || !targetRepo || !targetBranch.trim()}
+            >
+              Atar
+            </Button>
+          </div>
+        </div>
+      )}
 
       {needsReconnect && (
         <p className="flex items-start gap-1.5 text-xs text-priority-high">
@@ -295,7 +354,7 @@ export function SalesforceSection() {
       ) : (
         <div className="flex flex-col gap-2">
           {environments.map((env) => (
-            <OrgRow key={env.id} env={env} onChanged={refresh} onReconnect={openConnect} />
+            <OrgRow key={env.id} env={env} repos={repos} onChanged={refresh} onReconnect={openConnect} />
           ))}
         </div>
       )}
@@ -304,8 +363,8 @@ export function SalesforceSection() {
         <p className="flex items-start gap-1.5 text-xs text-tertiary">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
           <span className="min-w-0">
-            No hay repos autorizados en este workspace. Conectá GitHub desde Integraciones antes de conectar
-            una org: un entorno necesita saber qué rama lo despliega.
+            No hay repos autorizados en este workspace. Podés conectar orgs y consultarlas igual; para
+            desplegar por push hace falta conectar GitHub desde Integraciones.
           </span>
         </p>
       )}

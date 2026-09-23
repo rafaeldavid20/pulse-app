@@ -394,9 +394,13 @@ export interface Environment {
   provider: EnvProvider;
   /** Posición en la cadena de promoción: dev=0, demo=1, uat=2, prod=3. Ordena el pipeline y define qué promueve a qué. */
   position: number;
-  /** La rama cuyo HEAD es lo que está desplegado acá. Un push a esta rama despliega. */
-  trackingBranch: string;
-  repoFullName: string;
+  /**
+   * La rama cuyo HEAD es lo que está desplegado acá. Un push a esta rama
+   * despliega. Opcional junto con `repoFullName` (TES-277): leer la org no usa
+   * ninguno de los dos; se piden al atar el entorno a un repo.
+   */
+  trackingBranch?: string;
+  repoFullName?: string;
   isProduction: boolean;
   /** Si es true, un deploy a este entorno espera aprobación humana explícita antes de tocar nada. */
   requiresApproval: boolean;

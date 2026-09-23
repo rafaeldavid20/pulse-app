@@ -1186,8 +1186,9 @@ export interface CreateEnvironmentInput {
   displayName: string;
   /** Orden en la cadena de promoción: dev=0, demo=1, uat=2, prod=3. */
   position: number;
-  trackingBranch: string;
-  repoFullName: string;
+  /** Opcionales (TES-277): sólo hacen falta para desplegar, y se pueden dar al atar el repo. */
+  trackingBranch?: string;
+  repoFullName?: string;
   isProduction: boolean;
   requiresApproval?: boolean;
   defaultTestLevel?: SalesforceTestLevel;
@@ -1251,8 +1252,14 @@ export interface ConnectEnvironmentRepoResult {
  * workflow como secrets, y commitea `pulse-deploy.yml`. Desde ahí, un push a la
  * rama del entorno despliega.
  */
-export async function connectEnvironmentRepo(environmentId: string): Promise<ConnectEnvironmentRepoResult> {
-  const res = await callPlatformAction<ConnectEnvironmentRepoResult>('environments.connectRepo', { environmentId });
+export async function connectEnvironmentRepo(
+  environmentId: string,
+  target?: { repoFullName: string; trackingBranch: string }
+): Promise<ConnectEnvironmentRepoResult> {
+  const res = await callPlatformAction<ConnectEnvironmentRepoResult>('environments.connectRepo', {
+    environmentId,
+    ...target,
+  });
   if (!res?.environment) throw new Error('No se pudo atar el entorno al repo.');
   return res;
 }
