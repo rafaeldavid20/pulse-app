@@ -1168,6 +1168,8 @@ export type EnvironmentSummary = Environment & {
    * esos repos no pueden desplegar.
    */
   repoSecretsStale?: boolean;
+  /** Algún repo atado tiene una versión vieja de `pulse-deploy.yml`: volver a atarlo la actualiza. */
+  workflowOutdated?: boolean;
 };
 
 export interface CreateEnvironmentInput {

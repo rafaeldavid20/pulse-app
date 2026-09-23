@@ -164,7 +164,7 @@ function OrgRow({
           >
             Verificar
           </Button>
-          {!needsReconnect && (!repoConnected || env.repoSecretsStale) && (
+          {!needsReconnect && (!repoConnected || env.repoSecretsStale || env.workflowOutdated) && (
             <Button
               size="sm"
               variant="secondary"
@@ -175,7 +175,7 @@ function OrgRow({
                 busy === 'repo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <GitBranch className="w-3.5 h-3.5" />
               }
             >
-              {repoConnected ? 'Volver a atar' : 'Atar al repo'}
+              {!repoConnected ? 'Atar al repo' : env.workflowOutdated && !env.repoSecretsStale ? 'Actualizar workflow' : 'Volver a atar'}
             </Button>
           )}
           {needsReconnect && (
