@@ -88,7 +88,9 @@ export function ConnectOrgModal({
   };
 
   const keyTaken = existing.some((e) => e.key === key && e.id !== reconnecting?.id);
-  const canSubmit = !!key && !!repoFullName && !!trackingBranch && !keyTaken &&
+  // Repo y rama son opcionales (TES-277): leer la org no los usa, y se
+  // pueden dar después, al atar el entorno a un repo.
+  const canSubmit = !!key && !keyTaken &&
     !!clientId.trim() && !!clientSecret.trim() &&
     (loginHost !== 'custom' || !!customDomain.trim());
 
@@ -103,8 +105,8 @@ export function ConnectOrgModal({
         key,
         displayName,
         position,
-        trackingBranch,
-        repoFullName,
+        trackingBranch: trackingBranch.trim() || undefined,
+        repoFullName: repoFullName || undefined,
         isProduction,
         requiresApproval,
         defaultTestLevel,
@@ -186,7 +188,7 @@ export function ConnectOrgModal({
 
           <div className="flex flex-col gap-1.5 min-w-0">
             <label className={labelClass} htmlFor="env-repo">
-              Repositorio
+              Repositorio <span className="text-tertiary font-normal">(opcional)</span>
             </label>
             <select
               id="env-repo"
@@ -194,7 +196,7 @@ export function ConnectOrgModal({
               value={repoFullName}
               onChange={(e) => setRepoFullName(e.target.value)}
             >
-              {repos.length === 0 && <option value="">Sin repos autorizados</option>}
+              <option value="">Sin repo por ahora</option>
               {repos.map((r) => (
                 <option key={r} value={r}>
                   {r}
@@ -205,7 +207,7 @@ export function ConnectOrgModal({
 
           <div className="flex flex-col gap-1.5 min-w-0">
             <label className={labelClass} htmlFor="env-branch">
-              Rama que despliega acá
+              Rama que despliega acá <span className="text-tertiary font-normal">(opcional)</span>
             </label>
             <Input
               id="env-branch"
