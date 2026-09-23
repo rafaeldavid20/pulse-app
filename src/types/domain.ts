@@ -461,6 +461,12 @@ export interface Deployment {
   repoFullName: string;
   branch: string;
   sha: string;
+  /**
+   * PR validado (`trigger: 'pr_validation'`, O5/TES-255). Un push nuevo al PR
+   * revalida sobre este mismo `Deployment` en vez de abrir otro, así el issue
+   * tiene una sola validación vigente por PR.
+   */
+  prNumber?: number;
   /** Base del delta: el `deployedSha` del entorno al arrancar. Ausente = deploy completo. */
   fromSha?: string;
   mode: DeploymentMode;
