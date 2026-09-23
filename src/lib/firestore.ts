@@ -1163,9 +1163,9 @@ export async function returnReviewToAgent(issueId: string, comment: string): Pro
  */
 export type EnvironmentSummary = Environment & {
   /**
-   * La org se reconectó y los repos que tenían el `SFDX_AUTH_URL` viejo ya no
-   * pueden desplegar: ese secret embebe el refresh token que acaba de
-   * invalidarse. O3 lo reescribe; hasta entonces la UI lo avisa.
+   * La org se reconectó y no se pudo reescribir el `SFDX_AUTH_URL` en alguno de
+   * los repos atados (el callback lo intenta solo, O3): hasta volver a atarlos,
+   * esos repos no pueden desplegar.
    */
   repoSecretsStale?: boolean;
 };
@@ -1236,6 +1236,25 @@ export async function updateEnvironment(
   });
   if (!res?.environment) throw new Error('No se pudo actualizar el entorno.');
   return res.environment;
+}
+
+export interface ConnectEnvironmentRepoResult {
+  environment: EnvironmentSummary;
+  repoFullName: string;
+  workflowPath: string;
+  workflowCreated: boolean;
+  trackingBranches: string[];
+}
+
+/**
+ * Ata un entorno a su repo (O3): escribe la credencial de la org y la key del
+ * workflow como secrets, y commitea `pulse-deploy.yml`. Desde ahí, un push a la
+ * rama del entorno despliega.
+ */
+export async function connectEnvironmentRepo(environmentId: string): Promise<ConnectEnvironmentRepoResult> {
+  const res = await callPlatformAction<ConnectEnvironmentRepoResult>('environments.connectRepo', { environmentId });
+  if (!res?.environment) throw new Error('No se pudo atar el entorno al repo.');
+  return res;
 }
 
 export interface VerifyEnvironmentResult {
