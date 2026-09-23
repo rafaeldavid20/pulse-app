@@ -9,7 +9,8 @@ import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
-import { Project, ProjectStatus, DefinitionOfDoneCriterion } from '@/types';
+import { Project, ProjectStatus, ProjectKind, PROJECT_KINDS, DefinitionOfDoneCriterion } from '@/types';
+import { PROJECT_KIND_LABEL, projectKind } from '@/lib/projectKind';
 import { AlertCircle, Plus, Trash2 } from 'lucide-react';
 import { SWATCH_COLORS, DEFAULT_SWATCH_COLOR } from '@/lib/constants/colors';
 
@@ -35,6 +36,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<ProjectStatus>('in_progress');
+  const [kind, setKind] = useState<ProjectKind>('generic');
   const [color, setColor] = useState(DEFAULT_SWATCH_COLOR);
   const [leadId, setLeadId] = useState<string>('');
   const [targetDate, setTargetDate] = useState('');
@@ -56,6 +58,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setName(projectToEdit.name || '');
       setDescription(projectToEdit.description || '');
       setStatus(projectToEdit.status || 'in_progress');
+      setKind(projectKind(projectToEdit));
       setColor(projectToEdit.color || DEFAULT_SWATCH_COLOR);
       setLeadId(projectToEdit.leadId || '');
       setTargetDate(projectToEdit.targetDate ? projectToEdit.targetDate.split('T')[0] : '');
@@ -65,6 +68,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       setName('');
       setDescription('');
       setStatus('in_progress');
+      setKind('generic');
       setColor(DEFAULT_SWATCH_COLOR);
       setLeadId('');
       setTargetDate('');
@@ -104,6 +108,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           name: name.trim(),
           description: description.trim(),
           status,
+          kind,
           color,
           leadId: leadId || undefined,
           targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
@@ -118,6 +123,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           name: name.trim(),
           description: description.trim(),
           status,
+          kind,
           color,
           leadId: leadId || user?.uid || undefined,
           targetDate: targetDate ? new Date(targetDate).toISOString() : undefined,
@@ -179,6 +185,27 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
         {/* Properties Grid */}
         <div className="grid grid-cols-2 gap-3">
+          {/* Tipo — decide qué superficie específica aparece (TES-270) */}
+          <div className="flex flex-col gap-1 col-span-2">
+            <label className="text-xs font-semibold text-secondary">Tipo de proyecto</label>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as ProjectKind)}
+              className="bg-elevated border border-default text-primary text-xs rounded-md p-2 outline-none cursor-pointer"
+            >
+              {PROJECT_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {PROJECT_KIND_LABEL[k]}
+                </option>
+              ))}
+            </select>
+            {kind === 'salesforce' && (
+              <p className="text-[10px] text-tertiary">
+                Habilita la conexión de orgs y los entornos en Configuración → Salesforce.
+              </p>
+            )}
+          </div>
+
           {/* Status */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-secondary">Estado</label>
