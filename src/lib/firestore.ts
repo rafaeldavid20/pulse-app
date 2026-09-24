@@ -437,6 +437,18 @@ export async function updateRealIssue(
   if (!actionRes) throw new Error('No se pudo actualizar el issue.');
 }
 
+/**
+ * El ejecutor no se actualiza con `issues.update`: la action dedicada aplica
+ * las reglas de ownership/visibilidad de TES-284 en el servidor.
+ */
+export async function assignExecutionAgent(issueId: string, agentId?: string): Promise<void> {
+  const actionRes = await callPlatformAction('issues.assignExecutionAgent', {
+    issueId,
+    agentId: agentId || null,
+  });
+  if (!actionRes) throw new Error('No se pudo asignar el agente ejecutor.');
+}
+
 export async function deleteRealIssue(id: string) {
   const actionRes = await callPlatformAction('issues.delete', { id });
   if (!actionRes) throw new Error('No se pudo eliminar el issue.');

@@ -22,7 +22,7 @@ import { ancestorsOf, childrenOf, progressOf, validParentsFor } from '@/lib/hier
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
 import { resolveRepo, describeRepoSource } from '@/lib/repo';
-import { subscribeIssueComments, createComment, createIssueBranch } from '@/lib/firestore';
+import { assignExecutionAgent, createComment, createIssueBranch, listAgents, subscribeIssueComments, type AgentSummary } from '@/lib/firestore';
 import { SelectPopover } from '@/components/ui/SelectPopover';
 
 interface IssuePeekBodyProps {
@@ -888,6 +888,8 @@ const SWIPE_CLOSE_THRESHOLD = 90;
 
 const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
   const projects = useProjectStore((s) => s.projects);
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const { user } = useAuth();
   // Solo ciclos del propio equipo del issue: asignar uno de otro equipo no
   // tiene sentido y el picker de proyecto no lo ofrece tampoco.
   const cycles = useCycleStore((s) => s.cycles).filter((c) => c.teamId === issue.teamId);
@@ -895,6 +897,24 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
   const [titleDraft, setTitleDraft] = useState(issue.title);
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const [assigningExecutor, setAssigningExecutor] = useState(false);
+
+  useEffect(() => {
+    if (!activeWorkspace?.id) return;
+    let active = true;
+    listAgents(activeWorkspace.id)
+      .then((result) => {
+        if (active) setAgents(result);
+      })
+      .catch(() => {
+        if (active) setAgentsError('No se pudieron cargar los agentes disponibles.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeWorkspace?.id]);
 
   useEffect(() => {
     if (titleDraft === issue.title) return;
@@ -940,6 +960,33 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
       onClose();
     } else {
       setDragY(0);
+    }
+  };
+
+  const responsibleCandidate = issue.responsibleMemberId || issue.assigneeId;
+  // Los issues heredados podían tener un agente en `assigneeId`. No se lo
+  // reinterpretamos como responsable: requiere elegir explícitamente a una
+  // persona antes de habilitar una nueva ejecución.
+  const responsibleMemberId = members.some((member) => member.userId === responsibleCandidate && !member.isAgent)
+    ? responsibleCandidate
+    : undefined;
+  const currentMember = members.find((member) => member.userId === user?.uid);
+  const isAdmin = currentMember?.role === 'owner' || currentMember?.role === 'admin';
+  const eligibleAgents = agents.filter((agent) => {
+    const visibility = agent.visibility || 'public';
+    if (visibility === 'public') return isAdmin;
+    return agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid;
+  });
+
+  const handleExecutionAgent = async (agentId: string) => {
+    setAssigningExecutor(true);
+    setAgentsError(null);
+    try {
+      await assignExecutionAgent(issue.id, agentId || undefined);
+    } catch (error) {
+      setAgentsError(error instanceof Error ? error.message : 'No se pudo asignar el agente ejecutor.');
+    } finally {
+      setAssigningExecutor(false);
     }
   };
 
@@ -1037,24 +1084,44 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             />
           </div>
 
-          {/* Assignee Picker */}
+          {/* Human responsibility and execution are intentionally separate. */}
           <div className="flex items-center justify-between">
             <span className="text-secondary flex items-center gap-1.5">
-              Asignado a
-              {issue.agent?.state && issue.agent.state !== 'idle' && <AgentBadge state={issue.agent.state} />}
+              Responsable
             </span>
             <SelectPopover
-              value={issue.assigneeId || ''}
+              value={responsibleMemberId || ''}
               onChange={(v) => updateIssue(issue.id, { assigneeId: v || undefined })}
-              ariaLabel="Asignado a"
+              ariaLabel="Responsable humano"
               placeholder="Sin asignar"
               options={[
                 { value: '', label: 'Sin asignar' },
                 { heading: 'Humanos', options: members.filter((m) => !m.isAgent).map((m) => ({ value: m.userId, label: m.displayName })) },
-                { heading: 'Agentes', options: members.filter((m) => m.isAgent).map((m) => ({ value: m.userId, label: m.displayName })) },
               ]}
             />
           </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-secondary flex items-center gap-1.5">
+              Agente ejecutor
+              {issue.agent?.state && issue.agent.state !== 'idle' && <AgentBadge state={issue.agent.state} />}
+            </span>
+            <SelectPopover
+              value={issue.execution?.agentId || ''}
+              onChange={handleExecutionAgent}
+              ariaLabel="Agente ejecutor"
+              placeholder={responsibleMemberId ? 'Sin agente' : 'Elegí responsable'}
+              disabled={!responsibleMemberId || assigningExecutor}
+              options={[
+                { value: '', label: 'Sin agente' },
+                ...eligibleAgents.map((agent) => ({
+                  value: agent.id,
+                  label: `${agent.displayName} · ${agent.visibility === 'public' ? 'Público' : 'Personal'}`,
+                })),
+              ]}
+            />
+          </div>
+          {agentsError && <p className="col-span-2 text-[11px] text-priority-urgent">{agentsError}</p>}
 
           {/* Project Picker */}
           <div className="flex items-center justify-between">
