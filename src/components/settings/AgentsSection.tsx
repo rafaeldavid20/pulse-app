@@ -21,6 +21,8 @@ import {
   getGithubStatus,
   getQaCalibration,
   listAgents,
+  listRunners,
+  RunnerSummary,
   updateAgent,
 } from '@/lib/firestore';
 import { AgentKind, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
@@ -38,6 +40,19 @@ function qaDispatchBlockers(agent: AgentSummary): string[] {
   if (!agent.enabled) blockers.push('está deshabilitado');
   if (!agent.autonomousMode) blockers.push('no está en modo autónomo');
   return blockers;
+}
+
+function effectiveAgentRepos(agent: AgentSummary): string[] {
+  if (agent.allowedRepos?.length) return agent.allowedRepos;
+  return agent.connectedRepos?.map((connection) => connection.repoFullName).filter(Boolean) ?? [];
+}
+
+function runnerIneligibility(agent: AgentSummary, runner: RunnerSummary): string | null {
+  if (runner.revokedAt) return 'está revocado';
+  if (agent.visibility !== 'public' && runner.ownerMemberId !== agent.ownerMemberId) return 'pertenece a otro usuario';
+  const missing = effectiveAgentRepos(agent).filter((repo) => !runner.connectedRepos.includes(repo));
+  if (missing.length) return `no cubre ${missing.join(', ')}`;
+  return null;
 }
 
 function slugify(text: string): string {
@@ -519,6 +534,7 @@ export function AgentsSection() {
   const [repos, setRepos] = useState<string[]>([]);
   const [canConnect, setCanConnect] = useState(false);
   const [missingPermissions, setMissingPermissions] = useState<string[]>([]);
+  const [runners, setRunners] = useState<RunnerSummary[]>([]);
 
   const workspaceId = activeWorkspace?.id;
 
@@ -527,8 +543,9 @@ export function AgentsSection() {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await listAgents(workspaceId);
+      const [result, runnerResult] = await Promise.all([listAgents(workspaceId), listRunners(workspaceId)]);
       setAgents(result);
+      setRunners(runnerResult);
 
       // El estado de GitHub no es esencial para listar agentes: si falla, la
       // sección sigue sirviendo y solo se deshabilita el conectar.
@@ -610,6 +627,20 @@ export function AgentsSection() {
     } catch (err) {
       setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, maxConcurrentIssues: prevValue } : a)));
       alert(err instanceof Error ? err.message : 'Error al actualizar el agente.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleRunnerChange = async (agent: AgentSummary, runnerId: string) => {
+    const previous = agent.runnerId;
+    setAgents((prev) => prev.map((item) => item.id === agent.id ? { ...item, runnerId: runnerId || undefined } : item));
+    setSavingId(agent.id);
+    try {
+      await updateAgent(agent.id, { runnerId: runnerId || null });
+    } catch (err) {
+      setAgents((prev) => prev.map((item) => item.id === agent.id ? { ...item, runnerId: previous } : item));
+      alert(err instanceof Error ? err.message : 'No se pudo vincular el Runner.');
     } finally {
       setSavingId(null);
     }
@@ -722,6 +753,32 @@ export function AgentsSection() {
                     onChange={(e) => handleMaxConcurrentChange(agent, parseInt(e.target.value, 10))}
                     className="w-16 bg-surface border border-default rounded-md px-2 py-1 text-right text-primary text-xs"
                   />
+                </div>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-secondary shrink-0">Pulse Runner</span>
+                  {(() => {
+                    const eligibleRunners = runners.filter((runner) => !runnerIneligibility(agent, runner));
+                    const currentRunner = runners.find((runner) => runner.id === agent.runnerId);
+                    const currentReason = currentRunner ? runnerIneligibility(agent, currentRunner) : null;
+                    return <div className="flex flex-col items-end gap-1">
+                      <SelectPopover
+                        value={currentReason ? '' : agent.runnerId ?? ''}
+                        onChange={(value) => handleRunnerChange(agent, value)}
+                        disabled={savingId === agent.id}
+                        ariaLabel="Pulse Runner"
+                        placeholder="GitHub Actions"
+                        options={[
+                          { value: '', label: 'GitHub Actions' },
+                          ...eligibleRunners.map((runner) => ({
+                            value: runner.id,
+                            label: `${runner.displayName} · ${runner.status === 'online' ? 'En línea' : 'No disponible'}`,
+                          })),
+                        ]}
+                      />
+                      {currentReason ? <span className="max-w-56 text-right text-[10px] text-priority-urgent">Runner actual no disponible: {currentReason}.</span>
+                        : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner compatible con dueño y repos permitidos.</span>}
+                    </div>;
+                  })()}
                 </div>
               </div>
 

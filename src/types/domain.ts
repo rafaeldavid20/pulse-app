@@ -71,6 +71,8 @@ export interface Runner {
   maxConcurrentJobs: number;
   connectedRepos: string[];
   lastHeartbeatAt?: string;
+  /** Revocar desactiva la credencial del dispositivo sin borrar la auditoría. */
+  revokedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
