@@ -731,10 +731,41 @@ export interface RunnerSummary {
   revokedAt?: string;
 }
 
+export interface RunnerJobSummary {
+  id: string;
+  workspaceId: string;
+  issueId: string;
+  agentId: string;
+  runnerId: string;
+  repoFullName: string;
+  mode: 'task' | 'rework' | 'handoff' | 'review';
+  status: 'pending' | 'delivered' | 'completed' | 'failed' | 'canceled' | 'expired';
+  issuedAt: string;
+  expiresAt: string;
+  deliveredAt?: string;
+  completedAt?: string;
+  expiredAt?: string;
+  result?: string | null;
+  retryOf?: string;
+  retriedByJobId?: string;
+}
+
 export async function listRunners(workspaceId: string): Promise<RunnerSummary[]> {
   const actionRes = await callPlatformAction<{ runners: RunnerSummary[] }>('runners.list', { workspaceId });
   if (!actionRes) throw new Error('No se pudieron cargar los Runners.');
   return actionRes.runners;
+}
+
+export async function listRunnerJobs(workspaceId: string): Promise<RunnerJobSummary[]> {
+  const actionRes = await callPlatformAction<{ jobs: RunnerJobSummary[] }>('runners.listJobs', { workspaceId });
+  if (!actionRes) throw new Error('No se pudo cargar el historial de jobs.');
+  return actionRes.jobs;
+}
+
+export async function retryRunnerJob(jobId: string): Promise<{ job: RunnerJobSummary }> {
+  const actionRes = await callPlatformAction<{ job: RunnerJobSummary }>('runners.retryJob', { jobId });
+  if (!actionRes?.job) throw new Error('No se pudo reintentar el job.');
+  return actionRes;
 }
 
 export async function registerRunner(workspaceId: string, data: { displayName: string; publicKey: string; connectedRepos: string[]; maxConcurrentJobs?: number }): Promise<{ runner: RunnerSummary; deviceCredential: string }> {

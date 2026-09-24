@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Cpu, Loader2, RotateCw, ShieldOff } from 'lucide-react';
+import { Check, Copy, Cpu, Loader2, RotateCw, ShieldOff, History, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { useAppStore } from '@/stores/appStore';
 import { cn, formatTimeAgo } from '@/lib/utils';
-import { listRunners, registerRunner, revokeRunner, rotateRunnerCredential, RunnerSummary } from '@/lib/firestore';
+import { listRunnerJobs, listRunners, registerRunner, revokeRunner, retryRunnerJob, rotateRunnerCredential, RunnerJobSummary, RunnerSummary } from '@/lib/firestore';
 
 const statusLabel: Record<RunnerSummary['status'], string> = {
   online: 'En línea',
@@ -24,10 +24,21 @@ const statusClass: Record<RunnerSummary['status'], string> = {
   offline: 'bg-zinc-400',
 };
 
+const jobStatusLabel: Record<RunnerJobSummary['status'], string> = {
+  pending: 'En cola', delivered: 'Entregado', completed: 'Completado', failed: 'Falló', canceled: 'Cancelado', expired: 'Expiró',
+};
+
+const jobStatusClass: Record<RunnerJobSummary['status'], string> = {
+  pending: 'text-amber-700 bg-amber-50 border-amber-200', delivered: 'text-blue-700 bg-blue-50 border-blue-200',
+  completed: 'text-emerald-700 bg-emerald-50 border-emerald-200', failed: 'text-red-700 bg-red-50 border-red-200',
+  canceled: 'text-slate-600 bg-slate-50 border-slate-200', expired: 'text-orange-700 bg-orange-50 border-orange-200',
+};
+
 export function RunnersSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const members = useAppStore((s) => s.members);
   const [runners, setRunners] = useState<RunnerSummary[]>([]);
+  const [jobs, setJobs] = useState<RunnerJobSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -44,7 +55,9 @@ export function RunnersSection() {
     setLoading(true);
     setError(null);
     try {
-      setRunners(await listRunners(workspaceId));
+      const [nextRunners, nextJobs] = await Promise.all([listRunners(workspaceId), listRunnerJobs(workspaceId)]);
+      setRunners(nextRunners);
+      setJobs(nextJobs);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudieron cargar los Runners.');
     } finally {
@@ -92,6 +105,13 @@ export function RunnersSection() {
     if (!credential) return;
     await navigator.clipboard.writeText(credential);
     setCopied(true);
+  };
+  const handleRetry = async (job: RunnerJobSummary) => {
+    if (!window.confirm(`¿Reintentar el job de ${job.repoFullName}? Se emitirá un nuevo job con el mismo issue, agente, Runner y repo.`)) return;
+    setWorkingId(job.id); setError(null);
+    try { await retryRunnerJob(job.id); await refresh(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo reintentar el job.'); }
+    finally { setWorkingId(null); }
   };
   const handlePair = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -160,6 +180,38 @@ export function RunnersSection() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {!loading && jobs.length > 0 && (
+        <div className="border border-default rounded-lg overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 bg-elevated border-b border-default">
+            <History className="w-3.5 h-3.5 text-secondary" />
+            <h4 className="text-sm font-medium text-primary">Actividad reciente</h4>
+            <span className="text-xs text-tertiary">Jobs visibles para tus Runners</span>
+          </div>
+          <div className="divide-y divide-subtle">
+            {jobs.slice(0, 12).map((job) => {
+              const retryable = ['failed', 'canceled', 'expired'].includes(job.status) && !job.retriedByJobId;
+              const runner = runners.find((item) => item.id === job.runnerId);
+              return (
+                <div key={job.id} className="flex flex-col gap-2 px-4 py-3 bg-surface sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-primary truncate">{job.repoFullName}</span>
+                      <span className={cn('px-1.5 py-0.5 text-[10px] font-medium border rounded-full', jobStatusClass[job.status])}>{jobStatusLabel[job.status]}</span>
+                      <span className="text-[11px] text-tertiary">{job.mode} · {formatTimeAgo(job.issuedAt)}</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-tertiary truncate" title={job.issueId}>
+                      Issue {job.issueId} · {runner?.displayName || job.runnerId}{job.retryOf ? ' · reintento' : ''}{job.retriedByJobId ? ' · reintentado' : ''}
+                    </p>
+                    {job.result && <p className="mt-1 text-[11px] text-secondary truncate" title={job.result}>{job.result}</p>}
+                  </div>
+                  {retryable && <Button size="sm" variant="secondary" disabled={workingId === job.id} onClick={() => handleRetry(job)} icon={workingId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}>Reintentar</Button>}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
