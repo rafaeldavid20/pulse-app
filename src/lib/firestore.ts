@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentQaMode, AgentRole, QaCalibrationRecord, Environment, EnvironmentWritableField, SalesforceLoginHost, SalesforceTestLevel } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentKind, AgentQaMode, AgentRole, AgentVisibility, QaCalibrationRecord, Environment, EnvironmentWritableField, SalesforceLoginHost, SalesforceTestLevel } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -431,10 +431,22 @@ export async function createRealIssue(
  */
 export async function updateRealIssue(
   id: string,
-  updates: Partial<Issue> & { repoFullName?: string }
+  updates: Partial<Issue> & { repoFullName?: string; confirmKeepExecution?: boolean }
 ) {
   const actionRes = await callPlatformAction('issues.update', { id, ...updates });
   if (!actionRes) throw new Error('No se pudo actualizar el issue.');
+}
+
+/**
+ * El ejecutor no se actualiza con `issues.update`: la action dedicada aplica
+ * las reglas de ownership/visibilidad de TES-284 en el servidor.
+ */
+export async function assignExecutionAgent(issueId: string, agentId?: string): Promise<void> {
+  const actionRes = await callPlatformAction('issues.assignExecutionAgent', {
+    issueId,
+    agentId: agentId || null,
+  });
+  if (!actionRes) throw new Error('No se pudo asignar el agente ejecutor.');
 }
 
 export async function deleteRealIssue(id: string) {
@@ -681,7 +693,11 @@ export async function revokeApiKey(id: string): Promise<void> {
 export interface AgentSummary {
   id: string;
   workspaceId: string;
-  kind: string;
+  kind: AgentKind;
+  ownerMemberId?: string;
+  visibility?: AgentVisibility;
+  runnerId?: string;
+  allowedRepos?: string[];
   /** Default `'dev'` — determina qué workflow/secret escribe `agents.connectRepo` (D12/TES-208). */
   role?: string;
   displayName: string;
@@ -737,7 +753,7 @@ export async function createAgent(
   workspaceId: string,
   data: {
     agentId: string;
-    kind: string;
+    kind: AgentKind;
     displayName: string;
     defaultRepo?: string;
     defaultTeamId?: string;
@@ -750,6 +766,9 @@ export async function createAgent(
      * y no hay ningún error, simplemente no pasa nada.
      */
     reviewRepo?: string;
+    visibility?: AgentVisibility;
+    runnerId?: string;
+    allowedRepos?: string[];
   }
 ): Promise<AgentSummary> {
   const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.create', {

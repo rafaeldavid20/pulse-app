@@ -252,7 +252,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
               className="rounded-full"
               options={[
                 { value: '', label: 'Sin asignar' },
-                ...members.map((m) => ({ value: m.userId, label: m.displayName })),
+                ...members.filter((m) => !m.isAgent).map((m) => ({ value: m.userId, label: m.displayName })),
               ]}
               onChange={(v) => onQuickUpdate(issue.id, { assigneeId: v || undefined })}
             />

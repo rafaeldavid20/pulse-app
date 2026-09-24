@@ -78,7 +78,12 @@ export const CreateIssueModal: React.FC = () => {
   // asignado, se preselecciona. Es preselección, no imposición: cambiar el
   // selector la pisa, y dejarlo en "Sin asignar" es una elección respetada.
   const parentIssue = parentOptions.find((p) => p.id === effectiveParentId);
-  const effectiveAssigneeId = assigneeId || parentIssue?.defaultAssigneeId || '';
+  const inheritedResponsibleId = parentIssue?.defaultAssigneeId;
+  const effectiveAssigneeId = assigneeId || (
+    members.some((member) => member.userId === inheritedResponsibleId && !member.isAgent)
+      ? inheritedResponsibleId
+      : ''
+  );
 
   const handleClose = () => {
     setErrorMsg('');
@@ -306,15 +311,6 @@ export const CreateIssueModal: React.FC = () => {
               <optgroup label="Humanos">
                 {members
                   .filter((m) => !m.isAgent)
-                  .map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.displayName}
-                    </option>
-                  ))}
-              </optgroup>
-              <optgroup label="Agentes">
-                {members
-                  .filter((m) => m.isAgent)
                   .map((m) => (
                     <option key={m.userId} value={m.userId}>
                       {m.displayName}

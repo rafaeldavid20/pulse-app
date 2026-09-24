@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { SelectPopover } from '@/components/ui/SelectPopover';
 import { useAppStore } from '@/stores/appStore';
+import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
   AgentSummary,
@@ -22,7 +23,7 @@ import {
   listAgents,
   updateAgent,
 } from '@/lib/firestore';
-import { AgentQaMode, AgentRole } from '@/types';
+import { AgentKind, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
 
 /**
  * Las condiciones que `qaDispatchTrigger` exige para elegir un agente QA
@@ -63,10 +64,13 @@ function CreateAgentModal({
   onCreated: (agent: AgentSummary) => void;
 }) {
   const teams = useAppStore((s) => s.teams);
+  const members = useAppStore((s) => s.members);
+  const { user } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [agentId, setAgentId] = useState('');
   const [agentIdEdited, setAgentIdEdited] = useState(false);
-  const [kind, setKind] = useState('claude');
+  const [kind, setKind] = useState<AgentKind>('claude');
+  const [visibility, setVisibility] = useState<AgentVisibility>('personal');
   const [role, setRole] = useState<AgentRole>('dev');
   const [reviewRepo, setReviewRepo] = useState('');
   const [defaultRepo, setDefaultRepo] = useState('');
@@ -74,12 +78,15 @@ function CreateAgentModal({
   const [maxConcurrentIssues, setMaxConcurrentIssues] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentMember = members.find((member) => member.userId === user?.uid);
+  const canCreatePublicAgent = currentMember?.role === 'owner' || currentMember?.role === 'admin';
 
   const reset = useCallback(() => {
     setDisplayName('');
     setAgentId('');
     setAgentIdEdited(false);
     setKind('claude');
+    setVisibility('personal');
     setRole('dev');
     setReviewRepo('');
     setDefaultRepo('');
@@ -116,6 +123,7 @@ function CreateAgentModal({
         maxConcurrentIssues,
         role,
         reviewRepo: role === 'qa' ? reviewRepo || undefined : undefined,
+        visibility,
       });
       onCreated(agent);
       handleClose();
@@ -137,6 +145,19 @@ function CreateAgentModal({
             onChange={(e) => handleDisplayNameChange(e.target.value)}
           />
         </div>
+        {canCreatePublicAgent && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-semibold text-secondary">Visibilidad</label>
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as AgentVisibility)}
+              className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
+            >
+              <option value="personal">Personal — solo lo usa su dueño</option>
+              <option value="public">Público — los admins pueden asignarlo</option>
+            </select>
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-secondary">ID del agente</label>
           <Input
@@ -153,11 +174,11 @@ function CreateAgentModal({
           <label className="text-xs font-semibold text-secondary">Tipo</label>
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value)}
+            onChange={(e) => setKind(e.target.value as AgentKind)}
             className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
           >
             <option value="claude">Claude</option>
-            <option value="chatgpt">ChatGPT</option>
+            <option value="codex">Codex</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
@@ -609,10 +630,9 @@ export function AgentsSection() {
       </div>
 
       <p className="text-xs text-secondary">
-        Con &quot;Autónomo&quot; activado, un agente arranca solo apenas se le asigna un issue y pasa a
-        &quot;Por hacer&quot; — dispara un workflow de GitHub Actions sin que nadie tenga que abrir Claude
-        Code. Un circuit breaker diario por workspace y el límite de issues concurrentes evitan que un
-        loop se descontrole.
+        Un agente personal solo puede ejecutar issues cuyo responsable es su dueño. Los públicos los
+        administran los admins del workspace. Claude usa el workflow existente; Codex queda listo para
+        Pulse Runner y no se conecta todavía a GitHub Actions.
       </p>
 
       {loading ? (
@@ -637,6 +657,7 @@ export function AgentsSection() {
                       {agent.displayName}
                     </span>
                     <Badge variant="outline">{agent.role === 'qa' ? 'QA' : 'Dev'}</Badge>
+                    <Badge variant="outline">{agent.visibility === 'public' ? 'Público' : 'Personal'}</Badge>
                   </div>
                   <span
                     className="text-xs text-tertiary font-mono truncate"
