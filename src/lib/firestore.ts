@@ -719,6 +719,35 @@ export interface AgentSummary {
   qaMode?: AgentQaMode;
 }
 
+export interface RunnerSummary {
+  id: string;
+  workspaceId: string;
+  ownerMemberId: string;
+  displayName: string;
+  status: 'online' | 'offline' | 'busy' | 'paused';
+  maxConcurrentJobs: number;
+  connectedRepos: string[];
+  lastHeartbeatAt?: string;
+  revokedAt?: string;
+}
+
+export async function listRunners(workspaceId: string): Promise<RunnerSummary[]> {
+  const actionRes = await callPlatformAction<{ runners: RunnerSummary[] }>('runners.list', { workspaceId });
+  if (!actionRes) throw new Error('No se pudieron cargar los Runners.');
+  return actionRes.runners;
+}
+
+export async function revokeRunner(runnerId: string): Promise<void> {
+  const actionRes = await callPlatformAction('runners.revoke', { runnerId });
+  if (!actionRes) throw new Error('No se pudo revocar el Runner.');
+}
+
+export async function rotateRunnerCredential(runnerId: string): Promise<{ deviceCredential: string }> {
+  const actionRes = await callPlatformAction<{ deviceCredential: string }>('runners.rotateCredential', { runnerId });
+  if (!actionRes?.deviceCredential) throw new Error('No se pudo rotar la credencial del Runner.');
+  return actionRes;
+}
+
 export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
   const actionRes = await callPlatformAction<{ agents: AgentSummary[] }>('agents.list', { workspaceId });
   if (!actionRes) throw new Error('No se pudieron cargar los agentes.');
@@ -738,6 +767,8 @@ export async function updateAgent(
       | 'qaMode'
       | 'role'
       | 'reviewRepo'
+      | 'runnerId'
+      | 'allowedRepos'
     >
   >
 ): Promise<AgentSummary> {
