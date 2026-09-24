@@ -21,6 +21,8 @@ import {
   getGithubStatus,
   getQaCalibration,
   listAgents,
+  listRunners,
+  RunnerSummary,
   updateAgent,
 } from '@/lib/firestore';
 import { AgentKind, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
@@ -519,6 +521,7 @@ export function AgentsSection() {
   const [repos, setRepos] = useState<string[]>([]);
   const [canConnect, setCanConnect] = useState(false);
   const [missingPermissions, setMissingPermissions] = useState<string[]>([]);
+  const [runners, setRunners] = useState<RunnerSummary[]>([]);
 
   const workspaceId = activeWorkspace?.id;
 
@@ -527,8 +530,9 @@ export function AgentsSection() {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await listAgents(workspaceId);
+      const [result, runnerResult] = await Promise.all([listAgents(workspaceId), listRunners(workspaceId)]);
       setAgents(result);
+      setRunners(runnerResult);
 
       // El estado de GitHub no es esencial para listar agentes: si falla, la
       // sección sigue sirviendo y solo se deshabilita el conectar.
@@ -610,6 +614,20 @@ export function AgentsSection() {
     } catch (err) {
       setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, maxConcurrentIssues: prevValue } : a)));
       alert(err instanceof Error ? err.message : 'Error al actualizar el agente.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleRunnerChange = async (agent: AgentSummary, runnerId: string) => {
+    const previous = agent.runnerId;
+    setAgents((prev) => prev.map((item) => item.id === agent.id ? { ...item, runnerId: runnerId || undefined } : item));
+    setSavingId(agent.id);
+    try {
+      await updateAgent(agent.id, { runnerId: runnerId || null });
+    } catch (err) {
+      setAgents((prev) => prev.map((item) => item.id === agent.id ? { ...item, runnerId: previous } : item));
+      alert(err instanceof Error ? err.message : 'No se pudo vincular el Runner.');
     } finally {
       setSavingId(null);
     }
@@ -721,6 +739,23 @@ export function AgentsSection() {
                     disabled={savingId === agent.id}
                     onChange={(e) => handleMaxConcurrentChange(agent, parseInt(e.target.value, 10))}
                     className="w-16 bg-surface border border-default rounded-md px-2 py-1 text-right text-primary text-xs"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-secondary shrink-0">Pulse Runner</span>
+                  <SelectPopover
+                    value={agent.runnerId ?? ''}
+                    onChange={(value) => handleRunnerChange(agent, value)}
+                    disabled={savingId === agent.id}
+                    ariaLabel="Pulse Runner"
+                    placeholder="GitHub Actions"
+                    options={[
+                      { value: '', label: 'GitHub Actions' },
+                      ...runners.map((runner) => ({
+                        value: runner.id,
+                        label: `${runner.displayName} · ${runner.status === 'online' ? 'En línea' : 'No disponible'}`,
+                      })),
+                    ]}
                   />
                 </div>
               </div>

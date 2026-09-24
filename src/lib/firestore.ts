@@ -767,10 +767,9 @@ export async function updateAgent(
       | 'qaMode'
       | 'role'
       | 'reviewRepo'
-      | 'runnerId'
       | 'allowedRepos'
     >
-  >
+  > & { runnerId?: string | null }
 ): Promise<AgentSummary> {
   const actionRes = await callPlatformAction<{ agent: AgentSummary }>('agents.update', {
     agentId,
