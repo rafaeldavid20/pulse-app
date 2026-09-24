@@ -42,6 +42,19 @@ function qaDispatchBlockers(agent: AgentSummary): string[] {
   return blockers;
 }
 
+function effectiveAgentRepos(agent: AgentSummary): string[] {
+  if (agent.allowedRepos?.length) return agent.allowedRepos;
+  return agent.connectedRepos?.map((connection) => connection.repoFullName).filter(Boolean) ?? [];
+}
+
+function runnerIneligibility(agent: AgentSummary, runner: RunnerSummary): string | null {
+  if (runner.revokedAt) return 'está revocado';
+  if (agent.visibility !== 'public' && runner.ownerMemberId !== agent.ownerMemberId) return 'pertenece a otro usuario';
+  const missing = effectiveAgentRepos(agent).filter((repo) => !runner.connectedRepos.includes(repo));
+  if (missing.length) return `no cubre ${missing.join(', ')}`;
+  return null;
+}
+
 function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -743,20 +756,29 @@ export function AgentsSection() {
                 </div>
                 <div className="flex items-center justify-between gap-2 min-w-0">
                   <span className="text-secondary shrink-0">Pulse Runner</span>
-                  <SelectPopover
-                    value={agent.runnerId ?? ''}
-                    onChange={(value) => handleRunnerChange(agent, value)}
-                    disabled={savingId === agent.id}
-                    ariaLabel="Pulse Runner"
-                    placeholder="GitHub Actions"
-                    options={[
-                      { value: '', label: 'GitHub Actions' },
-                      ...runners.map((runner) => ({
-                        value: runner.id,
-                        label: `${runner.displayName} · ${runner.status === 'online' ? 'En línea' : 'No disponible'}`,
-                      })),
-                    ]}
-                  />
+                  {(() => {
+                    const eligibleRunners = runners.filter((runner) => !runnerIneligibility(agent, runner));
+                    const currentRunner = runners.find((runner) => runner.id === agent.runnerId);
+                    const currentReason = currentRunner ? runnerIneligibility(agent, currentRunner) : null;
+                    return <div className="flex flex-col items-end gap-1">
+                      <SelectPopover
+                        value={currentReason ? '' : agent.runnerId ?? ''}
+                        onChange={(value) => handleRunnerChange(agent, value)}
+                        disabled={savingId === agent.id}
+                        ariaLabel="Pulse Runner"
+                        placeholder="GitHub Actions"
+                        options={[
+                          { value: '', label: 'GitHub Actions' },
+                          ...eligibleRunners.map((runner) => ({
+                            value: runner.id,
+                            label: `${runner.displayName} · ${runner.status === 'online' ? 'En línea' : 'No disponible'}`,
+                          })),
+                        ]}
+                      />
+                      {currentReason ? <span className="max-w-56 text-right text-[10px] text-priority-urgent">Runner actual no disponible: {currentReason}.</span>
+                        : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner compatible con dueño y repos permitidos.</span>}
+                    </div>;
+                  })()}
                 </div>
               </div>
 
