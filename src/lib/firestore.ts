@@ -737,6 +737,12 @@ export async function listRunners(workspaceId: string): Promise<RunnerSummary[]>
   return actionRes.runners;
 }
 
+export async function registerRunner(workspaceId: string, data: { displayName: string; publicKey: string; connectedRepos: string[]; maxConcurrentJobs?: number }): Promise<{ runner: RunnerSummary; deviceCredential: string }> {
+  const actionRes = await callPlatformAction<{ runner: RunnerSummary; deviceCredential: string }>('runners.register', { workspaceId, ...data });
+  if (!actionRes?.deviceCredential) throw new Error('No se pudo vincular el Runner.');
+  return actionRes;
+}
+
 export async function revokeRunner(runnerId: string): Promise<void> {
   const actionRes = await callPlatformAction('runners.revoke', { runnerId });
   if (!actionRes) throw new Error('No se pudo revocar el Runner.');

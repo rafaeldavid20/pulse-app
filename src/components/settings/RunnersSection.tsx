@@ -5,9 +5,10 @@ import { Check, Copy, Cpu, Loader2, RotateCw, ShieldOff } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { Input } from '@/components/ui/Input';
 import { useAppStore } from '@/stores/appStore';
 import { cn, formatTimeAgo } from '@/lib/utils';
-import { listRunners, revokeRunner, rotateRunnerCredential, RunnerSummary } from '@/lib/firestore';
+import { listRunners, registerRunner, revokeRunner, rotateRunnerCredential, RunnerSummary } from '@/lib/firestore';
 
 const statusLabel: Record<RunnerSummary['status'], string> = {
   online: 'En línea',
@@ -32,6 +33,10 @@ export function RunnersSection() {
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [credential, setCredential] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pairing, setPairing] = useState(false);
+  const [runnerName, setRunnerName] = useState('');
+  const [publicKey, setPublicKey] = useState('');
+  const [pairingBusy, setPairingBusy] = useState(false);
   const workspaceId = activeWorkspace?.id;
 
   const refresh = useCallback(async () => {
@@ -88,6 +93,15 @@ export function RunnersSection() {
     await navigator.clipboard.writeText(credential);
     setCopied(true);
   };
+  const handlePair = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPairingBusy(true); setError(null);
+    try {
+      const result = await registerRunner(workspaceId!, { displayName: runnerName, publicKey, connectedRepos: [] });
+      setCredential(result.deviceCredential); setPairing(false); setRunnerName(''); setPublicKey(''); await refresh();
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo vincular el Runner.'); }
+    finally { setPairingBusy(false); }
+  };
 
   if (!workspaceId) return null;
 
@@ -105,6 +119,7 @@ export function RunnersSection() {
       <p className="text-xs text-secondary">
         Un Runner es la máquina que mantiene tus sesiones de Claude o Codex de forma local. Pulse nunca guarda esas credenciales.
       </p>
+      <Button size="sm" className="self-start" onClick={() => setPairing(true)}>Vincular Runner</Button>
 
       {loading ? (
         <div className="flex flex-col gap-2">
@@ -156,6 +171,14 @@ export function RunnersSection() {
             <Button onClick={copyCredential} icon={copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}>{copied ? 'Copiada' : 'Copiar credencial'}</Button>
           </div>
         </div>
+      </Modal>
+      <Modal isOpen={pairing} onClose={() => setPairing(false)} title="Vincular Pulse Runner" maxWidth="lg">
+        <form onSubmit={handlePair} className="flex flex-col gap-4">
+          <p className="text-sm text-secondary">Pegá la clave pública que muestra el instalador local. Pulse devuelve una credencial de dispositivo una sola vez.</p>
+          <Input required placeholder="Nombre, ej. Mac de Ana" value={runnerName} onChange={(event) => setRunnerName(event.target.value)} />
+          <textarea required placeholder="Clave pública del Runner" value={publicKey} onChange={(event) => setPublicKey(event.target.value)} className="min-h-28 bg-elevated border border-default rounded-md p-3 text-xs text-primary" />
+          <div className="flex justify-end"><Button disabled={pairingBusy}>{pairingBusy ? 'Vinculando…' : 'Vincular'}</Button></div>
+        </form>
       </Modal>
     </section>
   );
