@@ -52,21 +52,33 @@ function OrgRow({
   const [targetRepo, setTargetRepo] = useState(env.repoFullName || repos[0] || '');
   const [targetBranch, setTargetBranch] = useState(env.trackingBranch || '');
 
+  // El selector sirve para atar un entorno sin repo (TES-277) y para cambiar
+  // el repo o la rama de uno ya atado sin desconectar la org (TES-282).
+  const openPicker = () => {
+    setTargetRepo(env.repoFullName || repos[0] || '');
+    setTargetBranch(env.trackingBranch || '');
+    setPicking(true);
+  };
+
   const handleConnectRepo = async () => {
     if (needsTarget && !picking) {
-      setPicking(true);
+      openPicker();
       return;
     }
     setBusy('repo');
     try {
       const res = await connectEnvironmentRepo(
         env.id,
-        needsTarget ? { repoFullName: targetRepo, trackingBranch: targetBranch.trim() } : undefined
+        picking ? { repoFullName: targetRepo, trackingBranch: targetBranch.trim() } : undefined
       );
       setPicking(false);
+      const moved = res.detachedFrom?.length ? ` (antes: ${res.detachedFrom.join(', ')})` : '';
       toast.success(
-        `${env.displayName}: atado a ${res.repoFullName}. Un push a ${res.trackingBranches.join(', ')} despliega.`
+        `${env.displayName}: atado a ${res.repoFullName}${moved}. Un push a ${res.trackingBranches.join(', ')} despliega.`
       );
+      // El cambio se completó; lo que quedó sin limpiar en el repo viejo lo
+      // tiene que ver una persona.
+      (res.warnings ?? []).forEach((w) => toast.warning(w, { duration: 10000 }));
       onChanged();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'No se pudo atar el entorno al repo.');
@@ -178,6 +190,11 @@ function OrgRow({
               {!repoConnected ? 'Atar al repo' : env.workflowOutdated && !env.repoSecretsStale ? 'Actualizar workflow' : 'Volver a atar'}
             </Button>
           )}
+          {!needsReconnect && repoConnected && !picking && repos.length > 0 && (
+            <Button size="sm" variant="ghost" onClick={openPicker} disabled={busy !== null}>
+              Cambiar repo
+            </Button>
+          )}
           {needsReconnect && (
             <Button size="sm" variant="secondary" onClick={() => onReconnect(env)} disabled={busy !== null}>
               Reconectar
@@ -231,7 +248,7 @@ function OrgRow({
               onClick={handleConnectRepo}
               disabled={busy !== null || !targetRepo || !targetBranch.trim()}
             >
-              Atar
+              {repoConnected ? 'Guardar' : 'Atar'}
             </Button>
           </div>
         </div>
