@@ -431,7 +431,7 @@ export async function createRealIssue(
  */
 export async function updateRealIssue(
   id: string,
-  updates: Partial<Issue> & { repoFullName?: string }
+  updates: Partial<Issue> & { repoFullName?: string; confirmKeepExecution?: boolean }
 ) {
   const actionRes = await callPlatformAction('issues.update', { id, ...updates });
   if (!actionRes) throw new Error('No se pudo actualizar el issue.');

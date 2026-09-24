@@ -83,6 +83,7 @@ export interface RunnerJob {
   agentId: string;
   runnerId: string;
   repoFullName: string;
+  mode: AgentRunMode;
   issuedAt: string;
   expiresAt: string;
   signature: string;

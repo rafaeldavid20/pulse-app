@@ -22,7 +22,7 @@ import { ancestorsOf, childrenOf, progressOf, validParentsFor } from '@/lib/hier
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
 import { resolveRepo, describeRepoSource } from '@/lib/repo';
-import { assignExecutionAgent, createComment, createIssueBranch, listAgents, subscribeIssueComments, type AgentSummary } from '@/lib/firestore';
+import { assignExecutionAgent, createComment, createIssueBranch, listAgents, subscribeIssueComments, updateRealIssue, type AgentSummary } from '@/lib/firestore';
 import { SelectPopover } from '@/components/ui/SelectPopover';
 
 interface IssuePeekBodyProps {
@@ -990,6 +990,26 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
     }
   };
 
+  const handleResponsibleChange = async (memberId: string) => {
+    const nextResponsible = memberId || undefined;
+    const changesResponsible = nextResponsible !== responsibleMemberId;
+    let confirmKeepExecution = false;
+    if (changesResponsible && issue.execution?.agentId && isAdmin) {
+      confirmKeepExecution = window.confirm(
+        'Este issue tiene un agente ejecutor. ¿Querés conservarlo? Solo es válido para un agente público o para tu propio agente personal.'
+      );
+    }
+    setAgentsError(null);
+    try {
+      // No hacemos update optimista: `confirmKeepExecution` es un comando de
+      // una sola vez, no un campo del issue, y el snapshot trae el resultado
+      // autorizado (ejecutor conservado o limpiado) desde el servidor.
+      await updateRealIssue(issue.id, { assigneeId: nextResponsible, confirmKeepExecution });
+    } catch (error) {
+      setAgentsError(error instanceof Error ? error.message : 'No se pudo reasignar el responsable.');
+    }
+  };
+
   return (
     <div
       onAnimationEnd={() => setEntered(true)}
@@ -1091,7 +1111,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             </span>
             <SelectPopover
               value={responsibleMemberId || ''}
-              onChange={(v) => updateIssue(issue.id, { assigneeId: v || undefined })}
+              onChange={handleResponsibleChange}
               ariaLabel="Responsable humano"
               placeholder="Sin asignar"
               options={[
