@@ -34,6 +34,13 @@ const jobStatusClass: Record<RunnerJobSummary['status'], string> = {
   canceled: 'text-slate-600 bg-slate-50 border-slate-200', expired: 'text-orange-700 bg-orange-50 border-orange-200',
 };
 
+const HEARTBEAT_TTL_MS = 2 * 60 * 1000;
+
+function runnerDisplayStatus(runner: RunnerSummary): RunnerSummary['status'] {
+  if (runner.status === 'online' && (!runner.lastHeartbeatAt || Date.now() - new Date(runner.lastHeartbeatAt).getTime() > HEARTBEAT_TTL_MS)) return 'offline';
+  return runner.status;
+}
+
 export function RunnersSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const members = useAppStore((s) => s.members);
@@ -157,10 +164,14 @@ export function RunnersSection() {
         <div className="flex flex-col divide-y divide-subtle border border-default rounded-lg overflow-hidden">
           {runners.map((runner) => (
             <div key={runner.id} className="flex flex-col gap-3 p-4 bg-elevated sm:flex-row sm:items-center sm:justify-between">
+              {(() => {
+                const displayedStatus = runnerDisplayStatus(runner);
+                const heartbeatExpired = runner.status === 'online' && displayedStatus === 'offline';
+                return <>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium text-primary">{runner.displayName}</span>
-                  <Badge variant="outline"><span className={cn('w-1.5 h-1.5 rounded-full', statusClass[runner.status])} />{statusLabel[runner.status]}</Badge>
+                  <Badge variant="outline"><span className={cn('w-1.5 h-1.5 rounded-full', statusClass[displayedStatus])} />{heartbeatExpired ? 'Heartbeat vencido' : statusLabel[displayedStatus]}</Badge>
                   {runner.revokedAt && <Badge variant="outline">Revocado</Badge>}
                 </div>
                 <p className="mt-1 text-xs text-secondary">
@@ -178,6 +189,8 @@ export function RunnersSection() {
                   Revocar
                 </Button>
               </div>
+                </>;
+              })()}
             </div>
           ))}
         </div>
