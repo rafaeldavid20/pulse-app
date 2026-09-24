@@ -61,7 +61,10 @@ function OrgRow({
   };
 
   const handleConnectRepo = async () => {
-    if (needsTarget && !picking) {
+    // "Atar al repo" siempre deja elegir: un entorno puede tener un repo
+    // guardado sin haberse atado nunca, y atarlo directo a ése no dejaba
+    // cambiarlo (TES-283). "Volver a atar"/"Actualizar workflow" sí van directo.
+    if (!picking && (needsTarget || !repoConnected)) {
       openPicker();
       return;
     }
