@@ -22,7 +22,7 @@ import {
   listAgents,
   updateAgent,
 } from '@/lib/firestore';
-import { AgentQaMode, AgentRole } from '@/types';
+import { AgentKind, AgentQaMode, AgentRole } from '@/types';
 
 /**
  * Las condiciones que `qaDispatchTrigger` exige para elegir un agente QA
@@ -66,7 +66,7 @@ function CreateAgentModal({
   const [displayName, setDisplayName] = useState('');
   const [agentId, setAgentId] = useState('');
   const [agentIdEdited, setAgentIdEdited] = useState(false);
-  const [kind, setKind] = useState('claude');
+  const [kind, setKind] = useState<AgentKind>('claude');
   const [role, setRole] = useState<AgentRole>('dev');
   const [reviewRepo, setReviewRepo] = useState('');
   const [defaultRepo, setDefaultRepo] = useState('');
@@ -153,11 +153,11 @@ function CreateAgentModal({
           <label className="text-xs font-semibold text-secondary">Tipo</label>
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value)}
+            onChange={(e) => setKind(e.target.value as AgentKind)}
             className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
           >
             <option value="claude">Claude</option>
-            <option value="chatgpt">ChatGPT</option>
+            <option value="codex">Codex</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">
