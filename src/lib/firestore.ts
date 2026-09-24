@@ -1247,6 +1247,10 @@ export interface ConnectEnvironmentRepoResult {
   workflowPath: string;
   workflowCreated: boolean;
   trackingBranches: string[];
+  /** Repos de los que se desató el entorno al cambiarlo de repo (TES-282). */
+  detachedFrom?: string[];
+  /** Lo que no se pudo limpiar del repo viejo; el cambio igual se completó. */
+  warnings?: string[];
 }
 
 /**
