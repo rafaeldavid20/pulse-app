@@ -15,6 +15,7 @@ import {
   ChevronUp,
   Zap,
   RotateCw,
+  Bot,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -52,6 +53,7 @@ export const Sidebar: React.FC = () => {
   const navItems = [
     { label: 'Inbox', icon: Inbox, href: '/inbox', shortcut: 'G I' },
     { label: 'Mis Issues', icon: UserCheck, href: '/my-issues', shortcut: 'G M' },
+    { label: 'Agentes', icon: Bot, href: '/agents', shortcut: '' },
   ];
 
   const teamNavItems = [

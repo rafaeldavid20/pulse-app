@@ -792,6 +792,44 @@ export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
   return actionRes.agents;
 }
 
+/** Usage returned by the authorized backend action. Input includes cache tokens;
+ * cache fields are a breakdown, never added to input again. Missing usage is null. */
+export interface RunnerTokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
+}
+
+export interface RunnerUsageRun {
+  id: string;
+  jobId: string;
+  issueId: string;
+  agentId: string;
+  runnerId: string;
+  provider: 'claude' | 'codex';
+  mode: string;
+  startedAt: string;
+  outcome?: string;
+  runUrl?: string;
+  usage: RunnerTokenUsage | null;
+  costUsd?: number;
+}
+
+export interface RunnerUsageResponse {
+  agents: Pick<AgentSummary, 'id' | 'displayName' | 'kind' | 'runnerId'>[];
+  runs: RunnerUsageRun[];
+}
+
+/** The server enforces workspace membership, agent visibility and Runner origin. */
+export async function getRunnerUsage(workspaceId: string, from: string, to: string): Promise<RunnerUsageResponse> {
+  const result = await callPlatformAction<RunnerUsageResponse>('agents.getUsage', { workspaceId, from, to });
+  if (!result || !Array.isArray(result.agents) || !Array.isArray(result.runs)) {
+    throw new Error('No se pudo cargar el consumo de agentes.');
+  }
+  return result;
+}
+
 export async function updateAgent(
   agentId: string,
   data: Partial<
