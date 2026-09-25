@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Layers,
   Check,
+  Bot,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
@@ -163,6 +164,14 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
 
         {/* Action Links */}
         <div className="flex flex-col gap-1 pt-2 border-t border-subtle">
+          <Link
+            href="/agents"
+            onClick={onClose}
+            className="flex items-center gap-3 p-3 rounded-xl text-xs text-secondary hover:text-primary bg-elevated border border-default transition-colors"
+          >
+            <Bot className="w-4 h-4 text-accent" />
+            <span>Consumo de agentes</span>
+          </Link>
           <button
             onClick={() => {
               onClose();

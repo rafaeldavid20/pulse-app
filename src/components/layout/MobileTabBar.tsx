@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Layers, FolderKanban, Inbox, UserCheck, Menu } from 'lucide-react';
+import { Layers, FolderKanban, Inbox, UserCheck, Menu, Bot } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { cn } from '@/lib/utils';
@@ -37,6 +37,11 @@ export const MobileTabBar: React.FC = () => {
       label: 'Mis Issues',
       icon: UserCheck,
       href: '/my-issues',
+    },
+    {
+      label: 'Agentes',
+      icon: Bot,
+      href: '/agents',
     },
   ];
 
