@@ -93,6 +93,7 @@ function logPlatformActionFallback(actionCode: string, reason: 'error' | 'unsucc
 interface PlatformActionEnvelope<T> {
   success?: boolean;
   data?: T;
+  error?: string;
 }
 
 export async function callPlatformAction<T = unknown>(
@@ -844,6 +845,17 @@ export async function createAgent(
   });
   if (!actionRes) throw new Error('No se pudo crear el agente.');
   return actionRes.agent;
+}
+
+export async function deleteAgent(agentId: string): Promise<void> {
+  // Deletion needs the backend's reason (active jobs or recorded activity),
+  // while callPlatformAction intentionally turns failures into null.
+  const pulsePlatformAction = httpsCallable(functions, 'pulsePlatformAction');
+  const result = await pulsePlatformAction({ actionCode: 'agents.delete', data: { agentId } });
+  const payload = result.data as PlatformActionEnvelope<unknown>;
+  if (!payload?.success) {
+    throw new Error(payload?.error || 'No se pudo eliminar el agente.');
+  }
 }
 
 export interface QaCalibrationSummary {
