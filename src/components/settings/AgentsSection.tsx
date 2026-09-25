@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bot, Loader2, Plus, GitBranch, Scale } from 'lucide-react';
+import { Bot, Loader2, Plus, GitBranch, Scale, Trash2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -17,6 +17,7 @@ import {
   QaCalibrationSummary,
   connectAgentRepo,
   createAgent,
+  deleteAgent,
   disconnectAgentRepo,
   getGithubStatus,
   getQaCalibration,
@@ -529,10 +530,14 @@ function QaCalibrationPanel({ agentId }: { agentId: string }) {
 
 export function AgentsSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const members = useAppStore((s) => s.members);
+  const { user } = useAuth();
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ agentId: string; message: string } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [repos, setRepos] = useState<string[]>([]);
   const [canConnect, setCanConnect] = useState(false);
@@ -540,6 +545,8 @@ export function AgentsSection() {
   const [runners, setRunners] = useState<RunnerSummary[]>([]);
 
   const workspaceId = activeWorkspace?.id;
+  const currentMember = members.find((member) => member.workspaceId === workspaceId && member.userId === user?.uid);
+  const isWorkspaceAdmin = currentMember?.role === 'owner' || currentMember?.role === 'admin';
 
   const refresh = useCallback(async () => {
     if (!workspaceId) return;
@@ -646,6 +653,23 @@ export function AgentsSection() {
       alert(err instanceof Error ? err.message : 'No se pudo vincular el Runner.');
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleDelete = async (agent: AgentSummary) => {
+    if (!window.confirm(`¿Eliminar el agente personal «${agent.displayName}»? Esta acción no se puede deshacer.`)) return;
+    setDeletingId(agent.id);
+    setDeleteError(null);
+    try {
+      await deleteAgent(agent.id);
+      setAgents((prev) => prev.filter((item) => item.id !== agent.id));
+    } catch (err) {
+      setDeleteError({
+        agentId: agent.id,
+        message: err instanceof Error ? err.message : 'No se pudo eliminar el agente.',
+      });
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -803,6 +827,24 @@ export function AgentsSection() {
               {agent.role === 'qa' && (
                 <div className="pt-1 border-t border-subtle">
                   <QaCalibrationPanel agentId={agent.id} />
+                </div>
+              )}
+
+              {agent.visibility === 'personal' && (isWorkspaceAdmin || agent.ownerMemberId === user?.uid) && (
+                <div className="flex flex-col items-start gap-2 pt-1 border-t border-subtle">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={deletingId === agent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    disabled={deletingId !== null || savingId === agent.id}
+                    onClick={() => handleDelete(agent)}
+                    aria-label={`Eliminar agente ${agent.displayName}`}
+                  >
+                    Eliminar agente
+                  </Button>
+                  {deleteError?.agentId === agent.id && (
+                    <p role="alert" className="text-xs text-priority-urgent">{deleteError.message}</p>
+                  )}
                 </div>
               )}
             </div>
