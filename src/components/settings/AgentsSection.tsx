@@ -49,7 +49,10 @@ function effectiveAgentRepos(agent: AgentSummary): string[] {
 
 function runnerIneligibility(agent: AgentSummary, runner: RunnerSummary): string | null {
   if (runner.revokedAt) return 'está revocado';
-  if (agent.visibility !== 'public' && runner.ownerMemberId !== agent.ownerMemberId) return 'pertenece a otro usuario';
+  // Los agentes legacy no tenían visibility; el backend los trata como
+  // públicos para conservarlos administrables. La UI debe aplicar la misma
+  // regla para no ocultar Runners válidos detrás de un falso error de dueño.
+  if ((agent.visibility ?? 'public') !== 'public' && runner.ownerMemberId !== agent.ownerMemberId) return 'pertenece a otro usuario';
   const missing = effectiveAgentRepos(agent).filter((repo) => !runner.connectedRepos.includes(repo));
   if (missing.length) return `no cubre ${missing.join(', ')}`;
   return null;
@@ -688,7 +691,7 @@ export function AgentsSection() {
                       {agent.displayName}
                     </span>
                     <Badge variant="outline">{agent.role === 'qa' ? 'QA' : 'Dev'}</Badge>
-                    <Badge variant="outline">{agent.visibility === 'public' ? 'Público' : 'Personal'}</Badge>
+                    <Badge variant="outline">{(agent.visibility ?? 'public') === 'public' ? 'Público' : 'Personal'}</Badge>
                   </div>
                   <span
                     className="text-xs text-tertiary font-mono truncate"
