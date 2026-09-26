@@ -970,12 +970,9 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
   const responsibleMemberId = members.some((member) => member.userId === responsibleCandidate && !member.isAgent)
     ? responsibleCandidate
     : undefined;
-  const currentMember = members.find((member) => member.userId === user?.uid);
-  const isAdmin = currentMember?.role === 'owner' || currentMember?.role === 'admin';
   const eligibleAgents = agents.filter((agent) => {
     const visibility = agent.visibility || 'public';
-    if (visibility === 'public') return isAdmin;
-    return agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid;
+    return visibility === 'personal' && agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid;
   });
 
   const handleExecutionAgent = async (agentId: string) => {
