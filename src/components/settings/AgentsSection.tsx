@@ -46,8 +46,7 @@ function qaDispatchBlockers(agent: AgentSummary): string[] {
 
 function canDeleteAgent(agent: AgentSummary, userId: string | undefined, isWorkspaceAdmin: boolean): boolean {
   if (agent.ownerMemberId && agent.ownerMemberId === userId) return true;
-  if (agent.visibility === 'personal') return isWorkspaceAdmin;
-  // Old public agents may not have a recorded creator; keep them manageable by admins.
+  // Old agents may not have a recorded creator; keep them manageable by admins.
   return !agent.ownerMemberId && isWorkspaceAdmin;
 }
 
