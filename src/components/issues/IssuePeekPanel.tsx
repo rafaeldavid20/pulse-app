@@ -618,7 +618,9 @@ function RepoSection({ issue }: { issue: Issue }) {
               placeholder="Sin definir"
               className="max-w-[62%]"
               options={members
-                .filter((m) => m.isAgent)
+                .filter((m) => m.isAgent && agents.some((agent) =>
+                  agent.id === m.userId && (agent.visibility || 'public') === 'public'
+                ))
                 .map((m) => ({
                   value: m.userId,
                   label: `${m.displayName}${m.agentKind ? ` (${m.agentKind})` : ''}`,
@@ -629,8 +631,8 @@ function RepoSection({ issue }: { issue: Issue }) {
 
         {isEpicIssue && (
           <p className="text-[11px] text-tertiary">
-            Preselecciona el asignado al crear issues dentro de esta épica. No los reasigna solo:
-            un issue que dejaste sin asignar sigue sin asignar.
+            El agente público se asigna al crear issues dentro de esta épica. Los agentes privados
+            solo se pueden elegir manualmente por su dueño.
           </p>
         )}
       </div>
