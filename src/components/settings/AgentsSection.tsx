@@ -44,19 +44,12 @@ function qaDispatchBlockers(agent: AgentSummary): string[] {
   return blockers;
 }
 
-function effectiveAgentRepos(agent: AgentSummary): string[] {
-  if (agent.allowedRepos?.length) return agent.allowedRepos;
-  return agent.connectedRepos?.map((connection) => connection.repoFullName).filter(Boolean) ?? [];
-}
-
 function runnerIneligibility(agent: AgentSummary, runner: RunnerSummary): string | null {
   if (runner.revokedAt) return 'está revocado';
   // Los agentes legacy no tenían visibility; el backend los trata como
   // públicos para conservarlos administrables. La UI debe aplicar la misma
   // regla para no ocultar Runners válidos detrás de un falso error de dueño.
   if ((agent.visibility ?? 'public') !== 'public' && runner.ownerMemberId !== agent.ownerMemberId) return 'pertenece a otro usuario';
-  const missing = effectiveAgentRepos(agent).filter((repo) => !runner.connectedRepos.includes(repo));
-  if (missing.length) return `no cubre ${missing.join(', ')}`;
   return null;
 }
 
@@ -813,7 +806,7 @@ export function AgentsSection() {
                         ]}
                       />
                       {currentReason ? <span className="max-w-56 text-right text-[10px] text-priority-urgent">Runner actual no disponible: {currentReason}.</span>
-                        : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner compatible con dueño y repos permitidos.</span>}
+                        : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner disponible para este dueño.</span>}
                     </div>;
                   })()}
                 </div>

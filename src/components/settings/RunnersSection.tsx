@@ -54,7 +54,6 @@ export function RunnersSection() {
   const [pairing, setPairing] = useState(false);
   const [runnerName, setRunnerName] = useState('');
   const [publicKey, setPublicKey] = useState('');
-  const [connectedRepos, setConnectedRepos] = useState('');
   const [pairingBusy, setPairingBusy] = useState(false);
   const workspaceId = activeWorkspace?.id;
 
@@ -125,10 +124,8 @@ export function RunnersSection() {
     event.preventDefault();
     setPairingBusy(true); setError(null);
     try {
-      const repos = connectedRepos.split(/[,\n]/).map((repo) => repo.trim()).filter(Boolean);
-      if (repos.some((repo) => !/^[^/\s]+\/[^/\s]+$/.test(repo))) throw new Error('Cada repositorio debe tener formato owner/repo.');
-      const result = await registerRunner(workspaceId!, { displayName: runnerName, publicKey, connectedRepos: repos });
-      setCredential(result.deviceCredential); setPairing(false); setRunnerName(''); setPublicKey(''); setConnectedRepos(''); await refresh();
+      const result = await registerRunner(workspaceId!, { displayName: runnerName, publicKey });
+      setCredential(result.deviceCredential); setPairing(false); setRunnerName(''); setPublicKey(''); await refresh();
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo vincular el Runner.'); }
     finally { setPairingBusy(false); }
   };
@@ -180,8 +177,8 @@ export function RunnersSection() {
                 <p className="mt-1 text-xs text-secondary">
                   Dueño: {ownerName(runner.ownerMemberId)} · Capacidad: {runner.maxConcurrentJobs} job{runner.maxConcurrentJobs === 1 ? '' : 's'}
                 </p>
-                <p className="mt-1 text-[11px] text-tertiary truncate" title={runner.connectedRepos.join(', ')}>
-                  {runner.lastHeartbeatAt ? `Último heartbeat ${formatTimeAgo(runner.lastHeartbeatAt)}` : 'Sin heartbeat todavía'} · {runner.connectedRepos.length ? runner.connectedRepos.join(', ') : 'Sin repos configurados'}
+                <p className="mt-1 text-[11px] text-tertiary truncate">
+                  {runner.lastHeartbeatAt ? `Último heartbeat ${formatTimeAgo(runner.lastHeartbeatAt)}` : 'Sin heartbeat todavía'} · Repos autorizados por proyecto
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -242,10 +239,9 @@ export function RunnersSection() {
       </Modal>
       <Modal isOpen={pairing} onClose={() => setPairing(false)} title="Vincular Pulse Runner" maxWidth="lg">
         <form onSubmit={handlePair} className="flex flex-col gap-4">
-          <p className="text-sm text-secondary">Ejecutá <code>pulse-runner init</code>, pegá la clave pública que muestra y definí los repositorios que podrá ejecutar. Pulse devuelve una credencial de dispositivo una sola vez.</p>
+          <p className="text-sm text-secondary">Ejecutá <code>pulse-runner init</code> y pegá la clave pública que muestra. El acceso a repositorios se toma de cada proyecto. Pulse devuelve una credencial de dispositivo una sola vez.</p>
           <Input required placeholder="Nombre, ej. Mac de Ana" value={runnerName} onChange={(event) => setRunnerName(event.target.value)} />
           <textarea required placeholder="Clave pública del Runner" value={publicKey} onChange={(event) => setPublicKey(event.target.value)} className="min-h-28 bg-elevated border border-default rounded-md p-3 text-xs text-primary" />
-          <textarea required placeholder="Repositorios permitidos, uno por línea: owner/repo" value={connectedRepos} onChange={(event) => setConnectedRepos(event.target.value)} className="min-h-20 bg-elevated border border-default rounded-md p-3 text-xs text-primary" />
           <div className="flex justify-end"><Button disabled={pairingBusy}>{pairingBusy ? 'Vinculando…' : 'Vincular'}</Button></div>
         </form>
       </Modal>

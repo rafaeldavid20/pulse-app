@@ -727,7 +727,7 @@ export interface RunnerSummary {
   displayName: string;
   status: 'online' | 'offline' | 'busy' | 'paused';
   maxConcurrentJobs: number;
-  connectedRepos: string[];
+  connectedRepos?: string[];
   lastHeartbeatAt?: string;
   revokedAt?: string;
 }
@@ -769,7 +769,7 @@ export async function retryRunnerJob(jobId: string): Promise<{ job: RunnerJobSum
   return actionRes;
 }
 
-export async function registerRunner(workspaceId: string, data: { displayName: string; publicKey: string; connectedRepos: string[]; maxConcurrentJobs?: number }): Promise<{ runner: RunnerSummary; deviceCredential: string }> {
+export async function registerRunner(workspaceId: string, data: { displayName: string; publicKey: string; maxConcurrentJobs?: number }): Promise<{ runner: RunnerSummary; deviceCredential: string }> {
   const actionRes = await callPlatformAction<{ runner: RunnerSummary; deviceCredential: string }>('runners.register', { workspaceId, ...data });
   if (!actionRes?.deviceCredential) throw new Error('No se pudo vincular el Runner.');
   return actionRes;
