@@ -44,6 +44,12 @@ function qaDispatchBlockers(agent: AgentSummary): string[] {
   return blockers;
 }
 
+function canDeleteAgent(agent: AgentSummary, userId: string | undefined, isWorkspaceAdmin: boolean): boolean {
+  if (agent.ownerMemberId && agent.ownerMemberId === userId) return true;
+  // Old agents may not have a recorded creator; keep them manageable by admins.
+  return !agent.ownerMemberId && isWorkspaceAdmin;
+}
+
 function effectiveAgentRepos(agent: AgentSummary): string[] {
   if (agent.allowedRepos?.length) return agent.allowedRepos;
   return agent.connectedRepos?.map((connection) => connection.repoFullName).filter(Boolean) ?? [];
@@ -659,7 +665,7 @@ export function AgentsSection() {
 
   const handleDelete = async (agent: AgentSummary) => {
     if (!window.confirm(
-      `¿Eliminar el agente personal «${agent.displayName}»? Se limpiarán sus asignaciones de issues y se revocarán sus claves de API. ` +
+      `¿Eliminar el agente «${agent.displayName}»? Se limpiarán sus asignaciones y valores por defecto en issues y se revocarán sus claves de API. ` +
       'Solo se pueden eliminar agentes sin ejecuciones ni jobs registrados. Esta acción no se puede deshacer.'
     )) return;
     setDeletingId(agent.id);
@@ -671,7 +677,11 @@ export function AgentsSection() {
       appStore.setMembers(appStore.members.filter((member) => member.userId !== agent.id));
       const issueStore = useIssueStore.getState();
       issueStore.setIssues(issueStore.issues.map((issue) =>
-        issue.execution?.agentId === agent.id ? { ...issue, execution: undefined } : issue
+        ({
+          ...issue,
+          ...(issue.execution?.agentId === agent.id ? { execution: undefined } : {}),
+          ...(issue.defaultAssigneeId === agent.id ? { defaultAssigneeId: undefined } : {}),
+        })
       ));
     } catch (err) {
       setDeleteError({
@@ -840,7 +850,7 @@ export function AgentsSection() {
                 </div>
               )}
 
-              {agent.visibility === 'personal' && (isWorkspaceAdmin || agent.ownerMemberId === user?.uid) && (
+              {canDeleteAgent(agent, user?.uid, isWorkspaceAdmin) && (
                 <div className="flex flex-col items-start gap-2 pt-1 border-t border-subtle">
                   <Button
                     variant="danger"

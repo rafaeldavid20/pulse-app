@@ -618,7 +618,9 @@ function RepoSection({ issue }: { issue: Issue }) {
               placeholder="Sin definir"
               className="max-w-[62%]"
               options={members
-                .filter((m) => m.isAgent)
+                .filter((m) => m.isAgent && agents.some((agent) =>
+                  agent.id === m.userId && (agent.visibility || 'public') === 'public'
+                ))
                 .map((m) => ({
                   value: m.userId,
                   label: `${m.displayName}${m.agentKind ? ` (${m.agentKind})` : ''}`,
@@ -629,8 +631,8 @@ function RepoSection({ issue }: { issue: Issue }) {
 
         {isEpicIssue && (
           <p className="text-[11px] text-tertiary">
-            Preselecciona el asignado al crear issues dentro de esta épica. No los reasigna solo:
-            un issue que dejaste sin asignar sigue sin asignar.
+            El agente público se asigna al crear issues dentro de esta épica. Los agentes privados
+            solo se pueden elegir manualmente por su dueño.
           </p>
         )}
       </div>
@@ -970,12 +972,9 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
   const responsibleMemberId = members.some((member) => member.userId === responsibleCandidate && !member.isAgent)
     ? responsibleCandidate
     : undefined;
-  const currentMember = members.find((member) => member.userId === user?.uid);
-  const isAdmin = currentMember?.role === 'owner' || currentMember?.role === 'admin';
   const eligibleAgents = agents.filter((agent) => {
     const visibility = agent.visibility || 'public';
-    if (visibility === 'public') return isAdmin;
-    return agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid;
+    return visibility === 'personal' && agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid;
   });
 
   const handleExecutionAgent = async (agentId: string) => {
