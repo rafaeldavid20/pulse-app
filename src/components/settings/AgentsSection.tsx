@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { SelectPopover } from '@/components/ui/SelectPopover';
 import { useAppStore } from '@/stores/appStore';
+import { useIssueStore } from '@/stores/issueStore';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
@@ -657,12 +658,21 @@ export function AgentsSection() {
   };
 
   const handleDelete = async (agent: AgentSummary) => {
-    if (!window.confirm(`¿Eliminar el agente personal «${agent.displayName}»? Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm(
+      `¿Eliminar el agente personal «${agent.displayName}»? Se limpiarán sus asignaciones de issues y se revocarán sus claves de API. ` +
+      'Solo se pueden eliminar agentes sin ejecuciones ni jobs registrados. Esta acción no se puede deshacer.'
+    )) return;
     setDeletingId(agent.id);
     setDeleteError(null);
     try {
       await deleteAgent(agent.id);
       setAgents((prev) => prev.filter((item) => item.id !== agent.id));
+      const appStore = useAppStore.getState();
+      appStore.setMembers(appStore.members.filter((member) => member.userId !== agent.id));
+      const issueStore = useIssueStore.getState();
+      issueStore.setIssues(issueStore.issues.map((issue) =>
+        issue.execution?.agentId === agent.id ? { ...issue, execution: undefined } : issue
+      ));
     } catch (err) {
       setDeleteError({
         agentId: agent.id,
