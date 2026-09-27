@@ -85,9 +85,13 @@ export interface RunnerJob {
   agentId: string;
   runnerId: string;
   repoFullName: string;
+  /** Repos adicionales del mismo proyecto disponibles para este job. */
+  contextRepos?: string[];
   mode: AgentRunMode;
   issuedAt: string;
   expiresAt: string;
+  signatureAlgorithm: 'ed25519';
+  signingKeyId: string;
   signature: string;
 }
 
@@ -340,6 +344,9 @@ export interface Agent {
   ownerMemberId?: string;
   /** Ausente en agentes anteriores; se trata como `public` solo para admins. */
   visibility?: AgentVisibility;
+  /** Marca de archivado lógico; se conserva el documento y su historial. */
+  archivedAt?: string;
+  archivedBy?: string;
   /** Identidad del dispositivo/VM que recibirá los jobs del agente. */
   runnerId?: string;
   /** Límite explícito adicional a las conexiones de repo existentes. */
