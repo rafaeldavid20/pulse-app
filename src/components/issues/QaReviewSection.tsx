@@ -193,9 +193,9 @@ function AttemptTimelineRow({ attempt, isLast }: { attempt: IssueReviewAttempt; 
  * entre al loop de revisión (D3) no hay nada que mostrar acá.
  */
 export function QaReviewSection({ issue }: { issue: Issue }) {
-  const review = issue.review!;
+  const review = issue.review;
   const { agents } = useWorkspaceInfra();
-  const reviewerAgent = agents.find((a) => a.id === review.reviewerId || a.id === review.dispatchedTo);
+  const reviewerAgent = agents.find((a) => a.id === review?.reviewerId || a.id === review?.dispatchedTo);
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -207,10 +207,10 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
   const criteria = issue.acceptanceCriteria ?? [];
   const criterionText = (id: string) => criteria.find((c) => c.id === id)?.text ?? `Criterio ${id}`;
 
-  const findings = review.findings ?? [];
+  const findings = review?.findings ?? [];
   const byRepo = groupFindingsByRepo(findings);
   const multiRepo = byRepo.length > 1;
-  const attempts = allAttempts(review);
+  const attempts = review ? allAttempts(review) : [];
 
   const run = async (key: string, action: () => Promise<void>) => {
     setBusy(key);
@@ -243,6 +243,32 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
 
   const handleDismiss = (findingId: string, note: string) =>
     run(`dismiss:${findingId}`, () => dismissFinding(issue.id, findingId, note.trim() || undefined));
+
+  if (!review) {
+    return (
+      <div className="flex flex-col gap-2 p-3 bg-elevated border border-default rounded-lg">
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-semibold text-secondary uppercase tracking-wider">Revisión de QA</label>
+          <span className="text-[11px] text-tertiary">Todavía no despachada</span>
+        </div>
+        <p className="text-xs text-secondary">
+          No había un agente QA elegible cuando este issue entró en revisión. Corrige la configuración del agente y vuelve a despachar QA.
+        </p>
+        <div>
+          <button
+            type="button"
+            disabled={busy !== null}
+            onClick={handleRerun}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
+          >
+            {busy === 'rerun' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+            Despachar QA
+          </button>
+        </div>
+        {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3">
