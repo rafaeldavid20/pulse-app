@@ -663,6 +663,20 @@ export function AgentsSection() {
     }
   };
 
+  const handleRoleChange = async (agent: AgentSummary, role: AgentRole) => {
+    const previous = (agent.role === 'qa' ? 'qa' : 'dev') as AgentRole;
+    setAgents((items) => items.map((item) => item.id === agent.id ? { ...item, role } : item));
+    setSavingId(agent.id);
+    try {
+      await updateAgent(agent.id, { role });
+    } catch (err) {
+      setAgents((items) => items.map((item) => item.id === agent.id ? { ...item, role: previous } : item));
+      alert(err instanceof Error ? err.message : 'No se pudo cambiar el rol del agente.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleDelete = async (agent: AgentSummary) => {
     if (!window.confirm(
       `¿Eliminar el agente «${agent.displayName}»? Se limpiarán sus asignaciones y valores por defecto en issues y se revocarán sus claves de API. ` +
@@ -762,6 +776,19 @@ export function AgentsSection() {
                   agent.role === 'qa' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
                 )}
               >
+                <div className="flex items-center justify-between gap-2 min-w-0">
+                  <span className="text-secondary shrink-0">Rol</span>
+                  <SelectPopover
+                    value={agent.role === 'qa' ? 'qa' : 'dev'}
+                    onChange={(value) => handleRoleChange(agent, value as AgentRole)}
+                    disabled={savingId === agent.id}
+                    ariaLabel="Rol del agente"
+                    options={[
+                      { value: 'dev', label: 'Dev' },
+                      { value: 'qa', label: 'QA' },
+                    ]}
+                  />
+                </div>
                 {agent.role === 'qa' && (
                   <div className="flex items-center justify-between gap-2 min-w-0">
                     <span className="text-secondary shrink-0">Repo a revisar</span>
@@ -824,6 +851,7 @@ export function AgentsSection() {
                       />
                       {currentReason ? <span className="max-w-56 text-right text-[10px] text-priority-urgent">Runner actual no disponible: {currentReason}.</span>
                         : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner compatible con dueño y repos permitidos.</span>}
+                      {agent.role === 'qa' && <span className="max-w-56 text-right text-[10px] text-tertiary">Con Runner, QA corre localmente; sin Runner, usa GitHub Actions. Inicializa el Runner con la identidad de este agente.</span>}
                     </div>;
                   })()}
                 </div>

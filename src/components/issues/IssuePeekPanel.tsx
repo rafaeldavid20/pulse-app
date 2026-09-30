@@ -1221,7 +1221,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <AcceptanceCriteriaSection issue={issue} updateIssue={updateIssue} />
 
-        {issue.review && <QaReviewSection issue={issue} />}
+        {(issue.review || issue.status === 'in_review') && <QaReviewSection issue={issue} />}
 
         {/* Labels Section */}
         <div className="flex flex-col gap-2">
