@@ -195,7 +195,7 @@ function AttemptTimelineRow({ attempt, isLast }: { attempt: IssueReviewAttempt; 
 export function QaReviewSection({ issue }: { issue: Issue }) {
   const review = issue.review;
   const { agents } = useWorkspaceInfra();
-  const reviewerAgent = agents.find((a) => a.id === review?.reviewerId || a.id === review?.dispatchedTo);
+  const reviewerAgent = agents.find((a) => a.id === (review?.dispatchedTo || review?.reviewerId));
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -244,15 +244,17 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
   const handleDismiss = (findingId: string, note: string) =>
     run(`dismiss:${findingId}`, () => dismissFinding(issue.id, findingId, note.trim() || undefined));
 
-  if (!review) {
+  if (!review?.state) {
     return (
       <div className="flex flex-col gap-2 p-3 bg-elevated border border-default rounded-lg">
         <div className="flex items-center justify-between gap-2">
           <label className="text-xs font-semibold text-secondary uppercase tracking-wider">Revisión de QA</label>
-          <span className="text-[11px] text-tertiary">Todavía no despachada</span>
+          <span className="text-[11px] text-tertiary">{review?.dispatchedTo && !review.dispatchError ? 'Despachada' : 'Todavía no despachada'}</span>
         </div>
         <p className="text-xs text-secondary">
-          No había un agente QA elegible cuando este issue entró en revisión. Corrige la configuración del agente y vuelve a despachar QA.
+          {review?.dispatchError || (review?.dispatchedTo
+            ? `Revisión reservada para ${reviewerAgent?.displayName || review.dispatchedTo}${review.dispatchedAt ? ` · ${formatTimeAgo(review.dispatchedAt)}` : ''}.`
+            : 'Asigná un agente QA o configurá un QA autónomo para este repo y volvé a despachar QA.')}
         </p>
         <div>
           <button
@@ -272,6 +274,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {review.dispatchError && <p role="alert" className="text-xs text-priority-urgent">{review.dispatchError}</p>}
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
           Revisión de QA

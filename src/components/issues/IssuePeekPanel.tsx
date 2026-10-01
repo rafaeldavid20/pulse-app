@@ -902,6 +902,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [assigningExecutor, setAssigningExecutor] = useState(false);
+  const [assigningQa, setAssigningQa] = useState(false);
 
   useEffect(() => {
     if (!activeWorkspace?.id) return;
@@ -988,6 +989,18 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
       setAgentsError(error instanceof Error ? error.message : 'No se pudo asignar el agente ejecutor.');
     } finally {
       setAssigningExecutor(false);
+    }
+  };
+
+  const handleQaAgent = async (agentId: string) => {
+    setAssigningQa(true);
+    setAgentsError(null);
+    try {
+      await updateRealIssue(issue.id, { qaAssigneeId: agentId || null });
+    } catch (error) {
+      setAgentsError(error instanceof Error ? error.message : 'No se pudo asignar el agente QA.');
+    } finally {
+      setAssigningQa(false);
     }
   };
 
@@ -1138,6 +1151,28 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
                 ...eligibleAgents.map((agent) => ({
                   value: agent.id,
                   label: `${agent.displayName} · ${agent.visibility === 'public' ? 'Público' : 'Personal'}`,
+                })),
+              ]}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-secondary flex items-center gap-1.5">Agente QA</span>
+            <SelectPopover
+              value={issue.qaAssigneeId || ''}
+              onChange={handleQaAgent}
+              ariaLabel="Agente QA asignado"
+              placeholder="Automático"
+              disabled={assigningQa}
+              options={[
+                { value: '', label: 'Automático' },
+                ...agents.filter((agent) => agent.role === 'qa' && agent.id !== (issue.execution?.agentId || issue.assigneeId) && (agent.enabled || agent.id === issue.qaAssigneeId) && (
+                  (agent.visibility || 'public') === 'public'
+                    ? isAdmin
+                    : agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid
+                )).map((agent) => ({
+                  value: agent.id,
+                  label: `${agent.displayName}${agent.enabled ? '' : ' · Deshabilitado'}`,
                 })),
               ]}
             />

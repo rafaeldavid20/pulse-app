@@ -85,9 +85,13 @@ export interface RunnerJob {
   agentId: string;
   runnerId: string;
   repoFullName: string;
+  /** Repos adicionales del mismo proyecto disponibles para este job. */
+  contextRepos?: string[];
   mode: AgentRunMode;
   issuedAt: string;
   expiresAt: string;
+  signatureAlgorithm: 'ed25519';
+  signingKeyId: string;
   signature: string;
 }
 
@@ -784,6 +788,8 @@ export interface Issue {
   /** Default `'task'`. Los issues creados antes de la jerarquía se migran a `'task'`. */
   type: IssueType;
   assigneeId?: string;
+  /** QA elegido manualmente para revisar este issue, independiente del dev asignado. */
+  qaAssigneeId?: string | null;
   /** Responsable humano. En issues anteriores se deriva de `assigneeId`. */
   responsibleMemberId?: string;
   /** Agente que ejecuta el issue, si fue elegido explícitamente. */
@@ -1024,6 +1030,8 @@ export interface IssueReview extends IssueReviewAttempt {
    */
   dispatchedTo?: string;
   dispatchedAt?: string;
+  /** Motivo visible por el que QA no pudo despacharse; se limpia al despachar. */
+  dispatchError?: string;
   /**
    * Intentos ya cerrados, más viejo primero. Sin esto no hay métricas de D7
    * (intentos promedio, tasa de aprobación al primer intento) — solo
@@ -1262,6 +1270,7 @@ export const ISSUE_WRITABLE_FIELDS = [
   'type',
   'projectId',
   'assigneeId',
+  'qaAssigneeId',
   'labelIds',
   'parentId',
   'dueDate',
