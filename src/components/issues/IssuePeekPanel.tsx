@@ -1166,7 +1166,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               disabled={assigningQa}
               options={[
                 { value: '', label: 'Automático' },
-                ...agents.filter((agent) => agent.role === 'qa' && (agent.enabled || agent.id === issue.qaAssigneeId) && (
+                ...agents.filter((agent) => agent.role === 'qa' && agent.id !== (issue.execution?.agentId || issue.assigneeId) && (agent.enabled || agent.id === issue.qaAssigneeId) && (
                   (agent.visibility || 'public') === 'public'
                     ? isAdmin
                     : agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid

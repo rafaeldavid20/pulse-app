@@ -85,9 +85,13 @@ export interface RunnerJob {
   agentId: string;
   runnerId: string;
   repoFullName: string;
+  /** Repos adicionales del mismo proyecto disponibles para este job. */
+  contextRepos?: string[];
   mode: AgentRunMode;
   issuedAt: string;
   expiresAt: string;
+  signatureAlgorithm: 'ed25519';
+  signingKeyId: string;
   signature: string;
 }
 
@@ -1026,6 +1030,8 @@ export interface IssueReview extends IssueReviewAttempt {
    */
   dispatchedTo?: string;
   dispatchedAt?: string;
+  /** Motivo visible por el que QA no pudo despacharse; se limpia al despachar. */
+  dispatchError?: string;
   /**
    * Intentos ya cerrados, más viejo primero. Sin esto no hay métricas de D7
    * (intentos promedio, tasa de aprobación al primer intento) — solo
