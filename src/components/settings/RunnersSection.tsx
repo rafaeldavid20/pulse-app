@@ -221,6 +221,7 @@ export function RunnersSection() {
                     <p className="mt-1 text-[11px] text-tertiary truncate" title={job.issueId}>
                       Issue {job.issueId} · {runner?.displayName || job.runnerId}{job.retryOf ? ' · reintento' : ''}{job.retriedByJobId ? ' · reintentado' : ''}
                     </p>
+                    {job.failure && <p className="mt-1 text-[11px] text-secondary">{job.failure.category === 'configuration' ? 'Configuración' : job.failure.category === 'local_preparation' ? 'Preparación local' : 'Ejecución'} · {job.failure.phase} · Correlación: <code>{job.failure.correlationId}</code></p>}
                     {job.result && <p className="mt-1 text-[11px] text-secondary truncate" title={job.result}>{job.result}</p>}
                   </div>
                   {retryable && <Button size="sm" variant="secondary" disabled={workingId === job.id} onClick={() => handleRetry(job)} icon={workingId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}>Reintentar</Button>}

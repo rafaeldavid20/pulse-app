@@ -722,6 +722,22 @@ export interface AgentSummary {
   qaMode?: AgentQaMode;
 }
 
+export interface RunnerPreflightResult {
+  ready: boolean;
+  problems: Array<{ code: string; message: string; action: string }>;
+  identity: { agentId: string; kind: string; role: string } | null;
+  checkedAt: string | null;
+  runnerId: string | null;
+  provider: string;
+  role: string;
+}
+
+export async function preflightRunnerAgent(agentId: string, repos: string[]): Promise<RunnerPreflightResult> {
+  const response = await callPlatformAction<RunnerPreflightResult>('runners.preflight', { agentId, repos });
+  if (!response) throw new Error('No se pudo verificar el agente.');
+  return response;
+}
+
 export interface RunnerSummary {
   id: string;
   workspaceId: string;
@@ -749,6 +765,7 @@ export interface RunnerJobSummary {
   completedAt?: string;
   expiredAt?: string;
   result?: string | null;
+  failure?: { phase: string; category: 'configuration' | 'local_preparation' | 'execution'; correlationId: string } | null;
   retryOf?: string;
   retriedByJobId?: string;
 }
