@@ -734,12 +734,14 @@ export function AgentsSection() {
       ) : (
         <div className="flex flex-col">
           {(showArchived ? archivedAgents : agents).map((agent, index) => showArchived ? (
-            <div key={agent.id} className={cn('flex items-center justify-between gap-3 py-4', index > 0 && 'border-t border-subtle')}>
-              <div className="flex flex-col gap-1 min-w-0">
-                <span className="text-sm font-medium text-primary truncate">{agent.displayName}</span>
-                <span className="text-xs text-tertiary">{agent.kind} · {agent.role === 'qa' ? 'QA' : 'Dev'} · Archivado {agent.archivedAt ? new Date(agent.archivedAt).toLocaleDateString() : ''}</span>
+            <div key={agent.id} className={cn('flex flex-col gap-2 py-4', index > 0 && 'border-t border-subtle')}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="text-sm font-medium text-primary truncate">{agent.displayName}</span>
+                  <span className="text-xs text-tertiary">{agent.kind} · {agent.role === 'qa' ? 'QA' : 'Dev'} · Archivado {agent.archivedAt ? new Date(agent.archivedAt).toLocaleDateString() : ''}</span>
+                </div>
+                {canDeleteAgent(agent, user?.uid, isWorkspaceAdmin) && <Button variant="secondary" size="sm" disabled={deletingId !== null} icon={deletingId === agent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} onClick={() => handleRestore(agent)}>Restaurar</Button>}
               </div>
-              {canDeleteAgent(agent, user?.uid, isWorkspaceAdmin) && <Button variant="secondary" size="sm" disabled={deletingId !== null} icon={deletingId === agent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} onClick={() => handleRestore(agent)}>Restaurar</Button>}
               {deleteError?.agentId === agent.id && <p role="alert" className="text-xs text-priority-urgent">{deleteError.message}</p>}
             </div>
           ) : (
