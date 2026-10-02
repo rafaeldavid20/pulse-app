@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Bot, Loader2, Plus, GitBranch, Scale, Trash2 } from 'lucide-react';
+import { Bot, Loader2, Plus, GitBranch, Scale, Archive, RotateCcw } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { SelectPopover } from '@/components/ui/SelectPopover';
 import { useAppStore } from '@/stores/appStore';
-import { useIssueStore } from '@/stores/issueStore';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
@@ -18,11 +17,12 @@ import {
   QaCalibrationSummary,
   connectAgentRepo,
   createAgent,
-  deleteAgent,
+  archiveAgent,
   disconnectAgentRepo,
   getGithubStatus,
   getQaCalibration,
   listAgents,
+  restoreAgent,
   listRunners,
   RunnerSummary,
   updateAgent,
@@ -540,6 +540,8 @@ export function AgentsSection() {
   const members = useAppStore((s) => s.members);
   const { user } = useAuth();
   const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [archivedAgents, setArchivedAgents] = useState<AgentSummary[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -560,8 +562,11 @@ export function AgentsSection() {
     setLoading(true);
     setLoadError(null);
     try {
-      const [result, runnerResult] = await Promise.all([listAgents(workspaceId), listRunners(workspaceId)]);
+      const [result, archivedResult, runnerResult] = await Promise.all([
+        listAgents(workspaceId), listAgents(workspaceId, true), listRunners(workspaceId),
+      ]);
       setAgents(result);
+      setArchivedAgents(archivedResult);
       setRunners(runnerResult);
 
       // El estado de GitHub no es esencial para listar agentes: si falla, la
@@ -663,45 +668,33 @@ export function AgentsSection() {
     }
   };
 
-  const handleRoleChange = async (agent: AgentSummary, role: AgentRole) => {
-    const previous = (agent.role === 'qa' ? 'qa' : 'dev') as AgentRole;
-    setAgents((items) => items.map((item) => item.id === agent.id ? { ...item, role } : item));
-    setSavingId(agent.id);
-    try {
-      await updateAgent(agent.id, { role });
-    } catch (err) {
-      setAgents((items) => items.map((item) => item.id === agent.id ? { ...item, role: previous } : item));
-      alert(err instanceof Error ? err.message : 'No se pudo cambiar el rol del agente.');
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const handleDelete = async (agent: AgentSummary) => {
-    if (!window.confirm(
-      `¿Eliminar el agente «${agent.displayName}»? Se limpiarán sus asignaciones y valores por defecto en issues y se revocarán sus claves de API. ` +
-      'Solo se pueden eliminar agentes sin ejecuciones ni jobs registrados. Esta acción no se puede deshacer.'
-    )) return;
+  const handleArchive = async (agent: AgentSummary) => {
+    if (!window.confirm(`¿Archivar «${agent.displayName}»? Dejará de estar disponible para nuevas asignaciones. Se conservarán su historial, referencias y configuración, y podrás restaurarlo después.`)) return;
     setDeletingId(agent.id);
     setDeleteError(null);
     try {
-      await deleteAgent(agent.id);
+      const archived = await archiveAgent(agent.id);
       setAgents((prev) => prev.filter((item) => item.id !== agent.id));
-      const appStore = useAppStore.getState();
-      appStore.setMembers(appStore.members.filter((member) => member.userId !== agent.id));
-      const issueStore = useIssueStore.getState();
-      issueStore.setIssues(issueStore.issues.map((issue) =>
-        ({
-          ...issue,
-          ...(issue.execution?.agentId === agent.id ? { execution: undefined } : {}),
-          ...(issue.defaultAssigneeId === agent.id ? { defaultAssigneeId: undefined } : {}),
-        })
-      ));
+      setArchivedAgents((prev) => [archived, ...prev.filter((item) => item.id !== agent.id)]);
     } catch (err) {
       setDeleteError({
         agentId: agent.id,
         message: err instanceof Error ? err.message : 'No se pudo eliminar el agente.',
       });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleRestore = async (agent: AgentSummary) => {
+    setDeletingId(agent.id);
+    setDeleteError(null);
+    try {
+      const restored = await restoreAgent(agent.id);
+      setArchivedAgents((prev) => prev.filter((item) => item.id !== agent.id));
+      setAgents((prev) => [restored, ...prev.filter((item) => item.id !== agent.id)]);
+    } catch (err) {
+      setDeleteError({ agentId: agent.id, message: err instanceof Error ? err.message : 'No se pudo restaurar el agente.' });
     } finally {
       setDeletingId(null);
     }
@@ -716,9 +709,12 @@ export function AgentsSection() {
           <Bot className="w-4 h-4 text-secondary" />
           <h3 className="text-base font-semibold text-primary">Agentes</h3>
         </div>
-        <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setModalOpen(true)}>
-          Crear agente
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setShowArchived((value) => !value)}>
+            {showArchived ? 'Ver activos' : `Ver archivados${archivedAgents.length ? ` (${archivedAgents.length})` : ''}`}
+          </Button>
+          {!showArchived && <Button size="sm" icon={<Plus className="w-3.5 h-3.5" />} onClick={() => setModalOpen(true)}>Crear agente</Button>}
+        </div>
       </div>
 
       <p className="text-xs text-secondary">
@@ -733,11 +729,22 @@ export function AgentsSection() {
         </div>
       ) : loadError ? (
         <p className="text-xs text-priority-urgent">{loadError}</p>
-      ) : agents.length === 0 ? (
-        <p className="text-xs text-tertiary py-2">Todavía no hay agentes en este workspace.</p>
+      ) : (showArchived ? archivedAgents : agents).length === 0 ? (
+        <p className="text-xs text-tertiary py-2">{showArchived ? 'No hay agentes archivados.' : 'Todavía no hay agentes en este workspace.'}</p>
       ) : (
         <div className="flex flex-col">
-          {agents.map((agent, index) => (
+          {(showArchived ? archivedAgents : agents).map((agent, index) => showArchived ? (
+            <div key={agent.id} className={cn('flex flex-col gap-2 py-4', index > 0 && 'border-t border-subtle')}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <span className="text-sm font-medium text-primary truncate">{agent.displayName}</span>
+                  <span className="text-xs text-tertiary">{agent.kind} · {agent.role === 'qa' ? 'QA' : 'Dev'} · Archivado {agent.archivedAt ? new Date(agent.archivedAt).toLocaleDateString() : ''}</span>
+                </div>
+                {canDeleteAgent(agent, user?.uid, isWorkspaceAdmin) && <Button variant="secondary" size="sm" disabled={deletingId !== null} icon={deletingId === agent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} onClick={() => handleRestore(agent)}>Restaurar</Button>}
+              </div>
+              {deleteError?.agentId === agent.id && <p role="alert" className="text-xs text-priority-urgent">{deleteError.message}</p>}
+            </div>
+          ) : (
             <div
               key={agent.id}
               className={cn('flex flex-col gap-3 py-4', index > 0 && 'border-t border-subtle')}
@@ -776,19 +783,6 @@ export function AgentsSection() {
                   agent.role === 'qa' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
                 )}
               >
-                <div className="flex items-center justify-between gap-2 min-w-0">
-                  <span className="text-secondary shrink-0">Rol</span>
-                  <SelectPopover
-                    value={agent.role === 'qa' ? 'qa' : 'dev'}
-                    onChange={(value) => handleRoleChange(agent, value as AgentRole)}
-                    disabled={savingId === agent.id}
-                    ariaLabel="Rol del agente"
-                    options={[
-                      { value: 'dev', label: 'Dev' },
-                      { value: 'qa', label: 'QA' },
-                    ]}
-                  />
-                </div>
                 {agent.role === 'qa' && (
                   <div className="flex items-center justify-between gap-2 min-w-0">
                     <span className="text-secondary shrink-0">Repo a revisar</span>
@@ -851,7 +845,6 @@ export function AgentsSection() {
                       />
                       {currentReason ? <span className="max-w-56 text-right text-[10px] text-priority-urgent">Runner actual no disponible: {currentReason}.</span>
                         : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner compatible con dueño y repos permitidos.</span>}
-                      {agent.role === 'qa' && <span className="max-w-56 text-right text-[10px] text-tertiary">Con Runner, QA corre localmente; sin Runner, usa GitHub Actions. Inicializa el Runner con la identidad de este agente.</span>}
                     </div>;
                   })()}
                 </div>
@@ -881,14 +874,14 @@ export function AgentsSection() {
               {canDeleteAgent(agent, user?.uid, isWorkspaceAdmin) && (
                 <div className="flex flex-col items-start gap-2 pt-1 border-t border-subtle">
                   <Button
-                    variant="danger"
+                    variant="secondary"
                     size="sm"
-                    icon={deletingId === agent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    icon={deletingId === agent.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
                     disabled={deletingId !== null || savingId === agent.id}
-                    onClick={() => handleDelete(agent)}
-                    aria-label={`Eliminar agente ${agent.displayName}`}
+                    onClick={() => handleArchive(agent)}
+                    aria-label={`Archivar agente ${agent.displayName}`}
                   >
-                    Eliminar agente
+                    Archivar agente
                   </Button>
                   {deleteError?.agentId === agent.id && (
                     <p role="alert" className="text-xs text-priority-urgent">{deleteError.message}</p>
@@ -905,7 +898,7 @@ export function AgentsSection() {
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
           workspaceId={workspaceId}
-          existingIds={agents.map((a) => a.id)}
+          existingIds={[...agents, ...archivedAgents].map((a) => a.id)}
           repos={repos}
           onCreated={(agent) => setAgents((prev) => [agent, ...prev])}
         />

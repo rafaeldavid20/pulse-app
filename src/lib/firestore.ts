@@ -697,6 +697,8 @@ export interface AgentSummary {
   kind: AgentKind;
   ownerMemberId?: string;
   visibility?: AgentVisibility;
+  archivedAt?: string;
+  archivedBy?: string;
   runnerId?: string;
   allowedRepos?: string[];
   /** Default `'dev'` — determina qué workflow/secret escribe `agents.connectRepo` (D12/TES-208). */
@@ -786,8 +788,8 @@ export async function rotateRunnerCredential(runnerId: string): Promise<{ device
   return actionRes;
 }
 
-export async function listAgents(workspaceId: string): Promise<AgentSummary[]> {
-  const actionRes = await callPlatformAction<{ agents: AgentSummary[] }>('agents.list', { workspaceId });
+export async function listAgents(workspaceId: string, includeArchived = false): Promise<AgentSummary[]> {
+  const actionRes = await callPlatformAction<{ agents: AgentSummary[] }>('agents.list', { workspaceId, includeArchived });
   if (!actionRes) throw new Error('No se pudieron cargar los agentes.');
   return actionRes.agents;
 }
@@ -885,15 +887,20 @@ export async function createAgent(
   return actionRes.agent;
 }
 
-export async function deleteAgent(agentId: string): Promise<void> {
-  // Deletion needs the backend's reason (active jobs or recorded activity),
-  // while callPlatformAction intentionally turns failures into null.
+async function invokeAgentLifecycleAction(actionCode: 'agents.archive' | 'agents.restore', agentId: string): Promise<AgentSummary> {
   const pulsePlatformAction = httpsCallable(functions, 'pulsePlatformAction');
-  const result = await pulsePlatformAction({ actionCode: 'agents.delete', data: { agentId } });
-  const payload = result.data as PlatformActionEnvelope<unknown>;
-  if (!payload?.success) {
-    throw new Error(payload?.error || 'No se pudo eliminar el agente.');
-  }
+  const result = await pulsePlatformAction({ actionCode, data: { agentId } });
+  const payload = result.data as PlatformActionEnvelope<{ agent: AgentSummary }>;
+  if (!payload?.success || !payload.data?.agent) throw new Error(payload?.error || 'No se pudo actualizar el agente.');
+  return payload.data.agent;
+}
+
+export async function archiveAgent(agentId: string): Promise<AgentSummary> {
+  return invokeAgentLifecycleAction('agents.archive', agentId);
+}
+
+export async function restoreAgent(agentId: string): Promise<AgentSummary> {
+  return invokeAgentLifecycleAction('agents.restore', agentId);
 }
 
 export interface QaCalibrationSummary {
