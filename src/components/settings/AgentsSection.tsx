@@ -1,5 +1,6 @@
 'use client';
 
+import { RunnerPreflightPanel } from './RunnerPreflightPanel';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Bot, Loader2, Plus, GitBranch, Scale, Archive, RotateCcw } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
@@ -849,6 +850,8 @@ export function AgentsSection() {
                   })()}
                 </div>
               </div>
+
+              {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerPreflightPanel key={`${agent.id}-${agent.runnerId}-${agent.role}-${agent.enabled}-${effectiveAgentRepos(agent).join(',')}-${agent.reviewRepo}`} agent={agent} />}
 
               <AgentRepoConnections
                 agent={agent}
