@@ -762,6 +762,8 @@ export interface RunnerJobSummary {
   issuedAt: string;
   expiresAt: string;
   deliveredAt?: string;
+  cancelRequestedAt?: string;
+  cancelRequestedBy?: string;
   completedAt?: string;
   expiredAt?: string;
   result?: string | null;
@@ -780,6 +782,11 @@ export async function listRunnerJobs(workspaceId: string): Promise<RunnerJobSumm
   const actionRes = await callPlatformAction<{ jobs: RunnerJobSummary[] }>('runners.listJobs', { workspaceId });
   if (!actionRes) throw new Error('No se pudo cargar el historial de jobs.');
   return actionRes.jobs;
+}
+
+export async function cancelRunnerJob(jobId: string): Promise<void> {
+  const result = await callPlatformAction('runners.cancelJob', { jobId });
+  if (!result) throw new Error('No se pudo cancelar el job.');
 }
 
 export async function retryRunnerJob(jobId: string): Promise<{ job: RunnerJobSummary }> {

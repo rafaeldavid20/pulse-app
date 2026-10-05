@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Cpu, Loader2, RotateCw, ShieldOff, History, RefreshCw } from 'lucide-react';
+import { Check, Copy, Cpu, Loader2, RotateCw, ShieldOff, History, RefreshCw, Square } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import { useAppStore } from '@/stores/appStore';
 import { cn, formatTimeAgo } from '@/lib/utils';
-import { listRunnerJobs, listRunners, registerRunner, revokeRunner, retryRunnerJob, rotateRunnerCredential, RunnerJobSummary, RunnerSummary } from '@/lib/firestore';
+import { listRunnerJobs, listRunners, registerRunner, revokeRunner, retryRunnerJob, cancelRunnerJob, rotateRunnerCredential, RunnerJobSummary, RunnerSummary } from '@/lib/firestore';
 
 const statusLabel: Record<RunnerSummary['status'], string> = {
   online: 'En línea',
@@ -78,6 +78,12 @@ export function RunnersSection() {
     refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!jobs.some((job) => job.status === 'delivered' && job.cancelRequestedAt)) return;
+    const timer = window.setInterval(() => { refresh(); }, 3000);
+    return () => window.clearInterval(timer);
+  }, [jobs, refresh]);
+
   const ownerName = (ownerMemberId: string) => members.find((member) => member.userId === ownerMemberId)?.displayName || ownerMemberId;
 
   const handleRevoke = async (runner: RunnerSummary) => {
@@ -119,6 +125,12 @@ export function RunnersSection() {
     setWorkingId(job.id); setError(null);
     try { await retryRunnerJob(job.id); await refresh(); }
     catch (err) { setError(err instanceof Error ? err.message : 'No se pudo reintentar el job.'); }
+    finally { setWorkingId(null); }
+  };
+  const handleCancel = async (job: RunnerJobSummary) => {
+    setWorkingId(job.id); setError(null);
+    try { await cancelRunnerJob(job.id); await refresh(); }
+    catch (err) { setError(err instanceof Error ? err.message : 'No se pudo cancelar el job.'); }
     finally { setWorkingId(null); }
   };
   const handlePair = async (event: React.FormEvent) => {
@@ -215,7 +227,7 @@ export function RunnersSection() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-medium text-primary truncate">{job.repoFullName}</span>
-                      <span className={cn('px-1.5 py-0.5 text-[10px] font-medium border rounded-full', jobStatusClass[job.status])}>{jobStatusLabel[job.status]}</span>
+                      <span className={cn('px-1.5 py-0.5 text-[10px] font-medium border rounded-full', jobStatusClass[job.status])}>{job.cancelRequestedAt && job.status === 'delivered' ? 'Cancelación solicitada' : jobStatusLabel[job.status]}</span>
                       <span className="text-[11px] text-tertiary">{job.mode} · {formatTimeAgo(job.issuedAt)}</span>
                     </div>
                     <p className="mt-1 text-[11px] text-tertiary truncate" title={job.issueId}>
@@ -224,6 +236,7 @@ export function RunnersSection() {
                     {job.failure && <p className="mt-1 text-[11px] text-secondary">{job.failure.category === 'configuration' ? 'Configuración' : job.failure.category === 'local_preparation' ? 'Preparación local' : 'Ejecución'} · {job.failure.phase} · Correlación: <code>{job.failure.correlationId}</code></p>}
                     {job.result && <p className="mt-1 text-[11px] text-secondary truncate" title={job.result}>{job.result}</p>}
                   </div>
+                  {['pending', 'delivered'].includes(job.status) && <Button size="sm" variant="secondary" disabled={workingId === job.id || !!job.cancelRequestedAt} onClick={() => handleCancel(job)} icon={workingId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />}>{job.cancelRequestedAt ? 'Cancelación solicitada' : 'Cancelar'}</Button>}
                   {retryable && <Button size="sm" variant="secondary" disabled={workingId === job.id} onClick={() => handleRetry(job)} icon={workingId === job.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}>Reintentar</Button>}
                 </div>
               );
