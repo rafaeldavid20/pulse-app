@@ -706,11 +706,7 @@ export interface AgentSummary {
   displayName: string;
   defaultRepo?: string;
   defaultTeamId?: string;
-  /**
-   * Solo `role: 'qa'`: el repo cuyos PRs revisa. `qaDispatchTrigger` elige al
-   * QA comparando este campo contra el repo del issue, así que es un campo por
-   * repo: revisar dos repos son dos agentes QA, no uno con dos valores.
-   */
+  /** Solo `role: 'qa'` ejecutado vía GitHub Actions: repo principal que revisa. Runner QA obtiene el alcance de todos los repos del proyecto. */
   reviewRepo?: string;
   maxConcurrentIssues: number;
   /** Tope de intentos de revisión de QA (D3) antes de cerrar en `needs_human`. Solo agentes `role: 'qa'`. */
@@ -891,12 +887,7 @@ export async function createAgent(
     defaultTeamId?: string;
     maxConcurrentIssues?: number;
     role?: AgentRole;
-    /**
-     * Solo para `role: 'qa'`: el repo cuyos PRs revisa este agente.
-     * `qaDispatchTrigger` elige al QA comparando este campo contra el repo del
-     * issue, así que un agente QA sin `reviewRepo` nunca recibe un dispatch —
-     * y no hay ningún error, simplemente no pasa nada.
-     */
+    /** Solo para `role: 'qa'` ejecutado vía GitHub Actions; Runner QA usa el alcance de repos del proyecto. */
     reviewRepo?: string;
     visibility?: AgentVisibility;
     runnerId?: string;

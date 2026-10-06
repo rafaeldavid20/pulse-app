@@ -32,14 +32,16 @@ import { AgentKind, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
 
 /**
  * Las condiciones que `qaDispatchTrigger` exige para elegir un agente QA
- * (`role: 'qa'`, `enabled`, `autonomousMode` y `reviewRepo` igual al repo del
- * issue). Cuando alguna falta, el trigger loguea un skip y sigue: no hay error
+ * (`role: 'qa'`, `enabled`, `autonomousMode` y, para GitHub Actions,
+ * `reviewRepo` igual al repo del issue). QA con Runner usa el alcance del
+ * proyecto completo y no necesita `reviewRepo`. Cuando falta una condición,
+ * el trigger deja un error visible
  * en ningún lado, el QA simplemente nunca corre. Esto lo hace visible en
  * Settings en vez de en los logs de Cloud Functions.
  */
 function qaDispatchBlockers(agent: AgentSummary): string[] {
   const blockers: string[] = [];
-  if (!agent.reviewRepo) blockers.push('no tiene repo a revisar');
+  if (!agent.reviewRepo && !agent.runnerId) blockers.push('no tiene repo a revisar ni Runner de proyecto');
   if (!agent.enabled) blockers.push('está deshabilitado');
   if (!agent.autonomousMode) blockers.push('no está en modo autónomo');
   return blockers;
@@ -606,10 +608,8 @@ export function AgentsSection() {
   };
 
   /**
-   * Un agente QA sin `reviewRepo` —o con uno que no es el repo del issue— nunca
-   * recibe un dispatch, y no falla nada: `qaDispatchTrigger` simplemente no lo
-   * encuentra y loguea un skip que nadie mira. Por eso se edita acá y se avisa
-   * abajo cuando falta.
+   * `reviewRepo` configura el anfitrión para QA por Actions. QA con Runner toma
+   * el alcance del proyecto y no usa este campo.
    */
   const handleReviewRepoChange = async (agent: AgentSummary, value: string) => {
     const prevValue = agent.reviewRepo;
@@ -784,15 +784,17 @@ export function AgentsSection() {
               >
                 {agent.role === 'qa' && (
                   <div className="flex items-center justify-between gap-2 min-w-0">
-                    <span className="text-secondary shrink-0">Repo a revisar</span>
-                    <SelectPopover
-                      value={agent.reviewRepo ?? ''}
-                      onChange={(v) => handleReviewRepoChange(agent, v)}
-                      disabled={savingId === agent.id}
-                      ariaLabel="Repo a revisar"
-                      placeholder="Sin repo"
-                      options={[{ value: '', label: 'Sin repo' }, ...repos.map((repo) => ({ value: repo, label: repo }))]}
-                    />
+                    <span className="text-secondary shrink-0">{agent.runnerId ? 'Alcance QA' : 'Repo a revisar'}</span>
+                    {agent.runnerId ? <span className="text-primary">Todos los repos del proyecto</span> : (
+                      <SelectPopover
+                        value={agent.reviewRepo ?? ''}
+                        onChange={(v) => handleReviewRepoChange(agent, v)}
+                        disabled={savingId === agent.id}
+                        ariaLabel="Repo a revisar"
+                        placeholder="Sin repo"
+                        options={[{ value: '', label: 'Sin repo' }, ...repos.map((repo) => ({ value: repo, label: repo }))]}
+                      />
+                    )}
                   </div>
                 )}
                 {agent.role === 'qa' && (
@@ -833,9 +835,9 @@ export function AgentsSection() {
                         onChange={(value) => handleRunnerChange(agent, value)}
                         disabled={savingId === agent.id}
                         ariaLabel="Pulse Runner"
-                        placeholder="GitHub Actions"
+                        placeholder="Actions por repo (legacy)"
                         options={[
-                          { value: '', label: 'GitHub Actions' },
+                          { value: '', label: 'Actions por repo (legacy)' },
                           ...eligibleRunners.map((runner) => ({
                             value: runner.id,
                             label: `${runner.displayName} · ${runner.status === 'online' ? 'En línea' : 'No disponible'}`,
@@ -863,6 +865,11 @@ export function AgentsSection() {
                 <p className="text-[11px] text-priority-urgent">
                   Este agente no va a recibir revisiones: {qaDispatchBlockers(agent).join('; ')}. El dispatch
                   no falla — descarta al agente en silencio.
+                </p>
+              )}
+              {agent.role === 'qa' && agent.runnerId && !agent.reviewRepo && (
+                <p className="text-[11px] text-secondary">
+                  QA por Pulse Runner: recibe snapshots de todos los repos habilitados del proyecto; no requiere secrets ni GitHub Actions por repo.
                 </p>
               )}
 
