@@ -80,15 +80,17 @@ export interface Runner {
 
 /** Payload mínimo, firmado y de vida corta que un runner acepta ejecutar. */
 export interface RunnerJob {
+  /** Absent for queued v1 jobs. V2 signs projectId with the existing Ed25519 key. */
+  protocolVersion?: 2;
   id: string;
   workspaceId: string;
-  /** Proyecto cuyo acceso a repos autoriza este job firmado. */
-  projectId: string;
+  /** Signed in protocol v2; absent only on queued legacy jobs. */
+  projectId?: string;
   issueId: string;
   agentId: string;
   runnerId: string;
   repoFullName: string;
-  /** Otros repositorios autorizados por el mismo proyecto para este job. */
+  /** Repos adicionales del mismo proyecto disponibles para este job. */
   contextRepos?: string[];
   mode: AgentRunMode;
   issuedAt: string;
@@ -347,6 +349,11 @@ export interface Agent {
   ownerMemberId?: string;
   /** Ausente en agentes anteriores; se trata como `public` solo para admins. */
   visibility?: AgentVisibility;
+  /** Marca de archivado lógico; se conserva el documento y su historial. */
+  archivedAt?: string;
+  archivedBy?: string;
+  /** Updated transactionally whenever a Runner job is issued for this agent. */
+  runnerJobDispatchAt?: string;
   /** Identidad del dispositivo/VM que recibirá los jobs del agente. */
   runnerId?: string;
   /** Límite explícito adicional a las conexiones de repo existentes. */
@@ -791,6 +798,8 @@ export interface Issue {
   /** Default `'task'`. Los issues creados antes de la jerarquía se migran a `'task'`. */
   type: IssueType;
   assigneeId?: string;
+  /** QA elegido manualmente para revisar este issue, independiente del dev asignado. */
+  qaAssigneeId?: string | null;
   /** Responsable humano. En issues anteriores se deriva de `assigneeId`. */
   responsibleMemberId?: string;
   /** Agente que ejecuta el issue, si fue elegido explícitamente. */
@@ -1031,6 +1040,8 @@ export interface IssueReview extends IssueReviewAttempt {
    */
   dispatchedTo?: string;
   dispatchedAt?: string;
+  /** Motivo visible por el que QA no pudo despacharse; se limpia al despachar. */
+  dispatchError?: string;
   /**
    * Intentos ya cerrados, más viejo primero. Sin esto no hay métricas de D7
    * (intentos promedio, tasa de aprobación al primer intento) — solo
@@ -1269,6 +1280,7 @@ export const ISSUE_WRITABLE_FIELDS = [
   'type',
   'projectId',
   'assigneeId',
+  'qaAssigneeId',
   'labelIds',
   'parentId',
   'dueDate',
