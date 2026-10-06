@@ -17,9 +17,7 @@ export function RunnerPreflightPanel({ agent }: { agent: AgentSummary }) {
   async function check() {
     setChecking(true); setError(null); setResult(null);
     try {
-      const repos = agent.role === 'qa' ? [agent.reviewRepo].filter((repo): repo is string => !!repo)
-        : agent.allowedRepos?.length ? agent.allowedRepos : (agent.connectedRepos || []).map((connection) => connection.repoFullName);
-      setResult(await preflightRunnerAgent(agent.id, repos));
+      setResult(await preflightRunnerAgent(agent.id, []));
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo verificar el agente.'); }
     finally { setChecking(false); }
   }
@@ -33,7 +31,7 @@ export function RunnerPreflightPanel({ agent }: { agent: AgentSummary }) {
     <div aria-live="polite">
       {error && <p role="alert" className="text-priority-urgent">{error}</p>}
       {result && <>
-        <p className={result.ready ? 'text-primary' : 'text-priority-urgent'}>{result.ready ? 'Listo para recibir jobs en los repos verificados.' : 'Preparación incompleta; el despacho quedará bloqueado.'}</p>
+        <p className={result.ready ? 'text-primary' : 'text-priority-urgent'}>{result.ready ? 'Identidad y sesión listas. Los repos se autorizan por proyecto y se verifican al ejecutar cada job.' : 'Preparación incompleta; el despacho quedará bloqueado.'}</p>
         {result.identity && <p className="text-secondary">Identidad efectiva: {result.identity.agentId} · {result.identity.kind} · {result.identity.role} · {result.runnerId}</p>}
         {result.checkedAt && <p className="text-tertiary">Verificación local: {new Date(result.checkedAt).toLocaleString()}</p>}
         {result.problems.length > 0 && <ul className="mt-2 space-y-2">{result.problems.map((problem, index) => <li key={`${problem.code}-${index}`}><p className="text-priority-urgent">{problem.message}</p><p className="text-secondary">{problem.action}</p></li>)}</ul>}

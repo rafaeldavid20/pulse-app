@@ -62,8 +62,6 @@ function runnerIneligibility(agent: AgentSummary, runner: RunnerSummary): string
   // públicos para conservarlos administrables. La UI debe aplicar la misma
   // regla para no ocultar Runners válidos detrás de un falso error de dueño.
   if ((agent.visibility ?? 'public') !== 'public' && runner.ownerMemberId !== agent.ownerMemberId) return 'pertenece a otro usuario';
-  const missing = effectiveAgentRepos(agent).filter((repo) => !runner.connectedRepos.includes(repo));
-  if (missing.length) return `no cubre ${missing.join(', ')}`;
   return null;
 }
 
@@ -845,7 +843,7 @@ export function AgentsSection() {
                         ]}
                       />
                       {currentReason ? <span className="max-w-56 text-right text-[10px] text-priority-urgent">Runner actual no disponible: {currentReason}.</span>
-                        : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner compatible con dueño y repos permitidos.</span>}
+                        : eligibleRunners.length === 0 && <span className="max-w-56 text-right text-[10px] text-tertiary">No hay Runner disponible para este dueño.</span>}
                     </div>;
                   })()}
                 </div>
