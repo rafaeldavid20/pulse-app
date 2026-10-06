@@ -363,7 +363,7 @@ export interface Agent {
   displayName: string;
   defaultRepo?: string;
   defaultTeamId?: string;
-  /** Repo donde un agente `role: 'qa'` corre el workflow de revisión. */
+  /** Repo para QA por GitHub Actions. QA con Runner usa los repos del proyecto completo. */
   reviewRepo?: string;
   maxConcurrentIssues?: number;
   /** Default `2`. Intentos de revisión antes de pasar el issue a `needs_human`. */

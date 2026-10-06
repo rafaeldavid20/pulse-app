@@ -1172,7 +1172,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
                     : agent.ownerMemberId === user?.uid && responsibleMemberId === user?.uid
                 )).map((agent) => ({
                   value: agent.id,
-                  label: `${agent.displayName}${agent.enabled ? '' : ' · Deshabilitado'}`,
+                  label: `${agent.displayName}${agent.runnerId && !agent.reviewRepo ? ' · Runner multi-repo' : ''}${agent.enabled ? '' : ' · Deshabilitado'}`,
                 })),
               ]}
             />
