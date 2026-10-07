@@ -1250,6 +1250,17 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <HierarchySection issue={issue} onOpenIssue={onOpenIssue} />
 
+        {issue.agent?.dispatchFailure && (
+          <div role="alert" className="rounded-md border border-default bg-hover p-3 text-xs">
+            <p className="font-semibold text-primary">El agente no inició</p>
+            <p className="mt-1 text-secondary">Etapa: {issue.agent.dispatchFailure.stage === 'preflight' ? 'Verificación de preparación' : issue.agent.dispatchFailure.stage === 'budget' ? 'Presupuesto' : 'Emisión del trabajo'}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-4 text-secondary">
+              {issue.agent.dispatchFailure.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
+            </ul>
+            <p className="mt-2 text-tertiary">Después de corregirlo, mové la issue fuera de Por hacer y volvé a Por hacer para reintentar.</p>
+          </div>
+        )}
+
         <RepoSection issue={issue} />
 
         <DescriptionSection issue={issue} updateIssue={updateIssue} />
