@@ -595,6 +595,12 @@ export interface IssueAgentState {
   claimedAt?: string;
   state?: AgentIssueState;
   blockedReason?: string;
+  /** A job was not emitted; contains only diagnostics selected by the backend. */
+  dispatchFailure?: {
+    stage: 'preflight' | 'enqueue' | 'budget';
+    reasons: string[];
+    at: string;
+  };
 }
 
 /**
