@@ -33,6 +33,7 @@ export function RunnerPreflightPanel({ agent }: { agent: AgentSummary }) {
       {result && <>
         <p className={result.ready ? 'text-primary' : 'text-priority-urgent'}>{result.ready ? 'Identidad y sesión listas. Los repos se autorizan por proyecto y se verifican al ejecutar cada job.' : 'Preparación incompleta; el despacho quedará bloqueado.'}</p>
         {result.identity && <p className="text-secondary">Identidad efectiva: {result.identity.agentId} · {result.identity.kind} · {result.identity.role} · {result.runnerId}</p>}
+        {!!result.githubApps?.length && <ul className="mt-2 space-y-1 text-secondary">{result.githubApps.map(entry => <li key={`${entry.projectId}:${entry.repo}`}>GitHub App local: {entry.slug}[bot] · {entry.repo} · {entry.ready ? 'Permisos de contenido y PR verificados' : 'Preparación pendiente'} · Proyecto {entry.projectId}</li>)}</ul>}
         {result.checkedAt && <p className="text-tertiary">Verificación local: {new Date(result.checkedAt).toLocaleString()}</p>}
         {result.problems.length > 0 && <ul className="mt-2 space-y-2">{result.problems.map((problem, index) => <li key={`${problem.code}-${index}`}><p className="text-priority-urgent">{problem.message}</p><p className="text-secondary">{problem.action}</p></li>)}</ul>}
       </>}

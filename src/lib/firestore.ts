@@ -720,6 +720,7 @@ export interface AgentSummary {
 
 export interface RunnerPreflightResult {
   ready: boolean;
+  githubApps?: Array<{projectId: string; repo: string; slug: string; appId: string; installationId: string; ready: boolean}>;
   problems: Array<{ code: string; message: string; action: string }>;
   identity: { agentId: string; kind: string; role: string } | null;
   checkedAt: string | null;
@@ -764,6 +765,8 @@ export interface RunnerJobSummary {
   expiredAt?: string;
   result?: string | null;
   failure?: { phase: string; category: 'configuration' | 'local_preparation' | 'execution'; correlationId: string } | null;
+  publication?: {execution: 'completed' | 'failed'; repositories: Array<{repo: string; branch: string; sha: string; stage: 'pending' | 'pushed' | 'pr_created' | 'linked'; prUrl?: string}>};
+  recoveryOf?: string;
   retryOf?: string;
   retriedByJobId?: string;
 }
