@@ -1146,7 +1146,20 @@ export async function updateNotificationPreference(
 // No client-side fallback: `github_installations` is Admin-SDK-only, these
 // all go through Platform Actions.
 
+export interface GithubConnectionChoice {
+  installationId: string;
+  accountLogin: string;
+  repositories: string[];
+  assignedElsewhere: string[];
+}
+
 export interface GithubStatus {
+  uninstalled?: boolean;
+  suspended?: boolean;
+  installationId?: string;
+  selectedRepositories?: string[];
+  canManage?: boolean;
+  availableConnections?: GithubConnectionChoice[];
   connected: boolean;
   accountLogin?: string;
   repositories?: string[];
@@ -1248,6 +1261,11 @@ export async function getGithubStatus(workspaceId: string): Promise<GithubStatus
   const actionRes = await callPlatformAction<GithubStatus>('github.status', { workspaceId });
   if (!actionRes) throw new Error('No se pudo consultar el estado de GitHub.');
   return actionRes;
+}
+
+export async function saveGithubConnection(workspaceId: string, installationId: string, repositories: string[]): Promise<void> {
+  const res = await callPlatformAction('github.saveConnection', { workspaceId, installationId, repositories });
+  if (!res) throw new Error('No se pudo guardar la conexión de GitHub.');
 }
 
 export async function getGithubInstallUrl(workspaceId: string): Promise<string> {
