@@ -24,7 +24,7 @@ import {
   RunnerSummary,
   updateAgent,
 } from '@/lib/firestore';
-import { AgentKind, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
+import { AgentKind, AgentPrPublicationMode, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
 
 /** Requirements for automatic project QA through a local Runner. */
 function qaDispatchBlockers(agent: AgentSummary): string[] {
@@ -399,6 +399,20 @@ export function AgentsSection() {
     }
   };
 
+  const handlePrPublicationModeChange = async (agent: AgentSummary, value: AgentPrPublicationMode) => {
+    const previous = agent.prPublicationMode;
+    setAgents((prev) => prev.map((a) => a.id === agent.id ? { ...a, prPublicationMode: value } : a));
+    setSavingId(agent.id);
+    try {
+      await updateAgent(agent.id, { prPublicationMode: value });
+    } catch {
+      setAgents((prev) => prev.map((a) => a.id === agent.id ? { ...a, prPublicationMode: previous } : a));
+      alert('No se pudo guardar el modo de publicación de PR.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const handleQaModeChange = async (agent: AgentSummary, value: AgentQaMode) => {
     const prevValue = agent.qaMode;
     setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, qaMode: value } : a)));
@@ -555,6 +569,26 @@ export function AgentsSection() {
                   agent.role === 'qa' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'
                 )}
               >
+                {agent.role !== 'qa' && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 min-w-0">
+                      <span className="text-secondary shrink-0">Publicación de PR</span>
+                      <SelectPopover
+                        value={agent.prPublicationMode ?? 'draft'}
+                        onChange={(value) => handlePrPublicationModeChange(agent, value as AgentPrPublicationMode)}
+                        disabled={savingId === agent.id || !(isWorkspaceAdmin || agent.ownerMemberId === user?.uid)}
+                        ariaLabel="Publicación de PR"
+                        options={[
+                          { value: 'draft', label: 'Borrador' },
+                          { value: 'ready', label: 'Listo para revisión' },
+                        ]}
+                      />
+                    </div>
+                    <p className="text-tertiary text-[11px]">
+                      Se aplica a nuevos trabajos. Borrador mantiene el issue en progreso; listo para revisión habilita QA cuando todos sus PR están listos.
+                    </p>
+                  </div>
+                )}
                 {agent.role === 'qa' && (
                   <div className="flex items-center justify-between gap-2 min-w-0">
                     <span className="text-secondary shrink-0">Alcance QA</span>
@@ -615,7 +649,7 @@ export function AgentsSection() {
                 </div>
               </div>
 
-              {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerPreflightPanel key={`${agent.id}-${agent.runnerId}-${agent.role}-${agent.enabled}-${effectiveAgentRepos(agent).join(',')}-${agent.reviewRepo}`} agent={agent} />}
+              {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerPreflightPanel key={`${agent.id}-${agent.runnerId}-${agent.role}-${agent.enabled}-${agent.prPublicationMode ?? 'draft'}-${effectiveAgentRepos(agent).join(',')}-${agent.reviewRepo}`} agent={agent} />}
 
               {!agent.runnerId && <p role="status" className="text-xs text-priority-high">Configuración pendiente: vinculá un Runner local para ejecutar este agente. Los agentes de GitHub Actions fueron retirados.</p>}
               <RetiredAgentConnections agent={agent} canManage={isWorkspaceAdmin || agent.ownerMemberId === user?.uid} onChanged={refresh} />
