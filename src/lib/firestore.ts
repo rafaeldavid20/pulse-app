@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
-import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentKind, AgentQaMode, AgentRole, AgentVisibility, QaCalibrationRecord, Environment, EnvironmentWritableField, SalesforceLoginHost, SalesforceTestLevel } from '@/types';
+import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentKind, AgentPrPublicationMode, AgentQaMode, AgentRole, AgentVisibility, QaCalibrationRecord, Environment, EnvironmentWritableField, SalesforceLoginHost, SalesforceTestLevel } from '@/types';
 import { nanoid } from 'nanoid';
 
 export interface UserDoc {
@@ -716,6 +716,7 @@ export interface AgentSummary {
   connectedRepos?: ConnectedRepo[];
   /** Solo relevante para `role: 'qa'` (D17). Ausente se trata como `'shadow'`. */
   qaMode?: AgentQaMode;
+  prPublicationMode?: AgentPrPublicationMode;
 }
 
 export interface RunnerPreflightResult {
@@ -866,6 +867,7 @@ export async function updateAgent(
       | 'defaultRepo'
       | 'defaultTeamId'
       | 'qaMode'
+      | 'prPublicationMode'
       | 'role'
       | 'reviewRepo'
       | 'allowedRepos'
