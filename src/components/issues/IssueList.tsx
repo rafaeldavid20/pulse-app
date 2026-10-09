@@ -9,6 +9,7 @@ import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { PriorityBadge } from './PriorityBadge';
 import { ReviewBadge } from './ReviewBadge';
+import { AgentActivityBadge } from './AgentActivityBadge';
 import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { CycleBadge } from '@/components/cycles/CycleBadge';
@@ -191,6 +192,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
 
         <span className="text-primary font-normal truncate">{issue.title}</span>
 
+        <AgentActivityBadge activity={issue.agentActivity} />
         {issue.review?.state && <ReviewBadge state={issue.review.state} />}
 
         {/* Progreso solo cuando hay algo colgando: una fila sin hijos no
