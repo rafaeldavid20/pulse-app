@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2, GitPullRequest, AlertTriangle, CircleDot } from 'lucide-react';
+import { GitPullRequest, AlertTriangle, CircleDot } from 'lucide-react';
 import { AgentIssueState } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -16,9 +16,9 @@ const STATE_CONFIG: Record<AgentIssueState, { label: string; color: string; icon
     icon: <CircleDot className="w-3 h-3" />,
   },
   working: {
-    label: 'Trabajando',
+    label: 'Ejecución iniciada',
     color: 'text-priority-high bg-priority-high/10',
-    icon: <Loader2 className="w-3 h-3 animate-spin" />,
+    icon: <CircleDot className="w-3 h-3" />,
   },
   pr_open: {
     label: 'PR abierto',

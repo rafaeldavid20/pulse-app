@@ -10,6 +10,7 @@ import { useCycleStore } from '@/stores/cycleStore';
 import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
 import { ReviewBadge } from './ReviewBadge';
+import { AgentActivityBadge } from './AgentActivityBadge';
 import { QaReviewSection } from './QaReviewSection';
 import { LabelPicker } from '@/components/labels/LabelPicker';
 import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment, AcceptanceCriterion } from '@/types';
@@ -1054,6 +1055,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
             {issue.identifier}
           </span>
           <StatusBadge status={issue.status} showLabel />
+          <AgentActivityBadge activity={issue.agentActivity} />
           {issue.review?.state && <ReviewBadge state={issue.review.state} />}
         </div>
 
