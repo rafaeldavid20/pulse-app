@@ -81,7 +81,9 @@ export interface Runner {
 /** Payload mínimo, firmado y de vida corta que un runner acepta ejecutar. */
 export interface RunnerJob {
   /** Absent for queued v1 jobs. V2 signs projectId with the existing Ed25519 key. */
-  protocolVersion?: 2;
+  protocolVersion?: 2 | 3;
+  publicationTargets?: Array<{repo: string; branch: string; base: string; appId: string; installationId: string; slug: string; sha?: string}>;
+  recoveryOf?: string;
   id: string;
   workspaceId: string;
   /** Signed in protocol v2; absent only on queued legacy jobs. */
