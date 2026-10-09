@@ -13,14 +13,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
   AgentSummary,
-  ConnectRepoResult,
-  LATEST_AGENT_WORKFLOW_VERSION,
   QaCalibrationSummary,
-  connectAgentRepo,
   createAgent,
   archiveAgent,
   disconnectAgentRepo,
-  getGithubStatus,
   getQaCalibration,
   listAgents,
   restoreAgent,
@@ -30,18 +26,10 @@ import {
 } from '@/lib/firestore';
 import { AgentKind, AgentQaMode, AgentRole, AgentVisibility } from '@/types';
 
-/**
- * Las condiciones que `qaDispatchTrigger` exige para elegir un agente QA
- * (`role: 'qa'`, `enabled`, `autonomousMode` y, para GitHub Actions,
- * `reviewRepo` igual al repo del issue). QA con Runner usa el alcance del
- * proyecto completo y no necesita `reviewRepo`. Cuando falta una condición,
- * el trigger deja un error visible
- * en ningún lado, el QA simplemente nunca corre. Esto lo hace visible en
- * Settings en vez de en los logs de Cloud Functions.
- */
+/** Requirements for automatic project QA through a local Runner. */
 function qaDispatchBlockers(agent: AgentSummary): string[] {
   const blockers: string[] = [];
-  if (!agent.reviewRepo && !agent.runnerId) blockers.push('no tiene repo a revisar ni Runner de proyecto');
+  if (!agent.runnerId) blockers.push('no tiene un Runner local vinculado');
   if (!agent.enabled) blockers.push('está deshabilitado');
   if (!agent.autonomousMode) blockers.push('no está en modo autónomo');
   return blockers;
@@ -80,14 +68,12 @@ function CreateAgentModal({
   onClose,
   workspaceId,
   existingIds,
-  repos,
   onCreated,
 }: {
   isOpen: boolean;
   onClose: () => void;
   workspaceId: string;
   existingIds: string[];
-  repos: string[];
   onCreated: (agent: AgentSummary) => void;
 }) {
   const teams = useAppStore((s) => s.teams);
@@ -99,7 +85,6 @@ function CreateAgentModal({
   const [kind, setKind] = useState<AgentKind>('claude');
   const [visibility, setVisibility] = useState<AgentVisibility>('personal');
   const [role, setRole] = useState<AgentRole>('dev');
-  const [reviewRepo, setReviewRepo] = useState('');
   const [defaultRepo, setDefaultRepo] = useState('');
   const [defaultTeamId, setDefaultTeamId] = useState('');
   const [maxConcurrentIssues, setMaxConcurrentIssues] = useState(1);
@@ -115,7 +100,6 @@ function CreateAgentModal({
     setKind('claude');
     setVisibility('personal');
     setRole('dev');
-    setReviewRepo('');
     setDefaultRepo('');
     setDefaultTeamId('');
     setMaxConcurrentIssues(1);
@@ -149,7 +133,6 @@ function CreateAgentModal({
         defaultTeamId: defaultTeamId || undefined,
         maxConcurrentIssues,
         role,
-        reviewRepo: role === 'qa' ? reviewRepo || undefined : undefined,
         visibility,
       });
       onCreated(agent);
@@ -219,32 +202,10 @@ function CreateAgentModal({
             <option value="qa">QA — revisa los PRs de otros agentes</option>
           </select>
           <p className="text-[11px] text-tertiary">
-            El rol decide qué workflow y qué secret escribe &quot;Conectar repo&quot;, y con qué permisos
-            nace su key. Se puede cambiar después, pero hay que reconectar los repos.
+            Dev implementa los issues y QA revisa sus cambios. Ambos requieren un Runner local vinculado.
           </p>
         </div>
-        {role === 'qa' ? (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-secondary">Repo a revisar</label>
-            <select
-              value={reviewRepo}
-              onChange={(e) => setReviewRepo(e.target.value)}
-              className="bg-surface border border-default rounded-md px-3 py-2 text-sm text-primary"
-            >
-              <option value="">Elegir repo…</option>
-              {repos.map((repo) => (
-                <option key={repo} value={repo}>
-                  {repo}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-tertiary">
-              Un agente QA revisa un repo. Para revisar varios hacen falta varios agentes, uno por repo.
-              Sin esto no recibe revisiones: el dispatch lo elige comparando este campo contra el repo del
-              issue.
-            </p>
-          </div>
-        ) : (
+        {role === 'dev' && (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-secondary">Repo por defecto (opcional)</label>
             <Input placeholder="Ej: owner/repo" value={defaultRepo} onChange={(e) => setDefaultRepo(e.target.value)} />
@@ -297,187 +258,32 @@ function CreateAgentModal({
  * cuando Pulse detecta el secret — GitHub devuelve nombres de secrets, nunca
  * valores, así que se puede verificar sin verlo.
  */
-function AgentRepoConnections({
-  agent,
-  repos,
-  canConnect,
-  missingPermissions,
-  onChanged,
-}: {
-  agent: AgentSummary;
-  repos: string[];
-  canConnect: boolean;
-  missingPermissions: string[];
-  onChanged: () => void;
+function RetiredAgentConnections({ agent, canManage, onChanged }: {
+  agent: AgentSummary; canManage: boolean; onChanged: () => void;
 }) {
   const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
-  const [selected, setSelected] = useState('');
   const [busy, setBusy] = useState(false);
-  const [updatingRepo, setUpdatingRepo] = useState('');
   const [error, setError] = useState('');
-  const [result, setResult] = useState<ConnectRepoResult | null>(null);
-
-  const connected = agent.connectedRepos ?? [];
-  const available = repos.filter((r) => !connected.some((c) => c.repoFullName === r));
-  const latestVersion = LATEST_AGENT_WORKFLOW_VERSION[agent.role === 'qa' ? 'qa' : 'dev'];
-
-  const handleConnect = async () => {
-    if (!workspaceId || !selected) return;
-    setBusy(true);
-    setError('');
-    setResult(null);
-    try {
-      setResult(await connectAgentRepo(workspaceId, agent.id, selected));
-      setSelected('');
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo conectar el repo.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleUpdateWorkflow = async (repoFullName: string) => {
+  if (!agent.connectedRepos?.length) return null;
+  const retireConnection = async (repo: string) => {
     if (!workspaceId) return;
-    setUpdatingRepo(repoFullName);
-    setError('');
-    setResult(null);
+    setBusy(true); setError('');
     try {
-      // Reconectar reescribe el workflow con la plantilla más reciente y
-      // reemplaza la entrada de `connectedRepos` para este repo — no crea
-      // una key ni un secret nuevos por las dudas, hace exactamente lo mismo
-      // que "Conectar".
-      setResult(await connectAgentRepo(workspaceId, agent.id, repoFullName));
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar el workflow.');
-    } finally {
-      setUpdatingRepo('');
-    }
+      const result = await disconnectAgentRepo(workspaceId, agent.id, repo);
+      if (result.warnings?.length) setError(`La clave fue retirada. Limpieza pendiente: ${result.warnings.join(' ')}`);
+      else onChanged();
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo retirar la conexión.'); }
+    finally { setBusy(false); }
   };
-
-  const handleDisconnect = async (repoFullName: string) => {
-    if (!workspaceId) return;
-    setBusy(true);
-    setError('');
-    try {
-      await disconnectAgentRepo(workspaceId, agent.id, repoFullName);
-      onChanged();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo desconectar el repo.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2">
-      <span className="text-[11px] font-semibold text-tertiary uppercase tracking-wide">
-        Repos conectados
-      </span>
-
-      {connected.length > 0 && (
-        <div className="flex flex-col gap-1">
-          {connected.map((c) => {
-            const outdated = typeof c.workflowVersion === 'number' && c.workflowVersion < latestVersion;
-            return (
-              <div key={c.repoFullName} className="flex items-center justify-between gap-2 text-xs">
-                <span className="flex items-center gap-1.5 text-secondary font-mono truncate">
-                  <GitBranch className="w-3 h-3 shrink-0 text-status-done" />
-                  {c.repoFullName}
-                  {typeof c.workflowVersion === 'number' && (
-                    <span className="text-[10px] text-tertiary shrink-0">
-                      · workflow v{c.workflowVersion}
-                    </span>
-                  )}
-                </span>
-                <span className="flex items-center gap-2 shrink-0">
-                  {outdated && (
-                    <button
-                      onClick={() => handleUpdateWorkflow(c.repoFullName)}
-                      disabled={busy || updatingRepo === c.repoFullName}
-                      className="text-[11px] text-priority-high hover:text-accent disabled:opacity-50"
-                    >
-                      {updatingRepo === c.repoFullName ? 'Actualizando…' : `Actualizar a v${latestVersion}`}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDisconnect(c.repoFullName)}
-                    disabled={busy || updatingRepo === c.repoFullName}
-                    className="text-[11px] text-tertiary hover:text-priority-urgent disabled:opacity-50"
-                  >
-                    Desconectar
-                  </button>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!canConnect ? (
-        <p className="text-[11px] text-priority-high">
-          A la GitHub App le faltan permisos ({missingPermissions.join(', ')}). Agregalos en la
-          configuración de la App y aprobá el upgrade en la instalación para poder conectar repos
-          desde acá.
-        </p>
-      ) : available.length === 0 ? (
-        <p className="text-[11px] text-tertiary">
-          {repos.length === 0
-            ? 'No hay repos disponibles en la instalación de GitHub.'
-            : 'Este agente ya está conectado a todos los repos disponibles.'}
-        </p>
-      ) : (
-        <div className="flex items-center gap-2">
-          <SelectPopover
-            value={selected}
-            onChange={setSelected}
-            disabled={busy}
-            ariaLabel="Conectar a un repo"
-            placeholder="Conectar a un repo…"
-            align="left"
-            className="flex-1 min-w-0 [&>button]:w-full"
-            options={available.map((r) => ({ value: r, label: r }))}
-          />
-          <button
-            onClick={handleConnect}
-            disabled={busy || !selected}
-            className="px-2.5 py-1.5 text-[11px] rounded-md bg-accent hover:bg-accent-hover text-white disabled:opacity-40 disabled:pointer-events-none transition-colors shrink-0"
-          >
-            {busy ? 'Conectando…' : 'Conectar'}
-          </button>
-        </div>
-      )}
-
-      {result && (
-        <div className="flex flex-col gap-1.5 p-2.5 bg-elevated border border-default rounded-md">
-          <p className="text-[11px] text-status-done">
-            ✓ {result.repoFullName} conectado
-            {result.workflowCreated ? ' · workflow creado' : ' · workflow actualizado'} (v
-            {result.workflowVersion}) · key de MCP provisionada
-          </p>
-
-          {result.anthropicSecretPresent ? (
-            <p className="text-[11px] text-status-done">
-              ✓ {result.anthropicSecretName} ya está en el repo. No queda nada por hacer.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              <p className="text-[11px] text-priority-high">
-                Falta {result.anthropicSecretName}. Es tuyo y está atado a tu suscripción de Claude,
-                así que Pulse no lo guarda ni lo transporta. Corré esto una vez:
-              </p>
-              <code className="block px-2 py-1.5 bg-surface border border-default rounded text-[11px] text-primary font-mono break-all">
-                {result.manualStep}
-              </code>
-            </div>
-          )}
-        </div>
-      )}
-
-      {error && <p className="text-[11px] text-priority-urgent">{error}</p>}
-    </div>
-  );
+  return <div className="flex flex-col gap-2 text-xs">
+    <span className="font-semibold text-secondary">Conexiones antiguas de Actions · retiradas</span>
+    <p className="text-tertiary">Estas conexiones ya no ejecutan agentes. Podés retirar su clave de Pulse y su secret del repositorio.</p>
+    {agent.connectedRepos.map((connection) => <div key={connection.repoFullName} className="flex items-center justify-between gap-2">
+      <span className="flex items-center gap-1.5 text-secondary font-mono truncate"><GitBranch className="w-3 h-3 shrink-0" />{connection.repoFullName}</span>
+      {canManage && <button disabled={busy} onClick={() => retireConnection(connection.repoFullName)} className="text-tertiary hover:text-priority-urgent disabled:opacity-50">Retirar conexión</button>}
+    </div>)}
+    {error && <p role="alert" className="text-priority-urgent">{error}</p>}
+  </div>;
 }
 
 /**
@@ -549,9 +355,6 @@ export function AgentsSection() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ agentId: string; message: string } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [repos, setRepos] = useState<string[]>([]);
-  const [canConnect, setCanConnect] = useState(false);
-  const [missingPermissions, setMissingPermissions] = useState<string[]>([]);
   const [runners, setRunners] = useState<RunnerSummary[]>([]);
 
   const workspaceId = activeWorkspace?.id;
@@ -570,17 +373,6 @@ export function AgentsSection() {
       setArchivedAgents(archivedResult);
       setRunners(runnerResult);
 
-      // El estado de GitHub no es esencial para listar agentes: si falla, la
-      // sección sigue sirviendo y solo se deshabilita el conectar.
-      try {
-        const gh = await getGithubStatus(workspaceId);
-        setRepos(gh.repositories ?? []);
-        setCanConnect(gh.connected && gh.canConnectRepos !== false);
-        setMissingPermissions(gh.missingPermissions ?? []);
-      } catch {
-        setRepos([]);
-        setCanConnect(false);
-      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Error al cargar los agentes.');
     } finally {
@@ -604,23 +396,6 @@ export function AgentsSection() {
       alert(err instanceof Error ? err.message : 'Error al actualizar el agente.');
     } finally {
       setSavingId(null);
-    }
-  };
-
-  /**
-   * `reviewRepo` configura el anfitrión para QA por Actions. QA con Runner toma
-   * el alcance del proyecto y no usa este campo.
-   */
-  const handleReviewRepoChange = async (agent: AgentSummary, value: string) => {
-    const prevValue = agent.reviewRepo;
-    setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, reviewRepo: value || undefined } : a)));
-    setSavingId(agent.id);
-    try {
-      await updateAgent(agent.id, { reviewRepo: value });
-    } catch {
-      setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, reviewRepo: prevValue } : a)));
-    } finally {
-      setSavingId('');
     }
   };
 
@@ -717,9 +492,7 @@ export function AgentsSection() {
       </div>
 
       <p className="text-xs text-secondary">
-        Un agente personal solo puede ejecutar issues cuyo responsable es su dueño. Los públicos los
-        administran los admins del workspace. Claude usa el workflow existente; Codex queda listo para
-        Pulse Runner y no se conecta todavía a GitHub Actions.
+        Los agentes de desarrollo y QA ejecutan su trabajo mediante Pulse Runner local. Vinculá un Runner y prepará su sesión para comenzar.
       </p>
 
       {loading ? (
@@ -784,17 +557,8 @@ export function AgentsSection() {
               >
                 {agent.role === 'qa' && (
                   <div className="flex items-center justify-between gap-2 min-w-0">
-                    <span className="text-secondary shrink-0">{agent.runnerId ? 'Alcance QA' : 'Repo a revisar'}</span>
-                    {agent.runnerId ? <span className="text-primary">Todos los repos del proyecto</span> : (
-                      <SelectPopover
-                        value={agent.reviewRepo ?? ''}
-                        onChange={(v) => handleReviewRepoChange(agent, v)}
-                        disabled={savingId === agent.id}
-                        ariaLabel="Repo a revisar"
-                        placeholder="Sin repo"
-                        options={[{ value: '', label: 'Sin repo' }, ...repos.map((repo) => ({ value: repo, label: repo }))]}
-                      />
-                    )}
+                    <span className="text-secondary shrink-0">Alcance QA</span>
+                    <span className="text-primary">Todos los repos del proyecto</span>
                   </div>
                 )}
                 {agent.role === 'qa' && (
@@ -835,9 +599,9 @@ export function AgentsSection() {
                         onChange={(value) => handleRunnerChange(agent, value)}
                         disabled={savingId === agent.id}
                         ariaLabel="Pulse Runner"
-                        placeholder="Actions por repo (legacy)"
+                        placeholder="Seleccionar Runner"
                         options={[
-                          { value: '', label: 'Actions por repo (legacy)' },
+                          { value: '', label: 'Sin Runner · configuración pendiente' },
                           ...eligibleRunners.map((runner) => ({
                             value: runner.id,
                             label: `${runner.displayName} · ${runner.status === 'online' ? 'En línea' : 'No disponible'}`,
@@ -853,21 +617,15 @@ export function AgentsSection() {
 
               {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerPreflightPanel key={`${agent.id}-${agent.runnerId}-${agent.role}-${agent.enabled}-${effectiveAgentRepos(agent).join(',')}-${agent.reviewRepo}`} agent={agent} />}
 
-              <AgentRepoConnections
-                agent={agent}
-                repos={repos}
-                canConnect={canConnect}
-                missingPermissions={missingPermissions}
-                onChanged={refresh}
-              />
+              {!agent.runnerId && <p role="status" className="text-xs text-priority-high">Configuración pendiente: vinculá un Runner local para ejecutar este agente. Los agentes de GitHub Actions fueron retirados.</p>}
+              <RetiredAgentConnections agent={agent} canManage={isWorkspaceAdmin || agent.ownerMemberId === user?.uid} onChanged={refresh} />
 
               {agent.role === 'qa' && qaDispatchBlockers(agent).length > 0 && (
                 <p className="text-[11px] text-priority-urgent">
-                  Este agente no va a recibir revisiones: {qaDispatchBlockers(agent).join('; ')}. El dispatch
-                  no falla — descarta al agente en silencio.
+                  Revisiones pendientes: {qaDispatchBlockers(agent).join('; ')}.
                 </p>
               )}
-              {agent.role === 'qa' && agent.runnerId && !agent.reviewRepo && (
+              {agent.role === 'qa' && agent.runnerId && (
                 <p className="text-[11px] text-secondary">
                   QA por Pulse Runner: recibe snapshots de todos los repos habilitados del proyecto; no requiere secrets ni GitHub Actions por repo.
                 </p>
@@ -907,7 +665,6 @@ export function AgentsSection() {
           onClose={() => setModalOpen(false)}
           workspaceId={workspaceId}
           existingIds={[...agents, ...archivedAgents].map((a) => a.id)}
-          repos={repos}
           onCreated={(agent) => setAgents((prev) => [agent, ...prev])}
         />
       )}

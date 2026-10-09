@@ -1184,80 +1184,20 @@ export interface ConnectedRepo {
   connectedAt: string;
 }
 
-export interface ConnectRepoResult {
-  repoFullName: string;
-  workflowPath: string;
-  workflowCreated: boolean;
-  workflowVersion: number;
-  mcpSecretName: string;
-  anthropicSecretPresent: boolean;
-  anthropicSecretName: string;
-  /** Comando a copiar para el secret que Pulse deliberadamente no gestiona. */
-  manualStep: string | null;
-}
-
-/**
- * Última versión de cada plantilla de workflow (`WORKFLOW_VERSION`/
- * `QA_WORKFLOW_VERSION` en `pulse-backend/functions/src/github/templates/`),
- * para que Settings pueda marcar como atrasado un repo cuyo
- * `ConnectedRepo.workflowVersion` quedó por debajo. `agents.connectRepo` no
- * expone esto por lectura (D12/TES-208 no agregó ese endpoint), así que se
- * duplica a mano acá — mismo patrón de copia manual entre repos que
- * `domain.generated.ts` en pulse-backend, y con el mismo riesgo: si sube la
- * versión del lado del backend y nadie actualiza esto, un repo desactualizado
- * deja de detectarse como tal hasta que se bumpee a mano.
- */
-export const LATEST_AGENT_WORKFLOW_VERSION: Record<'dev' | 'qa', number> = {
-  // v10 (TES-219): el prompt distingue los tres desenlaces de un criterio
-  // `not_met` y nombra `pulse_report_pending_work`. Un repo conectado antes de
-  // esto no se entera de que la tool existe, que es exactamente cómo
-  // `pulse_report_criteria` quedó sin usarse desde v5.
-  // v12 (TES-230/M3): el paso de configuración además inventaria y valida los
-  // skills de `.claude/skills/` del repo. v11 (M1) nunca llegó a instalarse:
-  // los repos pasan de v10 a v12 en una sola reconexión.
-  dev: 12,
-  // v4: `pulse-qa.yml` (`QA_WORKFLOW_VERSION` en
-  // `pulse-backend/functions/src/github/templates/pulse-qa-workflow.ts`).
-  // v6 (TES-269): el job `verify` instala donde estén los lockfiles, no sólo
-  // en la raíz. Un repo en v5 sigue dándole al QA un `build: failure` falso
-  // en cada PR, así que conviene reconectarlo.
-  qa: 6,
-};
-
-/**
- * Deja un repo listo para recibir dispatches: crea una key de MCP dedicada, la
- * escribe como secret y commitea el workflow en la rama por defecto.
- *
- * No toca el token de Anthropic — es del usuario y Pulse no lo guarda ni lo
- * transporta. El resultado dice si ya está puesto y, si no, con qué comando.
- */
-export async function connectAgentRepo(
-  workspaceId: string,
-  agentId: string,
-  repoFullName: string
-): Promise<ConnectRepoResult> {
-  const res = await callPlatformAction<ConnectRepoResult>('agents.connectRepo', {
-    workspaceId,
-    agentId,
-    repoFullName,
-  });
-  if (!res) throw new Error('No se pudo conectar el repo.');
-  return res;
-}
-
 export async function disconnectAgentRepo(
   workspaceId: string,
   agentId: string,
   repoFullName: string,
   removeWorkflow = false
-): Promise<void> {
-  const res = await callPlatformAction('agents.disconnectRepo', {
+): Promise<{ warnings: string[] }> {
+  const res = await callPlatformAction<{ warnings: string[] }>('agents.disconnectRepo', {
     workspaceId,
     agentId,
     repoFullName,
     removeWorkflow,
   });
   if (!res) throw new Error('No se pudo desconectar el repo.');
+  return res;
 }
 
 export async function getGithubStatus(workspaceId: string): Promise<GithubStatus> {
