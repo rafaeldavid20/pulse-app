@@ -1261,11 +1261,18 @@ export async function rerunReview(issueId: string): Promise<void> {
   if (!actionRes) throw new Error('No se pudo re-ejecutar la revisión de QA.');
 }
 
+/** Human-requested correction on the existing PRs, also available after shadow QA. */
+export async function requestReviewRework(issueId: string, comment: string): Promise<void> {
+  const callable = httpsCallable(functions, 'pulsePlatformAction');
+  const result = await callable({ actionCode: 'reviews.requestRework', data: { issueId, comment } });
+  const payload = result.data as PlatformActionEnvelope<unknown>;
+  if (!payload?.success) throw new Error(payload?.error || 'No se pudo solicitar la corrección al agente.');
+}
+
 /**
  * "Devolver al agente" (D7): desde `needs_human`, reasigna al dev original
  * (`review.previousAssigneeId`) con el comentario del humano y resetea
- * `review.attempt` para darle una nueva tanda de intentos. Todavía no tiene
- * handler en pulse-backend — ver TES-152.
+ * `review.attempt` para darle una nueva tanda de intentos al recuperar revisiones escaladas.
  */
 export async function returnReviewToAgent(issueId: string, comment: string): Promise<void> {
   const actionRes = await callPlatformAction('reviews.returnToAgent', { issueId, comment });

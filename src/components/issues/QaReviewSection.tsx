@@ -23,7 +23,7 @@ import {
   groupFindingsBySeverity,
   SEVERITY_LABELS,
 } from '@/lib/review';
-import { overrideReview, dismissFinding, rerunReview, returnReviewToAgent } from '@/lib/firestore';
+import { overrideReview, dismissFinding, rerunReview, returnReviewToAgent, requestReviewRework } from '@/lib/firestore';
 
 const FINDING_STATUS_LABELS: Record<ReviewFinding['status'], string> = {
   open: 'Abierto',
@@ -203,6 +203,13 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
   const [overrideReason, setOverrideReason] = useState('');
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [returnComment, setReturnComment] = useState('');
+  const [showReworkForm, setShowReworkForm] = useState(false);
+  const [reworkComment, setReworkComment] = useState('');
+  const [submittedRework, setSubmittedRework] = useState<string | null>(null);
+  const reworkKey = `${issue.id}:${review?.attempt}`;
+  const reworkQueued = review?.reworkDispatchedForAttempt === review?.attempt || submittedRework === reworkKey;
+  const canRequestRework = review?.state === 'changes_requested' && ['todo', 'in_progress', 'in_review'].includes(issue.status);
+
 
   const criteria = issue.acceptanceCriteria ?? [];
   const criterionText = (id: string) => criteria.find((c) => c.id === id)?.text ?? `Criterio ${id}`;
@@ -239,6 +246,15 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
       await returnReviewToAgent(issue.id, returnComment.trim());
       setShowReturnForm(false);
       setReturnComment('');
+    });
+
+  const handleRework = () =>
+    run('rework', async () => {
+      if (!reworkComment.trim()) return;
+      await requestReviewRework(issue.id, reworkComment.trim());
+      setSubmittedRework(reworkKey);
+      setShowReworkForm(false);
+      setReworkComment('');
     });
 
   const handleDismiss = (findingId: string, note: string) =>
@@ -390,6 +406,18 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
             Re-ejecutar QA
           </button>
 
+          {canRequestRework && !reworkQueued && (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => setShowReworkForm((value) => !value)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
+            >
+              <CornerUpLeft className="w-3.5 h-3.5" />
+              Solicitar corrección
+            </button>
+          )}
+
           {review.state === 'needs_human' && (
             <button
               type="button"
@@ -402,6 +430,37 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
             </button>
           )}
         </div>
+
+        {canRequestRework && reworkQueued && (
+          <p role="status" className="text-xs text-secondary">Corrección solicitada. El agente retomará los mismos PRs.</p>
+        )}
+
+        {canRequestRework && !reworkQueued && showReworkForm && (
+          <div className="flex flex-col gap-2 p-2.5 bg-elevated border border-default rounded-lg">
+            <label htmlFor={`rework-${issue.id}`} className="text-xs text-secondary">Indicaciones para el agente</label>
+            <textarea
+              id={`rework-${issue.id}`}
+              autoFocus
+              value={reworkComment}
+              onChange={(event) => setReworkComment(event.target.value)}
+              maxLength={4000}
+              rows={3}
+              placeholder="Indicá qué cambios de QA debe corregir…"
+              className="w-full bg-surface border border-default rounded-md px-2 py-1.5 text-xs text-primary placeholder-tertiary outline-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy !== null || !reworkComment.trim()}
+                onClick={handleRework}
+                className="px-2.5 py-1.5 text-xs font-semibold rounded-md bg-accent text-white hover:bg-accent-hover disabled:opacity-40 transition-colors"
+              >
+                {busy === 'rework' ? 'Solicitando…' : 'Enviar al agente'}
+              </button>
+              <button type="button" disabled={busy !== null} onClick={() => setShowReworkForm(false)} className="px-2.5 py-1.5 text-xs text-secondary hover:text-primary">Cancelar</button>
+            </div>
+          </div>
+        )}
 
         {showOverrideForm && (
           <div className="flex items-center gap-2 p-2.5 bg-elevated border border-default rounded-lg">
@@ -445,7 +504,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
           </div>
         )}
 
-        {error && <p className="text-xs text-priority-urgent">{error}</p>}
+        {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
       </div>
 
       {/* Historial de intentos: 1 → rechazo → re-trabajo → 2, con el resultado de cada finding. */}
