@@ -71,6 +71,26 @@ resultado expira a los dos minutos como antes.
 
 ## Límite de validación y procedimiento pendiente para QA
 
+### Rework — intento 1
+
+Se corrigieron ambos hallazgos de QA: el nombre sincronizado de workspace usa
+el mismo valor vacío al comparar y actualizar cuando no queda workspace; el
+título deja de estar marcado como editado al volver al valor actual del issue.
+Así puede seguir recibiendo cambios externos sin perder un borrador pendiente.
+
+`scripts/realtime-drafts.test.mjs` agrega tres regresiones: render de la pantalla
+con workspace nulo (React SSR), edición B y vuelta a A antes del autosave seguida
+de un título externo C, y preservación de B durante un cambio externo con limpieza
+del estado editado al recibir el guardado propio. Los dos primeros tests fallan
+contra `7903544` y pasan con la corrección; el tercero pasa en ambas versiones.
+El test de título ejecuta los hooks y handler originales con renders/timers
+simulados, no un navegador. La suite completa ahora tiene 21 pruebas que pasan;
+lint y TypeScript pasan. El chequeo de sincronización de tipos omite backend
+porque no existe el checkout esperado; este rework no cambia tipos de dominio.
+
+La validación con dos sesiones autenticadas sigue pendiente, con los límites
+y procedimiento indicados a continuación.
+
 No se ejecutaron dos sesiones de navegador autenticadas contra Firebase: este
 job no aporta sesiones de prueba. Las pruebas de dos lectores son simuladas y no
 certifican las reglas desplegadas, claims, latencia real ni todos los formularios

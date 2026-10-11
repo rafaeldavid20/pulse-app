@@ -1103,7 +1103,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         <input
           type="text"
           value={titleDraft}
-          onChange={(e) => { setTitleEdited(true); setTitleDraft(e.target.value); }}
+          onChange={(e) => { setTitleEdited(e.target.value !== issue.title); setTitleDraft(e.target.value); }}
           className="text-xl font-bold text-primary bg-transparent border-none outline-none focus:ring-0 p-0"
         />
 

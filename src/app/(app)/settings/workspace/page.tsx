@@ -16,10 +16,11 @@ export default function WorkspaceSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [syncedName, setSyncedName] = useState(activeWorkspace?.name || '');
-  if (syncedName !== activeWorkspace?.name) {
-    if (name === syncedName) setName(activeWorkspace?.name || '');
-    setSyncedName(activeWorkspace?.name || '');
+  const workspaceName = activeWorkspace?.name ?? '';
+  const [syncedName, setSyncedName] = useState(workspaceName);
+  if (syncedName !== workspaceName) {
+    if (name === syncedName) setName(workspaceName);
+    setSyncedName(workspaceName);
   }
 
   const dirty = name.trim() !== '' && name.trim() !== activeWorkspace?.name;
