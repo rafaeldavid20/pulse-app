@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ShieldCheck,
   RotateCcw,
@@ -167,6 +167,7 @@ function AttemptTimelineRow({ attempt, isLast }: { attempt: IssueReviewAttempt; 
             <span className="text-[10px] text-tertiary">{formatTimeAgo(attempt.completedAt)}</span>
           )}
         </div>
+        {attempt.requestSource === 'manual' && <p className="text-[11px] text-secondary">Revisión manual solicitada por {attempt.requestedBy}</p>}
         {attempt.verdict && <p className="text-[11px] text-secondary">{attempt.verdict}</p>}
         {total > 0 && (
           <p className="text-[11px] text-tertiary">
@@ -238,7 +239,19 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
       setOverrideReason('');
     });
 
-  const handleRerun = () => run('rerun', () => rerunReview(issue.id));
+  const [submittedReview, setSubmittedReview] = useState<{ key: string; expiresAt: number } | null>(null);
+  const reviewKey = `${issue.id}:${review?.attempt}`;
+  const [queueClock, setQueueClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setQueueClock(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const reviewQueued = (review?.manualRequest?.attempt === (review?.attempt || 0) + 1 && Date.parse(review.manualRequest.expiresAt) > queueClock) || (submittedReview?.key === reviewKey && submittedReview.expiresAt > queueClock);
+  const reviewActive = review?.state === 'running';
+  const handleRerun = () => run('rerun', async () => {
+    await rerunReview(issue.id);
+    setSubmittedReview({ key: reviewKey, expiresAt: Date.now() + 30 * 60_000 });
+  });
 
   const handleReturn = () =>
     run('return', async () => {
@@ -275,7 +288,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
         <div>
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || reviewQueued || reviewActive}
             onClick={handleRerun}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
           >
@@ -302,7 +315,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
         <div className="flex items-center justify-between flex-wrap gap-1.5">
           <span className="text-secondary">
             Intento <span className="text-primary font-semibold">{review.attempt}</span>
-            {reviewerAgent?.maxReviewAttempts ? ` de ${reviewerAgent.maxReviewAttempts}` : ''}
+            {` · límite automático ${reviewerAgent?.maxReviewAttempts ?? 2}`}
           </span>
           <span className="text-[11px] text-tertiary">
             {review.startedAt && `Empezó ${formatTimeAgo(review.startedAt)}`}
@@ -310,6 +323,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
           </span>
         </div>
 
+        {review.requestSource === 'manual' && <p className="text-secondary">Revisión manual solicitada por {review.requestedBy}</p>}
         {review.verdict && <p className="text-secondary">{review.verdict}</p>}
 
         {review.overriddenBy && (
@@ -379,6 +393,9 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
         </div>
       )}
 
+      <p role="status" className="text-xs text-secondary">
+        {reviewQueued ? 'Revisión manual solicitada. QA revisará los heads actuales de todos los PRs elegibles.' : reviewActive ? 'QA está revisando. Podés solicitar otra revisión cuando termine.' : 'Cada solicitud inicia una sola revisión, incluso si se agotó el límite automático. Conserva el historial y no habilita más retrabajos automáticos.'}
+      </p>
       {/* Acciones humanas sobre el intento en curso. */}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -394,7 +411,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
 
           <button
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || reviewQueued || reviewActive}
             onClick={handleRerun}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
           >
@@ -403,7 +420,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
             ) : (
               <RotateCcw className="w-3.5 h-3.5" />
             )}
-            Re-ejecutar QA
+            Solicitar revisión QA manual
           </button>
 
           {canRequestRework && !reworkQueued && (
