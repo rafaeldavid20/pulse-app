@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { readWorkspaceSelection, saveWorkspaceSelection } from '@/lib/workspace-selection';
 import {
   Workspace,
   Team,
@@ -12,6 +13,10 @@ import {
 } from '@/types';
 
 interface AppState {
+  workspaceUserId: string | null;
+  workspacesLoaded: boolean;
+  /** Data stores have been cleared for this user/workspace pair. */
+  workspaceDataScope: string | null;
   userWorkspaces: Workspace[];
   activeWorkspace: Workspace | null;
   teams: Team[];
@@ -38,7 +43,9 @@ interface AppState {
   /** Columnas opcionales visibles en IssueList. Preferencia de UI global, no por vista. */
   visibleColumns: IssueListColumn[];
 
-  setUserWorkspaces: (workspaces: Workspace[]) => void;
+  setWorkspaceUser: (userId: string | null) => void;
+  setWorkspaceDataScope: (scope: string | null) => void;
+  setUserWorkspaces: (workspaces: Workspace[], userId: string) => void;
   setActiveWorkspace: (workspace: Workspace | null) => void;
   setTeams: (teams: Team[]) => void;
   setActiveTeam: (team: Team | null) => void;
@@ -83,6 +90,9 @@ const initialGroupBy: IssueGroupBy = 'none';
 const initialSortBy: IssueSortBy = 'manual';
 
 export const useAppStore = create<AppState>((set) => ({
+  workspaceUserId: null,
+  workspacesLoaded: false,
+  workspaceDataScope: null,
   userWorkspaces: [],
   activeWorkspace: null,
   teams: [],
@@ -104,16 +114,28 @@ export const useAppStore = create<AppState>((set) => ({
   listDensity: 'comfortable',
   visibleColumns: DEFAULT_ISSUE_LIST_COLUMNS,
 
-  setUserWorkspaces: (userWorkspaces) =>
+  setWorkspaceUser: (workspaceUserId) => set((state) =>
+    state.workspaceUserId === workspaceUserId ? {} : {
+      workspaceUserId, workspacesLoaded: false, userWorkspaces: [],
+      activeWorkspace: null, workspaceDataScope: null,
+    }),
+  setWorkspaceDataScope: (workspaceDataScope) => set({ workspaceDataScope }),
+  setUserWorkspaces: (userWorkspaces, userId) =>
     set((state) => {
-      let active = state.activeWorkspace;
-      if (!active || !userWorkspaces.some((w) => w.id === active?.id)) {
-        active = userWorkspaces[0] || null;
-      }
-      return { userWorkspaces, activeWorkspace: active };
+      if (state.workspaceUserId !== userId) return {};
+      const preferredId = state.activeWorkspace?.id ?? readWorkspaceSelection(userId);
+      const activeWorkspace = userWorkspaces.find((w) => w.id === preferredId)
+        ?? userWorkspaces[0] ?? null;
+      saveWorkspaceSelection(userId, activeWorkspace?.id ?? null);
+      return { userWorkspaces, activeWorkspace, workspacesLoaded: true };
     }),
 
-  setActiveWorkspace: (activeWorkspace) => set({ activeWorkspace }),
+  setActiveWorkspace: (activeWorkspace) => set((state) => {
+    if (state.workspaceUserId) {
+      saveWorkspaceSelection(state.workspaceUserId, activeWorkspace?.id ?? null);
+    }
+    return { activeWorkspace };
+  }),
   setTeams: (teams) =>
     set((state) => {
       let active = state.activeTeam;

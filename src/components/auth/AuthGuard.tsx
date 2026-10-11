@@ -41,6 +41,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const pathname = usePathname();
 
   const setUserWorkspaces = useAppStore((s) => s.setUserWorkspaces);
+  const setWorkspaceUser = useAppStore((s) => s.setWorkspaceUser);
+  const workspaceUserId = useAppStore((s) => s.workspaceUserId);
+  const workspacesLoaded = useAppStore((s) => s.workspacesLoaded);
+  const workspaceDataScope = useAppStore((s) => s.workspaceDataScope);
+  const setWorkspaceDataScope = useAppStore((s) => s.setWorkspaceDataScope);
   const setMembers = useAppStore((s) => s.setMembers);
   const setTeams = useAppStore((s) => s.setTeams);
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
@@ -72,10 +77,18 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   }, [user, loading, pathname, router]);
 
   // 2. Subscribe to User Workspaces
+  const userId = user?.uid;
+  const userEmail = user?.email;
   useEffect(() => {
-    if (!user) return;
-    return subscribeUserWorkspaces(user.uid, user.email, setUserWorkspaces);
-  }, [user, setUserWorkspaces]);
+    if (loading) return;
+    setWorkspaceUser(userId ?? null);
+    if (!userId) return;
+    let alive = true;
+    const unsubscribe = subscribeUserWorkspaces(userId, userEmail ?? '', (workspaces) => {
+      if (alive) setUserWorkspaces(workspaces, userId);
+    });
+    return () => { alive = false; unsubscribe(); };
+  }, [loading, userId, userEmail, setWorkspaceUser, setUserWorkspaces]);
 
   // 3. Subscribe to Unread Notifications (badge de contador en sidebar / tab bar)
   //
@@ -93,7 +106,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   // 4. Subscribe to Active Workspace Data (Members, Teams, Issues, Projects, Labels)
   const workspaceId = activeWorkspace?.id;
-  const userId = user?.uid;
+  const dataScope = userId && workspaceUserId === userId && workspacesLoaded
+    ? JSON.stringify([userId, workspaceId ?? null]) : null;
   useEffect(() => {
     resetIssuesSubscription();
     useProjectStore.getState().resetProjects();
@@ -101,7 +115,12 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     setTeams([]);
     setLabels([]);
     setCycles([]);
-    if (!workspaceId || !userId) return;
+    useIssueStore.getState().clearSelection();
+    useIssueStore.getState().setPeekIssueId(null);
+    useIssueStore.getState().setSelectedIssueId(null);
+    useIssueStore.getState().setDefaultProjectId(null);
+    setWorkspaceDataScope(dataScope);
+    if (!dataScope || !workspaceId || !userId) return;
 
     const controller = new AbortController();
     const unsubscribers: Array<() => void> = [];
@@ -136,9 +155,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       controller.abort();
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [workspaceId, userId, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
+  }, [dataScope, workspaceId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
 
-  if (loading) {
+  if (loading || (user && (!dataScope || workspaceDataScope !== dataScope))) {
     return (
       <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-3 text-accent">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -151,6 +170,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   if (!user && isAuthPage) {
     return <>{children}</>;
   }
+  if (!user) return null;
 
   return (
     <>

@@ -217,8 +217,11 @@ export function subscribeUserWorkspaces(
   callback: (workspaces: Workspace[]) => void
 ): Unsubscribe {
   const q = query(collection(db, 'members'), where('userId', '==', userId));
-
-  return onSnapshot(q, async (snap) => {
+  let alive = true;
+  let generation = 0;
+  const unsubscribe = onSnapshot(q, async (snap) => {
+    if (!alive) return;
+    const currentGeneration = ++generation;
     const wsIds = snap.docs.map((d) => d.data().workspaceId);
 
     if (wsIds.length === 0) {
@@ -237,8 +240,11 @@ export function subscribeUserWorkspaces(
         // Fallback
       }
     }
-    callback(workspaces);
+    // A newer membership snapshot (or sign-out) can arrive during getDoc.
+    // Never restore workspaces from an obsolete membership list.
+    if (alive && generation === currentGeneration) callback(workspaces);
   });
+  return () => { alive = false; unsubscribe(); };
 }
 
 export function subscribeWorkspaceMembers(
