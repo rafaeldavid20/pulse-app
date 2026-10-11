@@ -1257,8 +1257,10 @@ export async function dismissFinding(issueId: string, findingId: string, note?: 
 
 /** "Re-ejecutar QA" (D7): vuelve a despachar el intento de revisión en curso. */
 export async function rerunReview(issueId: string): Promise<void> {
-  const actionRes = await callPlatformAction('reviews.rerun', { issueId });
-  if (!actionRes) throw new Error('No se pudo re-ejecutar la revisión de QA.');
+  const callable = httpsCallable(functions, 'pulsePlatformAction');
+  const result = await callable({ actionCode: 'reviews.rerun', data: { issueId } });
+  const payload = result.data as PlatformActionEnvelope<unknown>;
+  if (!payload?.success) throw new Error(payload?.error || 'No se pudo solicitar QA. Revisá la configuración y reintentá.');
 }
 
 /** Human-requested correction on the existing PRs, also available after shadow QA. */
