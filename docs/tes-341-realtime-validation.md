@@ -88,6 +88,22 @@ simulados, no un navegador. La suite completa ahora tiene 21 pruebas que pasan;
 lint y TypeScript pasan. El chequeo de sincronización de tipos omite backend
 porque no existe el checkout esperado; este rework no cambia tipos de dominio.
 
+### Corrección del intento 2
+
+Se corrigió `DescriptionSection` para calcular el estado editado comparando con
+la descripción vigente. Revertir al valor original cancela el autosave; un
+borrador distinto sigue protegido ante cambios externos. Se agregaron tres
+regresiones de descripción al harness existente: cambio externo antes y después
+del timer cancelado, y preservación del borrador con reconocimiento del guardado
+propio. Las dos primeras fallan sobre `529d69e` y pasan con la corrección.
+
+Validación: 24 pruebas aprobadas con Node 22.23.2, ESLint, TypeScript y build
+webpack aprobados. Node 20.11.1 falla en seis pruebas previas de mock timers;
+Node 22 ejecuta toda la suite correctamente. El chequeo de tipos del script
+estándar encuentra el backend primario local desactualizado; se verificó que el
+modelo coincide exactamente con `pulse-backend` en `origin/main`. No se alteró
+ningún modelo de dominio ni el checkout primario.
+
 La validación con dos sesiones autenticadas sigue pendiente, con los límites
 y procedimiento indicados a continuación.
 

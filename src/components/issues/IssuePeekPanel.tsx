@@ -839,7 +839,7 @@ function DescriptionSection({
     setSynced(issue.description || '');
   }
   useEffect(() => {
-    if (!edited) return;
+    if (!edited || draft === (issue.description || '')) return;
     const timer = setTimeout(() => {
       void updateIssue(issue.id, { description: draft }).catch(() => {});
     }, 500);
@@ -882,7 +882,11 @@ function DescriptionSection({
       {mode === 'write' ? (
         <textarea
           value={draft}
-          onChange={(e) => { setEdited(true); setDraft(e.target.value); }}
+          onChange={(e) => {
+            const value = e.target.value;
+            setEdited(value !== (issue.description || ''));
+            setDraft(value);
+          }}
           placeholder="Añade una descripción con Markdown..."
           rows={5}
           className="w-full bg-elevated border border-default focus:border-accent rounded-lg p-3 text-sm text-primary placeholder-tertiary outline-none transition-colors resize-y font-mono"

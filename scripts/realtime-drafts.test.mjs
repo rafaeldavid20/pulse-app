@@ -34,18 +34,25 @@ test('workspace settings render without a workspace after membership revocation'
 // and timers. Unrelated panel services are excluded; this is not a browser test.
 const source = await readFile(new URL('../src/components/issues/IssuePeekPanel.tsx', import.meta.url), 'utf8');
 const ast = ts.createSourceFile('panel.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-let change;
+let change, descriptionChange;
 function visit(node) {
   if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === 'input' &&
       node.attributes.properties.some(p => p.name?.getText(ast) === 'value' && p.initializer?.expression?.getText(ast) === 'titleDraft')) {
     change = node.attributes.properties.find(p => p.name?.getText(ast) === 'onChange').initializer.expression.getText(ast);
+  }
+  if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === 'textarea' &&
+      node.attributes.properties.some(p => p.name?.getText(ast) === 'value' && p.initializer?.expression?.getText(ast) === 'draft')) {
+    descriptionChange = node.attributes.properties.find(p => p.name?.getText(ast) === 'onChange').initializer.expression.getText(ast);
   }
   ts.forEachChild(node, visit);
 }
 visit(ast);
 assert.ok(change, 'title input handler found');
 const hooks = source.slice(source.indexOf('  const [titleDraft,'), source.indexOf('  // En mobile el panel'));
-function titleHarness() {
+const descriptionStart = source.indexOf('function DescriptionSection(');
+const descriptionHooks = source.slice(source.indexOf('  const [mode,', descriptionStart), source.indexOf('  const html =', descriptionStart));
+assert.ok(descriptionChange, 'description input handler found');
+function titleHarness(kind = 'title') {
   const state = [], effects = [], timers = new Map(), writes = [];
   let index, rerender, nextTimer = 0;
   const depsEqual = (a, b) => a?.length === b.length && a.every((value, i) => Object.is(value, b[i]));
@@ -69,8 +76,10 @@ function titleHarness() {
   const { render } = compile(`const { ${Object.keys(fixture).join(', ')} } = require('fixture');
     export function render(issue, updateIssue) {
       const activeWorkspace = null;
-      ${hooks}
-      return { titleDraft, titleEdited, onChange: ${change} };
+      ${kind === 'title' ? hooks : descriptionHooks}
+      return ${kind === 'title'
+        ? `{ titleDraft, titleEdited, onChange: ${change} }`
+        : `{ draft, edited, onChange: ${descriptionChange} }`};
     }`, { fixture });
   return {
     writes,
@@ -78,7 +87,7 @@ function titleHarness() {
       let result;
       for (let pass = 0; pass < 25; pass++) {
         index = 0; rerender = false;
-        result = render({ id: 'issue', title }, async (_id, update) => { writes.push(update); });
+        result = render({ id: 'issue', [kind]: title }, async (_id, update) => { writes.push(update); });
         if (!rerender) return result;
       }
       throw new Error('Too many re-renders');
@@ -105,4 +114,34 @@ test('external titles preserve an unsaved draft and own save clears dirty state'
   assert.deepEqual(panel.writes, [{ title: 'B' }]);
   assert.equal(panel.render('B').titleEdited, false);
   assert.equal(panel.render('D').titleDraft, 'D');
+});
+
+test('reverting a description cancels autosave and accepts an external update before the timer', () => {
+  const panel = titleHarness('description');
+  panel.render('A').onChange({ target: { value: 'B' } });
+  panel.render('A').onChange({ target: { value: 'A' } });
+  assert.equal(panel.render('A').edited, false);
+  assert.equal(panel.render('C').draft, 'C');
+  panel.flush();
+  assert.deepEqual(panel.writes, []);
+});
+
+test('reverting a description accepts external updates after the canceled timer', () => {
+  const panel = titleHarness('description');
+  panel.render('A').onChange({ target: { value: 'B' } });
+  panel.render('A').onChange({ target: { value: 'A' } });
+  panel.render('A');
+  panel.flush();
+  assert.deepEqual(panel.writes, []);
+  assert.equal(panel.render('C').draft, 'C');
+});
+
+test('external descriptions preserve a distinct draft and own save clears dirty state', () => {
+  const panel = titleHarness('description');
+  panel.render('A').onChange({ target: { value: 'B' } });
+  assert.equal(panel.render('C').draft, 'B');
+  panel.flush();
+  assert.deepEqual(panel.writes, [{ description: 'B' }]);
+  assert.equal(panel.render('B').edited, false);
+  assert.equal(panel.render('D').draft, 'D');
 });
