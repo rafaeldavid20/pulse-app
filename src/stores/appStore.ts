@@ -142,7 +142,7 @@ export const useAppStore = create<AppState>((set) => ({
       if (!active || !teams.some((t) => t.id === active?.id)) {
         active = teams[0] || null;
       }
-      return { teams, activeTeam: active };
+      return { teams, activeTeam: teams.find((team) => team.id === active?.id) ?? null };
     }),
   setActiveTeam: (activeTeam) => set({ activeTeam }),
   setMembers: (members) => set({ members }),

@@ -130,29 +130,42 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     // Membership documents arrive before the backend updates custom claims.
     // Starting a listener too early terminates it with permission-denied;
     // refreshing the token afterwards does not restart that listener.
-    void waitForWorkspaceAccess(firebaseUser, workspaceId, controller.signal)
+    let starting = false;
+    let subscribed = false;
+    const start = () => {
+      if (starting || subscribed || controller.signal.aborted) return;
+      starting = true;
+      void waitForWorkspaceAccess(firebaseUser, workspaceId, controller.signal)
       .then(() => {
         if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
+        subscribed = true;
         unsubscribers.push(
-          subscribeWorkspaceMembers(workspaceId, setMembers),
-          subscribeWorkspaceTeams(workspaceId, setTeams),
+          subscribeWorkspaceMembers(workspaceId, setMembers, () => { if (!controller.signal.aborted) setMembers([]); }),
+          subscribeWorkspaceTeams(workspaceId, setTeams, () => { if (!controller.signal.aborted) setTeams([]); }),
           subscribeWorkspaceIssues(workspaceId, setIssues, (error) => {
             if (controller.signal.aborted) return;
             console.error('subscribeWorkspaceIssues', error);
+            setIssues([]);
             setIssuesError(describeSubscriptionError(error));
           }),
-          subscribeWorkspaceProjects(workspaceId, setProjects),
-          subscribeWorkspaceLabels(workspaceId, setLabels),
-          subscribeWorkspaceCycles(workspaceId, setCycles),
+          subscribeWorkspaceProjects(workspaceId, setProjects, () => { if (!controller.signal.aborted) setProjects([]); }),
+          subscribeWorkspaceLabels(workspaceId, setLabels, () => { if (!controller.signal.aborted) setLabels([]); }),
+          subscribeWorkspaceCycles(workspaceId, setCycles, () => { if (!controller.signal.aborted) setCycles([]); }),
         );
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
-        setIssuesError(error instanceof Error ? error.message : 'No se pudo comprobar el acceso al workspace. Recarga la página para reintentar.');
-      });
+        setIssuesError(error instanceof Error ? error.message : 'No se pudo comprobar el acceso al workspace.');
+      }).finally(() => { starting = false; });
+    };
+    start();
+    window.addEventListener('online', start);
+    window.addEventListener('focus', start);
 
     return () => {
       controller.abort();
+      window.removeEventListener('online', start);
+      window.removeEventListener('focus', start);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [dataScope, workspaceId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);

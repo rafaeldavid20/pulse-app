@@ -154,39 +154,41 @@ test('AuthGuard hides page data until membership is validated and old data store
   assert.ok(!render().includes('WORKSPACE_DATA'));
 });
 
-test('async membership reads cannot restore an obsolete or unsubscribed workspace list', async () => {
-  let snapshot;
-  const pending = [];
+test('workspace document listeners deliver external metadata changes and dispose revoked scopes', async () => {
+  const callbacks = new Map();
+  const stopped = [];
   const { subscribeUserWorkspaces } = await load('../src/lib/firestore.ts', { fixture: {
-    db: {}, query: () => ({}), collection: () => ({}), where: () => ({}),
+    db: {}, query: () => 'members', collection: () => ({}), where: () => ({}),
     doc: (_db, _collection, id) => id,
-    onSnapshot: (_query, callback) => { snapshot = callback; return () => {}; },
-    getDoc: (id) => new Promise((resolve) => pending.push(() => resolve({
-      exists: () => true, data: () => ({ id }),
-    }))),
+    onSnapshot: (ref, callback) => { callbacks.set(ref, callback); return () => stopped.push(ref); },
   } }, (source) => {
     const ast = ts.createSourceFile('firestore.ts', source, ts.ScriptTarget.Latest);
     const fn = ast.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === 'subscribeUserWorkspaces');
-    return `const { query, collection, db, where, onSnapshot, getDoc, doc } = require('fixture');\n${fn.getText(ast)}`;
+    return `const { query, collection, db, where, onSnapshot, doc } = require('fixture');\n${fn.getText(ast)}`;
   });
   const seen = [];
-  const unsubscribe = subscribeUserWorkspaces('user', 'fixture@example.invalid', (value) => seen.push(value));
-  const snap = (ids) => ({ docs: ids.map((workspaceId) => ({ data: () => ({ workspaceId }) })) });
-  const old = snapshot(snap(['old']));
-  await snapshot(snap([]));
-  pending.shift()();
-  await old;
-  assert.deepEqual(seen, [[]]);
-  const earlier = snapshot(snap(['alpha']));
-  const newer = snapshot(snap(['beta']));
-  pending.pop()();
-  await newer;
-  pending.shift()();
-  await earlier;
-  assert.deepEqual(seen, [[], [{ id: 'beta' }]]);
-  const stale = snapshot(snap(['signed-out']));
-  unsubscribe();
-  pending.shift()();
-  await stale;
-  assert.deepEqual(seen, [[], [{ id: 'beta' }]]);
+  const stop = subscribeUserWorkspaces('user', 'fixture@example.invalid', value => seen.push(value));
+  const membership = ids => ({ docs: ids.map(workspaceId => ({ data: () => ({ workspaceId }) })) });
+  const workspace = (id, name) => ({ exists: () => true, data: () => ({ id, name }) });
+  callbacks.get('members')(membership(['beta', 'alpha']));
+  callbacks.get('beta')(workspace('beta', 'Beta'));
+  assert.deepEqual(seen, [], 'wait for every initial workspace before choosing a selection');
+  callbacks.get('alpha')(workspace('alpha', 'Before'));
+  callbacks.get('members')(membership(['alpha']));
+  callbacks.get('alpha')(workspace('alpha', 'Before'));
+  callbacks.get('alpha')(workspace('alpha', 'External rename'));
+  assert.deepEqual(seen.at(-1), [{ id: 'alpha', name: 'External rename' }]);
+  callbacks.get('members')(membership(['beta']));
+  callbacks.get('beta')(workspace('beta', 'Beta'));
+  callbacks.get('alpha')(workspace('alpha', 'Stale'));
+  assert.deepEqual(seen.at(-1), [{ id: 'beta', name: 'Beta' }]);
+  assert.ok(stopped.includes('alpha'));
+  callbacks.get('members')(membership([]));
+  assert.deepEqual(seen.at(-1), []);
+  callbacks.get('members')(membership(['signed-out']));
+  stop();
+  callbacks.get('signed-out')(workspace('signed-out', 'Late'));
+  assert.deepEqual(seen.at(-1), []);
+  assert.ok(stopped.includes('members'));
+  assert.ok(stopped.includes('signed-out'));
 });

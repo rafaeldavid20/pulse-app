@@ -17,6 +17,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, functions } from './firebase';
 import { Workspace, Team, Issue, Project, Label, Member, MemberRole, Comment, Cycle, CycleSettings, Notification, NotificationType, SnoozePreset, AgentKind, AgentPrPublicationMode, AgentQaMode, AgentRole, AgentVisibility, QaCalibrationRecord, Environment, EnvironmentWritableField, SalesforceLoginHost, SalesforceTestLevel } from '@/types';
 import { nanoid } from 'nanoid';
+import { invalidateLiveQueries } from './live-query';
 
 export interface UserDoc {
   uid: string;
@@ -105,6 +106,10 @@ export async function callPlatformAction<T = unknown>(
     const result = await pulsePlatformAction({ actionCode, data });
     const payload = result.data as PlatformActionEnvelope<T>;
     if (payload && payload.success) {
+      // Read-only callables must not recursively invalidate their own queries.
+      if (!/\.(list|listJobs|status|getUsage|getQaCalibration|getAgentBudget|preflight|createInstallUrl)$/.test(actionCode)) {
+        invalidateLiveQueries();
+      }
       return payload.data as T;
     }
     logPlatformActionFallback(actionCode, 'unsuccessful', payload);
@@ -218,44 +223,60 @@ export function subscribeUserWorkspaces(
 ): Unsubscribe {
   const q = query(collection(db, 'members'), where('userId', '==', userId));
   let alive = true;
-  let generation = 0;
-  const unsubscribe = onSnapshot(q, async (snap) => {
+  const workspaces = new Map<string, Workspace>();
+  const watchers = new Map<string, Unsubscribe>();
+  const ready = new Set<string>();
+  let ids: string[] = [];
+  const emit = (force = false) => {
+    if (!force && ids.some((id) => !ready.has(id))) return;
+    if (alive) callback(ids.flatMap((id) => workspaces.has(id) ? [workspaces.get(id)!] : []));
+  };
+  const unsubscribe = onSnapshot(q, (snap) => {
     if (!alive) return;
-    const currentGeneration = ++generation;
-    const wsIds = snap.docs.map((d) => d.data().workspaceId);
-
-    if (wsIds.length === 0) {
-      callback([]);
-      return;
+    ids = [...new Set(snap.docs.map((d) => d.data().workspaceId as string))];
+    let removed = false;
+    for (const [id, stop] of watchers) {
+      if (!ids.includes(id)) { removed = true; stop(); watchers.delete(id); workspaces.delete(id); ready.delete(id); }
     }
-
-    const workspaces: Workspace[] = [];
-    for (const wsId of wsIds) {
-      try {
-        const wsSnap = await getDoc(doc(db, 'workspaces', wsId));
-        if (wsSnap.exists()) {
-          workspaces.push(wsSnap.data() as Workspace);
-        }
-      } catch {
-        // Fallback
-      }
+    for (const id of ids) {
+      if (watchers.has(id)) continue;
+      watchers.set(id, onSnapshot(doc(db, 'workspaces', id), (workspace) => {
+        if (!alive || !ids.includes(id)) return;
+        ready.add(id);
+        if (workspace.exists()) workspaces.set(id, workspace.data() as Workspace);
+        else workspaces.delete(id);
+        emit();
+      }, () => {
+        if (!alive || !ids.includes(id)) return;
+        ready.add(id); workspaces.delete(id); emit();
+      }));
     }
-    // A newer membership snapshot (or sign-out) can arrive during getDoc.
-    // Never restore workspaces from an obsolete membership list.
-    if (alive && generation === currentGeneration) callback(workspaces);
+    // Retain selection until newly added workspace listeners have delivered.
+    if (removed || ids.length === 0 || ids.every((id) => ready.has(id))) emit(removed);
+  }, () => {
+    ids = [];
+    watchers.forEach((stop) => stop());
+    watchers.clear(); ready.clear(); workspaces.clear();
+    emit();
   });
-  return () => { alive = false; unsubscribe(); };
+  return () => {
+    alive = false;
+    unsubscribe();
+    watchers.forEach((stop) => stop());
+    watchers.clear();
+  };
 }
 
 export function subscribeWorkspaceMembers(
   workspaceId: string,
-  callback: (members: Member[]) => void
+  callback: (members: Member[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const q = query(collection(db, 'members'), where('workspaceId', '==', workspaceId));
   return onSnapshot(q, (snap) => {
     const members = snap.docs.map((d) => d.data() as Member);
     callback(members);
-  });
+  }, onError);
 }
 
 export async function inviteUserToWorkspace(
@@ -366,13 +387,14 @@ export async function processPendingInvitations(userId: string, email: string, d
 
 export function subscribeWorkspaceTeams(
   workspaceId: string,
-  callback: (teams: Team[]) => void
+  callback: (teams: Team[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const q = query(collection(db, 'teams'), where('workspaceId', '==', workspaceId));
   return onSnapshot(q, (snap) => {
     const teams = snap.docs.map((d) => d.data() as Team);
     callback(teams);
-  });
+  }, onError);
 }
 
 export async function createTeamInWorkspace(workspaceId: string, name: string, key: string): Promise<Team> {
@@ -554,13 +576,14 @@ export function subscribeTriageIssues(
 
 export function subscribeWorkspaceProjects(
   workspaceId: string,
-  callback: (projects: Project[]) => void
+  callback: (projects: Project[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const q = query(collection(db, 'projects'), where('workspaceId', '==', workspaceId));
   return onSnapshot(q, (snap) => {
     const projects = snap.docs.map((d) => d.data() as Project);
     callback(projects);
-  });
+  }, onError);
 }
 
 export async function createRealProject(
@@ -582,13 +605,14 @@ export async function updateRealProject(id: string, updates: Partial<Project>) {
 
 export function subscribeWorkspaceCycles(
   workspaceId: string,
-  callback: (cycles: Cycle[]) => void
+  callback: (cycles: Cycle[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const q = query(collection(db, 'cycles'), where('workspaceId', '==', workspaceId));
   return onSnapshot(q, (snap) => {
     const cycles = snap.docs.map((d) => d.data() as Cycle);
     callback(cycles);
-  });
+  }, onError);
 }
 
 export async function createRealCycle(
@@ -623,13 +647,14 @@ export async function updateCycleSettings(
 
 export function subscribeWorkspaceLabels(
   workspaceId: string,
-  callback: (labels: Label[]) => void
+  callback: (labels: Label[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const q = query(collection(db, 'labels'), where('workspaceId', '==', workspaceId));
   return onSnapshot(q, (snap) => {
     const labels = snap.docs.map((d) => d.data() as Label);
     callback(labels);
-  });
+  }, onError);
 }
 
 export async function createRealLabel(

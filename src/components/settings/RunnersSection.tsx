@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
+
+import React, { useCallback, useState } from 'react';
 import { Check, Copy, Cpu, Loader2, RotateCw, ShieldOff, History, RefreshCw, Square } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -46,8 +48,6 @@ export function RunnersSection() {
   const members = useAppStore((s) => s.members);
   const [runners, setRunners] = useState<RunnerSummary[]>([]);
   const [jobs, setJobs] = useState<RunnerJobSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [credential, setCredential] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -57,31 +57,22 @@ export function RunnersSection() {
   const [pairingBusy, setPairingBusy] = useState(false);
   const workspaceId = activeWorkspace?.id;
 
-  const refresh = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const [nextRunners, nextJobs] = await Promise.all([listRunners(workspaceId), listRunnerJobs(workspaceId)]);
-      setRunners(nextRunners);
-      setJobs(nextJobs);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudieron cargar los Runners.');
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async () => {
+    const [runners, jobs] = await Promise.all([listRunners(workspaceId!), listRunnerJobs(workspaceId!)]);
+    return { runners, jobs };
   }, [workspaceId]);
+  const live = useLiveQuery(workspaceId, load);
+  const refresh = live.refresh;
+  const loading = live.loading;
+  const [error, setError] = useState<string | null>(null);
+  const [synced, setSynced] = useState(live.data);
+  if (synced !== live.data || (live.error && error !== live.error)) {
+    setSynced(live.data);
+    setError(live.error);
+    setRunners(live.data?.runners ?? []);
+    setJobs(live.data?.jobs ?? []);
+  }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, not a render loop
-    refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    if (!jobs.some((job) => job.status === 'delivered' && job.cancelRequestedAt)) return;
-    const timer = window.setInterval(() => { refresh(); }, 3000);
-    return () => window.clearInterval(timer);
-  }, [jobs, refresh]);
 
   const ownerName = (ownerMemberId: string) => members.find((member) => member.userId === ownerMemberId)?.displayName || ownerMemberId;
 

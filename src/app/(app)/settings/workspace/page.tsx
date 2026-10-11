@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { Input } from '@/components/ui/Input';
@@ -16,10 +16,11 @@ export default function WorkspaceSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs the editable field with the store when the workspace changes, not a render loop
-    setName(activeWorkspace?.name || '');
-  }, [activeWorkspace?.name]);
+  const [syncedName, setSyncedName] = useState(activeWorkspace?.name || '');
+  if (syncedName !== activeWorkspace?.name) {
+    if (name === syncedName) setName(activeWorkspace?.name || '');
+    setSyncedName(activeWorkspace?.name || '');
+  }
 
   const dirty = name.trim() !== '' && name.trim() !== activeWorkspace?.name;
 
@@ -51,7 +52,7 @@ export default function WorkspaceSettingsPage() {
 
       <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold text-secondary">URL Slug</label>
-        <Input defaultValue={activeWorkspace?.slug || 'pulse'} disabled />
+        <Input value={activeWorkspace?.slug || 'pulse'} disabled />
       </div>
 
       {error && <p className="text-xs text-priority-urgent break-words">{error}</p>}

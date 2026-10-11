@@ -1,7 +1,9 @@
 'use client';
 
+import { useLiveQuery } from '@/hooks/useLiveQuery';
+
 import { RunnerPreflightPanel } from './RunnerPreflightPanel';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Bot, Loader2, Plus, GitBranch, Scale, Archive, RotateCcw } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -13,7 +15,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import {
   AgentSummary,
-  QaCalibrationSummary,
   createAgent,
   archiveAgent,
   disconnectAgentRepo,
@@ -293,26 +294,8 @@ function RetiredAgentConnections({ agent, canManage, onChanged }: {
  * ciegas.
  */
 function QaCalibrationPanel({ agentId }: { agentId: string }) {
-  const [summary, setSummary] = useState<QaCalibrationSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    getQaCalibration(agentId)
-      .then((res) => {
-        if (!cancelled) setSummary(res);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'No se pudo cargar la tasa de acuerdo.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId]);
+  const load = useCallback(() => getQaCalibration(agentId), [agentId]);
+  const { data: summary, loading, error } = useLiveQuery(`calibration:${agentId}`, load);
 
   if (loading) {
     return (
@@ -349,8 +332,6 @@ export function AgentsSection() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [archivedAgents, setArchivedAgents] = useState<AgentSummary[]>([]);
   const [showArchived, setShowArchived] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ agentId: string; message: string } | null>(null);
@@ -361,29 +342,23 @@ export function AgentsSection() {
   const currentMember = members.find((member) => member.workspaceId === workspaceId && member.userId === user?.uid);
   const isWorkspaceAdmin = currentMember?.role === 'owner' || currentMember?.role === 'admin';
 
-  const refresh = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [result, archivedResult, runnerResult] = await Promise.all([
-        listAgents(workspaceId), listAgents(workspaceId, true), listRunners(workspaceId),
-      ]);
-      setAgents(result);
-      setArchivedAgents(archivedResult);
-      setRunners(runnerResult);
-
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Error al cargar los agentes.');
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async () => {
+    const [agents, archivedAgents, runners] = await Promise.all([listAgents(workspaceId!), listAgents(workspaceId!, true), listRunners(workspaceId!)]);
+    return { agents, archivedAgents, runners };
   }, [workspaceId]);
+  const live = useLiveQuery(workspaceId, load);
+  const refresh = live.refresh;
+  const loading = live.loading;
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [synced, setSynced] = useState(live.data);
+  if (synced !== live.data || (live.error && loadError !== live.error)) {
+    setSynced(live.data);
+    setLoadError(live.error);
+    setAgents(live.data?.agents ?? []);
+    setArchivedAgents(live.data?.archivedAgents ?? []);
+    setRunners(live.data?.runners ?? []);
+  }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, not a render loop
-    refresh();
-  }, [refresh]);
 
   const handleToggleAutonomous = async (agent: AgentSummary) => {
     const nextValue = !agent.autonomousMode;

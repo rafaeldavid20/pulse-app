@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
+
+import React, { useCallback, useState } from 'react';
 import { Key, Plus, Copy, Check, Trash2, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -189,32 +191,26 @@ export function ApiKeysSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const [keys, setKeys] = useState<ApiKeySummary[]>([]);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
 
   const workspaceId = activeWorkspace?.id;
 
-  const refresh = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [result, agentResult] = await Promise.all([listApiKeys(workspaceId), listAgents(workspaceId)]);
-      setKeys(result);
-      setAgents(agentResult);
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Error al cargar las claves.');
-    } finally {
-      setLoading(false);
-    }
+  const load = useCallback(async () => {
+    const [keys, agents] = await Promise.all([listApiKeys(workspaceId!), listAgents(workspaceId!)]);
+    return { keys, agents };
   }, [workspaceId]);
+  const live = useLiveQuery(workspaceId, load);
+  const loading = live.loading;
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [synced, setSynced] = useState(live.data);
+  if (synced !== live.data || (live.error && loadError !== live.error)) {
+    setSynced(live.data);
+    setLoadError(live.error);
+    setKeys(live.data?.keys ?? []);
+    setAgents(live.data?.agents ?? []);
+  }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, not a render loop
-    refresh();
-  }, [refresh]);
 
   const handleRevoke = async (key: ApiKeySummary) => {
     if (!window.confirm(`¿Revocar la clave "${key.name}"? Esta acción no se puede deshacer.`)) return;

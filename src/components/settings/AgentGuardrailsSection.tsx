@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ShieldAlert, Loader2, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
 import { useAppStore } from '@/stores/appStore';
 import {
   AgentBudgetSummary,
@@ -30,37 +31,41 @@ export function AgentGuardrailsSection() {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const workspaceId = activeWorkspace?.id;
 
-  const [budget, setBudget] = useState<AgentBudgetSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [dailyDispatchLimit, setDailyDispatchLimit] = useState('');
   const [dailyCostCapUsd, setDailyCostCapUsd] = useState('');
-  const [issueCostCapUsd, setIssueCostCapUsd] = useState('');
-  const [maxRunsPerIssue, setMaxRunsPerIssue] = useState('');
+  const [issueCostCapUsd, setIssueCostCapUsd] = useState(activeWorkspace?.issueCostCapUsd != null ? String(activeWorkspace.issueCostCapUsd) : '');
+  const [maxRunsPerIssue, setMaxRunsPerIssue] = useState(activeWorkspace?.maxRunsPerIssue != null ? String(activeWorkspace.maxRunsPerIssue) : '');
 
-  const refresh = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const result = await getWorkspaceAgentBudget(workspaceId);
-      setBudget(result);
-      setDailyDispatchLimit(String(result.dailyDispatchLimit));
-      setDailyCostCapUsd(result.dailyCostCapUsd != null ? String(result.dailyCostCapUsd) : '');
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Error al cargar el presupuesto de agentes.');
-    } finally {
-      setLoading(false);
+  const [syncedLimits, setSyncedLimits] = useState({
+    maxRuns: activeWorkspace?.maxRunsPerIssue,
+    issueCost: activeWorkspace?.issueCostCapUsd,
+  });
+  if (syncedLimits.maxRuns !== activeWorkspace?.maxRunsPerIssue || syncedLimits.issueCost !== activeWorkspace?.issueCostCapUsd) {
+    if (maxRunsPerIssue === (syncedLimits.maxRuns != null ? String(syncedLimits.maxRuns) : '')) {
+      setMaxRunsPerIssue(activeWorkspace?.maxRunsPerIssue != null ? String(activeWorkspace.maxRunsPerIssue) : '');
     }
-  }, [workspaceId]);
+    if (issueCostCapUsd === (syncedLimits.issueCost != null ? String(syncedLimits.issueCost) : '')) {
+      setIssueCostCapUsd(activeWorkspace?.issueCostCapUsd != null ? String(activeWorkspace.issueCostCapUsd) : '');
+    }
+    setSyncedLimits({ maxRuns: activeWorkspace?.maxRunsPerIssue, issueCost: activeWorkspace?.issueCostCapUsd });
+  }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, not a render loop
-    refresh();
-  }, [refresh]);
+  const load = useCallback(() => getWorkspaceAgentBudget(workspaceId!), [workspaceId]);
+  const { data: budget, loading, error: loadError, refresh } = useLiveQuery(workspaceId, load);
+  const [synced, setSynced] = useState<AgentBudgetSummary>();
+  if (budget && synced !== budget) {
+    // Only update untouched fields; background budget refreshes preserve typing.
+    if (!synced || dailyDispatchLimit === String(synced.dailyDispatchLimit)) {
+      setDailyDispatchLimit(String(budget.dailyDispatchLimit));
+    }
+    if (!synced || dailyCostCapUsd === (synced.dailyCostCapUsd != null ? String(synced.dailyCostCapUsd) : '')) {
+      setDailyCostCapUsd(budget.dailyCostCapUsd != null ? String(budget.dailyCostCapUsd) : '');
+    }
+    setSynced(budget);
+  }
 
   const applyGuardrails = async (data: Partial<WorkspaceGuardrails>) => {
     if (!workspaceId) return;

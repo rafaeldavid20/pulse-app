@@ -6,7 +6,7 @@ import {
   onAuthStateChanged as firebaseOnAuthStateChanged,
   User,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider } from './firebase';
 import { createUserWorkspace, processPendingInvitations, UserDoc } from './firestore';
 
@@ -71,29 +71,23 @@ export async function logoutUser(): Promise<void> {
 }
 
 export function subscribeAuthState(callback: (user: UserProfile | null) => void) {
-  return firebaseOnAuthStateChanged(auth, async (firebaseUser: User | null) => {
-    if (firebaseUser) {
-      let name = firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario';
-      try {
-        const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-        if (userSnap.exists()) {
-          const data = userSnap.data() as UserDoc;
-          if (data.displayName) name = data.displayName;
-        }
-      } catch (e) {
-        console.warn('Warning: Could not fetch user profile from Firestore:', e);
-      }
-
-      callback({
-        uid: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        displayName: name,
-        photoURL: firebaseUser.photoURL || undefined,
-      });
-    } else {
-      callback(null);
-    }
+  let stopProfile: (() => void) | undefined;
+  let generation = 0;
+  const stopAuth = firebaseOnAuthStateChanged(auth, (firebaseUser: User | null) => {
+    stopProfile?.();
+    const current = ++generation;
+    if (!firebaseUser) { callback(null); return; }
+    const emit = (displayName?: string) => {
+      if (current !== generation) return;
+      callback({ uid: firebaseUser.uid, email: firebaseUser.email || '',
+        displayName: displayName || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Usuario',
+        photoURL: firebaseUser.photoURL || undefined });
+    };
+    stopProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (snapshot) => {
+      emit(snapshot.exists() ? (snapshot.data() as UserDoc).displayName : undefined);
+    }, () => emit());
   });
+  return () => { generation++; stopProfile?.(); stopAuth(); };
 }
 
 // Detailed Error translator helper
