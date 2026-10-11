@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { Command } from 'cmdk';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,6 +17,7 @@ import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { StatusBadge } from '@/components/issues/StatusBadge';
 import { PriorityBadge } from '@/components/issues/PriorityBadge';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
 import { getWorkspaceAgentBudget, updateWorkspaceGuardrails } from '@/lib/firestore';
 
 export const CommandPalette: React.FC = () => {
@@ -29,14 +30,9 @@ export const CommandPalette: React.FC = () => {
   const issues = useIssueStore((s) => s.issues);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
 
-  const [agentsPaused, setAgentsPaused] = useState(false);
-
-  useEffect(() => {
-    if (!isCmdKOpen || !workspaceId) return;
-    getWorkspaceAgentBudget(workspaceId)
-      .then((budget) => setAgentsPaused(budget.agentsPaused))
-      .catch(() => {});
-  }, [isCmdKOpen, workspaceId]);
+  const loadBudget = useCallback(() => getWorkspaceAgentBudget(workspaceId!), [workspaceId]);
+  const { data: budget } = useLiveQuery(isCmdKOpen ? workspaceId : undefined, loadBudget);
+  const agentsPaused = budget?.agentsPaused ?? false;
 
   const handleToggleAgentsPaused = async () => {
     if (!workspaceId) return;
@@ -44,7 +40,6 @@ export const CommandPalette: React.FC = () => {
     setCmdKOpen(false);
     try {
       await updateWorkspaceGuardrails(workspaceId, { agentsPaused: nextValue });
-      setAgentsPaused(nextValue);
     } catch {
       // El presupuesto se vuelve a leer la próxima vez que se abra la paleta.
     }

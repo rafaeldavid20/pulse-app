@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { GitBranch, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
 import { useAppStore } from '@/stores/appStore';
-import { getGithubStatus, getGithubInstallUrl, saveGithubConnection, GithubStatus } from '@/lib/firestore';
+import { getGithubStatus, getGithubInstallUrl, saveGithubConnection } from '@/lib/firestore';
 
 export function GitHubSection() {
   const workspaceId = useAppStore(s => s.activeWorkspace?.id);
@@ -12,40 +13,30 @@ export function GitHubSection() {
 }
 
 function WorkspaceGitHub({ workspaceId }: { workspaceId: string }) {
-  const [status, setStatus] = useState<GithubStatus | null>(null);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [installationId, setInstallationId] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
+
+  const load = useCallback(() => getGithubStatus(workspaceId), [workspaceId]);
+  const { data: status, loading, error: loadError, refresh: reload } = useLiveQuery(workspaceId, load);
+  const [synced, setSynced] = useState(status);
+  if (synced !== status) {
+    if (status && !editing) {
+      setInstallationId(status.availableConnections?.some(c => c.installationId === status.installationId) ? status.installationId! : status.availableConnections?.[0]?.installationId || '');
+      setSelected(status.selectedRepositories || status.repositories || []);
+      if (!synced) setEditing(!status.connected || !!status.uninstalled || !status.repositories?.length);
+    }
+    setSynced(status);
+  }
+  const refresh = async () => {
+    setBusy(true);
+    await reload();
+    setBusy(false);
+  };
   const choices = status?.availableConnections || [];
   const choice = choices.find(c => c.installationId === installationId);
-
-  useEffect(() => {
-    let active = true;
-    getGithubStatus(workspaceId).then(value => {
-      if (!active) return;
-      setStatus(value);
-      setInstallationId(value.availableConnections?.some(c => c.installationId === value.installationId) ? value.installationId! : value.availableConnections?.[0]?.installationId || '');
-      setSelected(value.selectedRepositories || value.repositories || []);
-      setEditing(!value.connected || !!value.uninstalled || !value.repositories?.length);
-    }).catch(err => {
-      if (active) setError(err instanceof Error ? err.message : 'Error al consultar GitHub.');
-    }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [workspaceId]);
-
-  const refresh = async () => {
-    setBusy(true); setError(null);
-    try {
-      const value = await getGithubStatus(workspaceId);
-      setStatus(value);
-      setInstallationId(value.availableConnections?.some(c => c.installationId === value.installationId) ? value.installationId! : value.availableConnections?.[0]?.installationId || '');
-      setSelected(value.selectedRepositories || value.repositories || []);
-    } catch (err) { setError(err instanceof Error ? err.message : 'Error al actualizar GitHub.'); }
-    finally { setBusy(false); }
-  };
   const connect = async () => {
     setBusy(true); setError(null);
     try { window.location.href = await getGithubInstallUrl(workspaceId); }
@@ -56,7 +47,7 @@ function WorkspaceGitHub({ workspaceId }: { workspaceId: string }) {
     setBusy(true); setError(null);
     try {
       await saveGithubConnection(workspaceId, choice.installationId, selected);
-      setStatus(await getGithubStatus(workspaceId)); setEditing(false);
+      setEditing(false); await reload();
     } catch (err) { setError(err instanceof Error ? err.message : 'Error al guardar GitHub.'); }
     finally { setBusy(false); }
   };
@@ -67,7 +58,7 @@ function WorkspaceGitHub({ workspaceId }: { workspaceId: string }) {
         <GitBranch className="w-4 h-4 text-secondary" />
         <h3 className="text-base font-semibold text-primary">GitHub</h3>
       </div>
-      {error && <p role="alert" className="text-xs text-priority-urgent break-words">{error}</p>}
+      {(error || loadError) && <p role="alert" className="text-xs text-priority-urgent break-words">{error || loadError}</p>}
       {loading ? <Loader2 aria-label="Consultando GitHub" className="w-4 h-4 animate-spin" /> : <>
         {status?.connected && <div className="flex flex-col gap-1">
           <p className="text-sm text-primary">{status.uninstalled ? 'GitHub desinstalado en' : status.suspended ? 'Conexión suspendida en' : 'Conectado a'} <strong>{status.accountLogin}</strong></p>

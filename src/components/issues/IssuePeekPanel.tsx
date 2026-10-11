@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { X, Trash2, Send, GitBranch, ExternalLink, Loader2, ChevronRight, Plus, Check, Sparkles } from 'lucide-react';
 import { useIssueStore } from '@/stores/issueStore';
@@ -23,13 +23,14 @@ import { ancestorsOf, childrenOf, progressOf, validParentsFor } from '@/lib/hier
 import { useAuth } from '@/hooks/useAuth';
 import { useWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
 import { resolveRepo, describeRepoSource } from '@/lib/repo';
-import { assignExecutionAgent, createComment, createIssueBranch, listAgents, subscribeIssueComments, updateRealIssue, type AgentSummary } from '@/lib/firestore';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
+import { assignExecutionAgent, createComment, createIssueBranch, listAgents, subscribeIssueComments, updateRealIssue } from '@/lib/firestore';
 import { SelectPopover } from '@/components/ui/SelectPopover';
 
 interface IssuePeekBodyProps {
   issue: Issue;
   members: Member[];
-  updateIssue: (id: string, updates: Partial<Issue>) => void;
+  updateIssue: (id: string, updates: Partial<Issue>) => Promise<void>;
   onOpenIssue: (id: string) => void;
   deleteIssue: (id: string) => void;
   onClose: () => void;
@@ -658,7 +659,7 @@ function AcceptanceCriteriaSection({
   updateIssue,
 }: {
   issue: Issue;
-  updateIssue: (id: string, updates: Partial<Issue>) => void;
+  updateIssue: (id: string, updates: Partial<Issue>) => Promise<void>;
 }) {
   const criteria = issue.acceptanceCriteria ?? [];
   const [newText, setNewText] = useState('');
@@ -826,10 +827,27 @@ function DescriptionSection({
   updateIssue,
 }: {
   issue: Issue;
-  updateIssue: (id: string, updates: Partial<Issue>) => void;
+  updateIssue: (id: string, updates: Partial<Issue>) => Promise<void>;
 }) {
   const [mode, setMode] = useState<'write' | 'preview'>('write');
-  const html = useMemo(() => markdownToHtml(issue.description || ''), [issue.description]);
+  const [draft, setDraft] = useState(issue.description || '');
+  const [synced, setSynced] = useState(issue.description || '');
+  const [edited, setEdited] = useState(false);
+  if (synced !== (issue.description || '')) {
+    if (!edited) setDraft(issue.description || '');
+    if (draft === (issue.description || '')) setEdited(false);
+    setSynced(issue.description || '');
+  }
+  useEffect(() => {
+    if (!edited || draft === (issue.description || '')) return;
+    const timer = setTimeout(() => {
+      void updateIssue(issue.id, { description: draft }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timer);
+    // Saves are scheduled by typing, never by a remote snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, edited]);
+  const html = useMemo(() => markdownToHtml(draft), [draft]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -863,8 +881,12 @@ function DescriptionSection({
 
       {mode === 'write' ? (
         <textarea
-          value={issue.description || ''}
-          onChange={(e) => updateIssue(issue.id, { description: e.target.value })}
+          value={draft}
+          onChange={(e) => {
+            const value = e.target.value;
+            setEdited(value !== (issue.description || ''));
+            setDraft(value);
+          }}
           placeholder="Añade una descripción con Markdown..."
           rows={5}
           className="w-full bg-elevated border border-default focus:border-accent rounded-lg p-3 text-sm text-primary placeholder-tertiary outline-none transition-colors resize-y font-mono"
@@ -900,36 +922,32 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
   // Local draft for the title input, debounced against Firestore writes —
   // without this, every keystroke fired a Platform Action / direct write.
   const [titleDraft, setTitleDraft] = useState(issue.title);
-  const [agents, setAgents] = useState<AgentSummary[]>([]);
-  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const [titleEdited, setTitleEdited] = useState(false);
   const [assigningExecutor, setAssigningExecutor] = useState(false);
   const [assigningQa, setAssigningQa] = useState(false);
 
-  useEffect(() => {
-    if (!activeWorkspace?.id) return;
-    let active = true;
-    listAgents(activeWorkspace.id)
-      .then((result) => {
-        if (active) setAgents(result);
-      })
-      .catch(() => {
-        if (active) setAgentsError('No se pudieron cargar los agentes disponibles.');
-      });
-    return () => {
-      active = false;
-    };
-  }, [activeWorkspace?.id]);
+  const workspaceId = activeWorkspace?.id;
+  const loadAgents = useCallback(() => listAgents(workspaceId!), [workspaceId]);
+  const { data: availableAgents, error: agentsLoadError } = useLiveQuery(workspaceId, loadAgents);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
+  const agents = availableAgents ?? [];
+  const [syncedTitle, setSyncedTitle] = useState(issue.title);
+  if (syncedTitle !== issue.title) {
+    if (!titleEdited) setTitleDraft(issue.title);
+    if (titleDraft === issue.title) setTitleEdited(false);
+    setSyncedTitle(issue.title);
+  }
 
   useEffect(() => {
-    if (titleDraft === issue.title) return;
+    if (!titleEdited || titleDraft === issue.title) return;
     const handle = setTimeout(() => {
       if (titleDraft.trim()) {
-        updateIssue(issue.id, { title: titleDraft });
+        void updateIssue(issue.id, { title: titleDraft }).catch(() => {});
       }
     }, 500);
     return () => clearTimeout(handle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [titleDraft]);
+  }, [titleDraft, titleEdited]);
 
   // En mobile el panel ocupa toda la pantalla (ver clase w-full del root):
   // sin un gesto de cierre, la única salida es el botón X del header. El
@@ -1089,7 +1107,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         <input
           type="text"
           value={titleDraft}
-          onChange={(e) => setTitleDraft(e.target.value)}
+          onChange={(e) => { setTitleEdited(e.target.value !== issue.title); setTitleDraft(e.target.value); }}
           className="text-xl font-bold text-primary bg-transparent border-none outline-none focus:ring-0 p-0"
         />
 
@@ -1179,7 +1197,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               ]}
             />
           </div>
-          {agentsError && <p className="col-span-2 text-[11px] text-priority-urgent">{agentsError}</p>}
+          {(agentsError || agentsLoadError) && <p className="col-span-2 text-[11px] text-priority-urgent">{agentsError || agentsLoadError}</p>}
 
           {/* Project Picker */}
           <div className="flex items-center justify-between">

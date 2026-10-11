@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Bot, ExternalLink, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
-import { getRunnerUsage, RunnerUsageResponse, RunnerUsageRun } from '@/lib/firestore';
+import { getRunnerUsage, RunnerUsageRun } from '@/lib/firestore';
+import { useLiveQuery } from '@/hooks/useLiveQuery';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 
@@ -31,25 +32,11 @@ export default function AgentUsagePage() {
   const workspaceId = useAppStore((state) => state.activeWorkspace?.id);
   const setPeekIssueId = useIssueStore((state) => state.setPeekIssueId);
   const [days, setDays] = useState<(typeof periods)[number]>(30);
-  const [data, setData] = useState<RunnerUsageResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!workspaceId) return;
-    let canceled = false;
+  const load = useCallback(() => {
     const bounds = periodBounds(days);
-    getRunnerUsage(workspaceId, bounds.from, bounds.to)
-      .then((result) => { if (!canceled) { setData(result); setError(null); setLoading(false); } })
-      .catch((reason: unknown) => {
-        if (!canceled) {
-          setData(null);
-          setError(reason instanceof Error ? reason.message : 'No se pudo cargar el consumo.');
-          setLoading(false);
-        }
-      });
-    return () => { canceled = true; };
+    return getRunnerUsage(workspaceId!, bounds.from, bounds.to);
   }, [workspaceId, days]);
+  const { data, loading, error } = useLiveQuery(workspaceId ? `${workspaceId}:${days}` : undefined, load);
 
   const agents = useMemo(() => data?.agents.filter((agent) => Boolean(agent.runnerId)) ?? [], [data]);
   const runs = useMemo(() => {
@@ -86,7 +73,7 @@ export default function AgentUsagePage() {
           <p className="text-sm text-secondary">Tokens reportados por agentes con Runner en este workspace.</p>
           <div className="flex gap-1 rounded-lg bg-surface border border-default p-1" aria-label="Período">
             {periods.map((period) => (
-              <button key={period} type="button" onClick={() => { setLoading(true); setDays(period); }}
+              <button key={period} type="button" onClick={() => { setDays(period); }}
                 aria-pressed={days === period}
                 className={`px-3 py-1.5 text-xs rounded-md ${days === period ? 'bg-hover text-primary' : 'text-secondary hover:text-primary'}`}>
                 {period} días

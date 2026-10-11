@@ -1,5 +1,7 @@
 'use client';
 
+import { useLiveQuery } from '@/hooks/useLiveQuery';
+
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Cloud, Loader2, Plus, RefreshCw, Unplug, AlertTriangle, CheckCircle2, GitBranch } from 'lucide-react';
@@ -16,7 +18,6 @@ import {
   getGithubStatus,
   EnvironmentSummary,
 } from '@/lib/firestore';
-import { refreshWorkspaceInfra } from '@/hooks/useWorkspaceInfra';
 import { ConnectOrgModal } from './ConnectOrgModal';
 
 const STATE_LABEL: Record<EnvironmentSummary['connectionState'], string> = {
@@ -286,37 +287,26 @@ export function SalesforceSection() {
 
   const [environments, setEnvironments] = useState<EnvironmentSummary[]>([]);
   const [repos, setRepos] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [reconnecting, setReconnecting] = useState<EnvironmentSummary | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      setEnvironments(await listEnvironments(workspaceId));
-    } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'No se pudieron cargar los entornos.');
-    } finally {
-      setLoading(false);
-    }
-    // Que GitHub falle no impide mostrar las orgs; sólo deja sin repos el
-    // selector del modal, que ya avisa cuando está vacío.
-    try {
-      const status = await getGithubStatus(workspaceId);
-      setRepos(status.repositories ?? []);
-    } catch {
-      setRepos([]);
-    }
-    refreshWorkspaceInfra(workspaceId);
+  const load = useCallback(async () => {
+    const environments = await listEnvironments(workspaceId!);
+    const status = await getGithubStatus(workspaceId!).catch(() => null);
+    return { environments, repos: status?.repositories ?? [] };
   }, [workspaceId]);
+  const live = useLiveQuery(workspaceId, load);
+  const refresh = live.refresh;
+  const loading = live.loading;
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [synced, setSynced] = useState(live.data);
+  if (synced !== live.data || (live.error && loadError !== live.error)) {
+    setSynced(live.data);
+    setLoadError(live.error);
+    setEnvironments(live.data?.environments ?? []);
+    setRepos(live.data?.repos ?? []);
+  }
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount, not a render loop
-    refresh();
-  }, [refresh]);
 
   // Resultado del redirect de salesforceCallback.
   const sf = searchParams.get('sf');

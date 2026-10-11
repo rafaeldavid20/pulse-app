@@ -31,7 +31,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const members = useAppStore((s) => s.members);
   const addProject = useProjectStore((s) => s.addProject);
   const updateProject = useProjectStore((s) => s.updateProject);
-  const { repos: infraRepos, connected: infraConnected } = useWorkspaceInfra();
+  const { repos: infraRepos, connected: infraConnected } = useWorkspaceInfra(isOpen);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -52,7 +52,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   // sobre el proyecto B después de haber editado el A mostraba por un frame los
   // datos de A. Es el render en cascada que marca el lint, y acá además se veía.
   const [syncedWith, setSyncedWith] = useState({ projectToEdit, isOpen });
-  if (syncedWith.projectToEdit !== projectToEdit || syncedWith.isOpen !== isOpen) {
+  if (syncedWith.projectToEdit?.id !== projectToEdit?.id || syncedWith.isOpen !== isOpen) {
     setSyncedWith({ projectToEdit, isOpen });
     if (projectToEdit) {
       setName(projectToEdit.name || '');
