@@ -23,10 +23,13 @@ export default function WorkspaceSettingsPage() {
     setSyncedName(workspaceName);
   }
 
-  const dirty = name.trim() !== '' && name.trim() !== activeWorkspace?.name;
+  const dirty = name.trim() !== activeWorkspace?.name;
+  const nameError = !name.trim() || name.trim().length > 100 || /[\u0000-\u001f\u007f]/.test(name)
+    ? 'El nombre del workspace debe tener entre 1 y 100 caracteres y no contener caracteres de control.'
+    : null;
 
   const handleSave = async () => {
-    if (!activeWorkspace || !dirty) return;
+    if (!activeWorkspace || !dirty || nameError) return;
     setSaving(true);
     setError(null);
     setSaved(false);
@@ -47,8 +50,16 @@ export default function WorkspaceSettingsPage() {
       <h3 className="text-base font-semibold text-primary">General</h3>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold text-secondary">Nombre del Workspace</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} disabled={saving} />
+        <label htmlFor="workspace-name" className="text-xs font-semibold text-secondary">Nombre del Workspace</label>
+        <Input
+          id="workspace-name"
+          value={name}
+          onChange={(e) => { setName(e.target.value); setError(null); setSaved(false); }}
+          disabled={saving}
+          aria-invalid={dirty && !!nameError}
+          aria-describedby={dirty && nameError ? 'workspace-name-error' : undefined}
+        />
+        {dirty && nameError && <p id="workspace-name-error" role="alert" className="text-xs text-priority-urgent">{nameError}</p>}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -56,15 +67,15 @@ export default function WorkspaceSettingsPage() {
         <Input value={activeWorkspace?.slug || 'pulse'} disabled />
       </div>
 
-      {error && <p className="text-xs text-priority-urgent break-words">{error}</p>}
+      {error && <p role="alert" className="text-xs text-priority-urgent break-words">{error}</p>}
 
       <div className="flex items-center justify-end gap-2 pt-2">
         {saved && (
-          <span className="flex items-center gap-1 text-xs text-status-done">
+          <span role="status" className="flex items-center gap-1 text-xs text-status-done">
             <Check className="w-3.5 h-3.5" /> Guardado
           </span>
         )}
-        <Button size="sm" onClick={handleSave} disabled={!dirty || saving}>
+        <Button size="sm" onClick={handleSave} disabled={!activeWorkspace || !dirty || !!nameError || saving}>
           {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Guardar Cambios'}
         </Button>
       </div>
