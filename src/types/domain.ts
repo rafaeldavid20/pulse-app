@@ -1070,6 +1070,10 @@ export interface IssueReview extends IssueReviewAttempt {
   dispatchedAt?: string;
   /** Motivo visible por el que QA no pudo despacharse; se limpia al despachar. */
   dispatchError?: string;
+  /** Durable automatic handoff; capacity waits do not reserve a review attempt. */
+  dispatchPending?: { reason: 'capacity'; runnerIds: string[] };
+  /** Deduplicates automatic jobs for the same attempt, PR set and live heads. */
+  dispatchedContext?: string;
   /**
    * Intentos ya cerrados, más viejo primero. Sin esto no hay métricas de D7
    * (intentos promedio, tasa de aprobación al primer intento) — solo
