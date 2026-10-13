@@ -112,9 +112,14 @@ export async function callPlatformAction<T = unknown>(
       }
       return payload.data as T;
     }
+    if (actionCode === 'workspaces.update') {
+      throw new Error(payload?.error || 'No se pudo actualizar el workspace.');
+    }
     logPlatformActionFallback(actionCode, 'unsuccessful', payload);
     return null;
   } catch (error) {
+    // Workspace updates never use client writes; surface contract/permission errors.
+    if (actionCode === 'workspaces.update') throw error;
     logPlatformActionFallback(actionCode, 'error', error);
     return null;
   }
