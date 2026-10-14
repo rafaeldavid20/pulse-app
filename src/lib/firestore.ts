@@ -1091,48 +1091,57 @@ function isSnoozed(notification: Notification): boolean {
 
 /**
  * Notificaciones no leídas del usuario, para el badge de contador (F1). Filtra
- * `read == false` a propósito y no solo `userId`: es lo que hace que la query
- * calce con el único índice compuesto que existe para esta colección
- * (`userId asc, read asc, createdAt desc`) — sin el filtro de `read`,
- * Firestore la rechaza por faltarle índice. La lista completa del inbox
- * (F3) necesitará su propio índice cuando exista.
+ * `read == false` a propósito. Cada query también limita `workspaceId` para
+ * que las reglas puedan verificar membresía; el inbox completo usa la misma
+ * estrategia por workspace sin filtrar `read`.
  */
 export function subscribeUserNotifications(
   userId: string,
-  callback: (notifications: Notification[]) => void
+  workspaceIds: string[],
+  callback: (notifications: Notification[]) => void,
+  onError?: (error: FirestoreError) => void
 ): Unsubscribe {
-  const q = query(
-    collection(db, 'notifications'),
-    where('userId', '==', userId),
-    where('read', '==', false),
-    orderBy('createdAt', 'desc')
-  );
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => d.data() as Notification).filter((n) => !isSnoozed(n)));
+  return subscribeNotificationsByWorkspace(userId, workspaceIds, true, callback, onError);
+}
+
+function subscribeNotificationsByWorkspace(
+  userId: string,
+  workspaceIds: string[],
+  unreadOnly: boolean,
+  callback: (notifications: Notification[]) => void,
+  onError?: (error: FirestoreError) => void
+): Unsubscribe {
+  const byWorkspace = new Map<string, Notification[]>();
+  const unsubscribers = workspaceIds.map((workspaceId) => {
+    const constraints = [
+      where('userId', '==', userId),
+      where('workspaceId', '==', workspaceId),
+    ];
+    if (unreadOnly) constraints.push(where('read', '==', false));
+    const q = query(collection(db, 'notifications'), ...constraints);
+    return onSnapshot(q, (snap) => {
+      byWorkspace.set(workspaceId, snap.docs.map((d) => d.data() as Notification).filter((n) => !isSnoozed(n)));
+      const notifications = [...byWorkspace.values()].flat();
+      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      callback(notifications);
+    }, onError);
   });
+  if (!workspaceIds.length) callback([]);
+  return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
 }
 
 /**
  * Todas las notificaciones del usuario (leídas y no leídas), para el inbox
- * completo (F3). A propósito sin `orderBy`: combinado con el filtro de
- * `userId` pediría su propio índice compuesto (distinto del de arriba, que
- * incluye `read`), así que se ordena en el cliente en su lugar.
+ * completo (F3). A propósito sin `orderBy`: el conjunto de consultas por
+ * workspace se ordena en el cliente.
  */
 export function subscribeAllUserNotifications(
   userId: string,
+  workspaceIds: string[],
   callback: (notifications: Notification[]) => void,
   onError?: (error: FirestoreError) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'notifications'), where('userId', '==', userId));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const notifications = snap.docs.map((d) => d.data() as Notification).filter((n) => !isSnoozed(n));
-      notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      callback(notifications);
-    },
-    onError
-  );
+  return subscribeNotificationsByWorkspace(userId, workspaceIds, false, callback, onError);
 }
 
 /**
