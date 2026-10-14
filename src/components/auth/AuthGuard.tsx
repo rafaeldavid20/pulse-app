@@ -199,6 +199,11 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       }
       retryTimer = setTimeout(start, delay);
     };
+    const clearOnError = (clear: () => void) => (error: { code?: string }) => {
+      if (controller.signal.aborted) return;
+      clear();
+      handleListenerError(error);
+    };
     const start = () => {
       if (starting || subscribed || controller.signal.aborted) return;
       starting = true;
@@ -207,8 +212,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
         subscribed = true;
         unsubscribers.push(
-          subscribeWorkspaceMembers(workspaceId, setMembers, handleListenerError),
-          subscribeWorkspaceTeams(workspaceId, setTeams, handleListenerError),
+          subscribeWorkspaceMembers(workspaceId, setMembers, clearOnError(() => setMembers([]))),
+          subscribeWorkspaceTeams(workspaceId, setTeams, clearOnError(() => setTeams([]))),
           subscribeWorkspaceIssues(workspaceId, setIssues, (error) => {
             if (controller.signal.aborted) return;
             console.error('subscribeWorkspaceIssues', error);
@@ -216,9 +221,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
             setIssuesError(describeSubscriptionError(error));
             handleListenerError(error);
           }),
-          subscribeWorkspaceProjects(workspaceId, setProjects, handleListenerError),
-          subscribeWorkspaceLabels(workspaceId, setLabels, handleListenerError),
-          subscribeWorkspaceCycles(workspaceId, setCycles, handleListenerError),
+          subscribeWorkspaceProjects(workspaceId, setProjects, clearOnError(() => setProjects([]))),
+          subscribeWorkspaceLabels(workspaceId, setLabels, clearOnError(() => setLabels([]))),
+          subscribeWorkspaceCycles(workspaceId, setCycles, clearOnError(() => setCycles([]))),
         );
       })
       .catch((error: unknown) => {
