@@ -7,7 +7,37 @@ const source = await readFile(new URL('../src/lib/workspace-access.ts', import.m
 const { outputText } = ts.transpileModule(source, { compilerOptions: {
   target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022,
 } });
-const { waitForWorkspaceAccess } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+const { waitForWorkspaceAccess, waitForWorkspaceAccessForAll } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`);
+
+test('a claim delay exceeding two seconds does not authorize listeners early', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+  let opened = false;
+  const pending = waitForWorkspaceAccess({ getIdTokenResult: async () => ({
+    claims: { ws: Date.now() >= 3000 ? { invited: 'member' } : {} },
+  }) }, 'invited', new AbortController().signal, [0, 1000, 2000, 4000]).then(() => { opened = true; });
+  await new Promise(resolve => setImmediate(resolve));
+  t.mock.timers.tick(1000);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(opened, false);
+  t.mock.timers.tick(2000);
+  await pending;
+  assert.equal(opened, true);
+  assert.equal(Date.now(), 3000);
+});
+
+test('multi-workspace Inbox waits for every claim, not just the first workspace', async () => {
+  let reads = 0;
+  await waitForWorkspaceAccessForAll({ getIdTokenResult: async () => ({ claims: {
+    ws: ++reads === 1 ? { a: 'owner' } : { a: 'owner', b: 'member' },
+  } }) }, ['a', 'b'], new AbortController().signal, [0, 0]);
+  assert.equal(reads, 2);
+});
+
+test('no workspace scope opens an empty Inbox without refreshing authentication', async () => {
+  await waitForWorkspaceAccessForAll({ getIdTokenResult: async () => {
+    throw new Error('An empty scope must not refresh');
+  } }, [], new AbortController().signal);
+});
 
 test('starts loading only after refreshed claims include the selected workspace', async () => {
   let reads = 0;

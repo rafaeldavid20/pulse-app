@@ -100,35 +100,50 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       setUnreadNotifications([]);
       return;
     }
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || firebaseUser.uid !== user.uid) return;
     const controller = new AbortController();
     const workspaceIds = userWorkspaces.map((workspace) => workspace.id);
     const unsubscribers: Array<() => void> = [];
     let retryAttempt = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let opening = false;
+    let subscribed = false;
     const open = () => {
-      if (opening || controller.signal.aborted) return;
+      if (opening || subscribed || controller.signal.aborted) return;
+      if (retryTimer) clearTimeout(retryTimer);
       opening = true;
-      void waitForWorkspaceAccessForAll(user, workspaceIds, controller.signal)
+      void waitForWorkspaceAccessForAll(firebaseUser, workspaceIds, controller.signal)
         .then(() => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || auth.currentUser?.uid !== user.uid) return;
+          subscribed = true;
           unsubscribers.push(subscribeUserNotifications(user.uid, workspaceIds, setUnreadNotifications, (error) => {
+            if (controller.signal.aborted) return;
             console.error('subscribeUserNotifications', error);
             setUnreadNotifications([]);
-            if (error.code !== 'permission-denied') return;
             unsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
+            subscribed = false;
+            if (error.code !== 'permission-denied') return;
             const delay = [1000, 2000, 4000, 8000][retryAttempt++];
             if (delay !== undefined) retryTimer = setTimeout(open, delay);
           }));
         })
         .catch((error: unknown) => {
-          if (!controller.signal.aborted) console.error('Unable to confirm notification workspace access', error);
+          if (controller.signal.aborted) return;
+          console.error('Unable to confirm notification workspace access', error);
+          setUnreadNotifications([]);
+          const delay = [1000, 2000, 4000, 8000][retryAttempt++];
+          if (delay !== undefined) retryTimer = setTimeout(open, delay);
         })
         .finally(() => { opening = false; });
     };
     open();
+    window.addEventListener('online', open);
+    window.addEventListener('focus', open);
     return () => {
       controller.abort();
+      window.removeEventListener('online', open);
+      window.removeEventListener('focus', open);
       if (retryTimer) clearTimeout(retryTimer);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
@@ -167,6 +182,12 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     const handleListenerError = (error: { code?: string }) => {
       if (controller.signal.aborted || error.code !== 'permission-denied') return;
       console.error('Workspace subscription permission denied; refreshing access and reopening listeners.', error);
+      setIssues([]);
+      setProjects([]);
+      setMembers([]);
+      setTeams([]);
+      setLabels([]);
+      setCycles([]);
       setIssuesError('Esperando la sincronización de permisos del workspace…');
       unsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
       subscribed = false;

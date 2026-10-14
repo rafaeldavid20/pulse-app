@@ -46,25 +46,31 @@ export function useUserNotifications() {
     let retryAttempt = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let opening = false;
+    let subscribed = false;
     const open = () => {
-      if (opening || controller.signal.aborted) return;
+      if (opening || subscribed || controller.signal.aborted) return;
+      if (retryTimer) clearTimeout(retryTimer);
       opening = true;
       void waitForWorkspaceAccessForAll(firebaseUser, workspaceIds, controller.signal)
         .then(() => {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
+          subscribed = true;
           unsubscribers.push(subscribeAllUserNotifications(
             userId,
             workspaceIds,
             (next) => {
+              if (controller.signal.aborted) return;
               setState({ userId, notifications: next, loaded: true, error: null, workspaceScope });
             },
             (err: FirestoreError) => {
+              if (controller.signal.aborted) return;
               console.error('subscribeAllUserNotifications', err);
+              unsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
+              subscribed = false;
               if (err.code !== 'permission-denied') {
                 setState({ userId, notifications: [], loaded: true, error: describeSubscriptionError(err), workspaceScope });
                 return;
               }
-              unsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
               const delay = [1000, 2000, 4000, 8000][retryAttempt++];
               if (delay === undefined) {
                 setState({ userId, notifications: [], loaded: true, error: describeSubscriptionError(err), workspaceScope });
@@ -87,9 +93,13 @@ export function useUserNotifications() {
         .finally(() => { opening = false; });
     };
     open();
+    window.addEventListener('online', open);
+    window.addEventListener('focus', open);
 
     return () => {
       controller.abort();
+      window.removeEventListener('online', open);
+      window.removeEventListener('focus', open);
       if (retryTimer) clearTimeout(retryTimer);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
