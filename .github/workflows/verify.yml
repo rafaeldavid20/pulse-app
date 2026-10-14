@@ -1,0 +1,25 @@
+name: Verify Pulse App PR
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint 2>&1 | tee -a verify-output.txt
+      - run: npx tsc --noEmit 2>&1 | tee -a verify-output.txt
+      - run: node --test scripts/*.test.mjs 2>&1 | tee -a verify-output.txt
+      - run: npx next build --webpack 2>&1 | tee -a verify-output.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-output
+          path: verify-output.txt

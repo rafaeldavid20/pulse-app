@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { auth } from '@/lib/firebase';
-import { waitForWorkspaceAccess } from '@/lib/workspace-access';
+import { waitForWorkspaceAccess, waitForWorkspaceAccessForAll } from '@/lib/workspace-access';
 import { useKeyboard } from '@/hooks/useKeyboard';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
@@ -49,6 +49,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const setMembers = useAppStore((s) => s.setMembers);
   const setTeams = useAppStore((s) => s.setTeams);
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const userWorkspaces = useAppStore((s) => s.userWorkspaces);
 
   const setIssues = useIssueStore((s) => s.setIssues);
   const setIssuesError = useIssueStore((s) => s.setIssuesError);
@@ -99,10 +100,54 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       setUnreadNotifications([]);
       return;
     }
-
-    const unsub = subscribeUserNotifications(user.uid, setUnreadNotifications);
-    return () => unsub();
-  }, [user, setUnreadNotifications]);
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || firebaseUser.uid !== user.uid) return;
+    const controller = new AbortController();
+    const workspaceIds = userWorkspaces.map((workspace) => workspace.id);
+    const unsubscribers: Array<() => void> = [];
+    let retryAttempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let opening = false;
+    let subscribed = false;
+    const open = () => {
+      if (opening || subscribed || controller.signal.aborted) return;
+      if (retryTimer) clearTimeout(retryTimer);
+      opening = true;
+      void waitForWorkspaceAccessForAll(firebaseUser, workspaceIds, controller.signal)
+        .then(() => {
+          if (controller.signal.aborted || auth.currentUser?.uid !== user.uid) return;
+          subscribed = true;
+          unsubscribers.push(subscribeUserNotifications(user.uid, workspaceIds, setUnreadNotifications, (error) => {
+            if (controller.signal.aborted) return;
+            console.error('subscribeUserNotifications', error);
+            setUnreadNotifications([]);
+            unsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
+            subscribed = false;
+            if (error.code !== 'permission-denied') return;
+            const delay = [1000, 2000, 4000, 8000][retryAttempt++];
+            if (delay !== undefined) retryTimer = setTimeout(open, delay);
+          }));
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          console.error('Unable to confirm notification workspace access', error);
+          setUnreadNotifications([]);
+          const delay = [1000, 2000, 4000, 8000][retryAttempt++];
+          if (delay !== undefined) retryTimer = setTimeout(open, delay);
+        })
+        .finally(() => { opening = false; });
+    };
+    open();
+    window.addEventListener('online', open);
+    window.addEventListener('focus', open);
+    return () => {
+      controller.abort();
+      window.removeEventListener('online', open);
+      window.removeEventListener('focus', open);
+      if (retryTimer) clearTimeout(retryTimer);
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [user, userWorkspaces, setUnreadNotifications]);
 
   // 4. Subscribe to Active Workspace Data (Members, Teams, Issues, Projects, Labels)
   const workspaceId = activeWorkspace?.id;
@@ -124,6 +169,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
     const controller = new AbortController();
     const unsubscribers: Array<() => void> = [];
+    let retryAttempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const firebaseUser = auth.currentUser;
     if (!firebaseUser || firebaseUser.uid !== userId) return;
 
@@ -132,6 +179,31 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     // refreshing the token afterwards does not restart that listener.
     let starting = false;
     let subscribed = false;
+    const handleListenerError = (error: { code?: string }) => {
+      if (controller.signal.aborted || error.code !== 'permission-denied') return;
+      console.error('Workspace subscription permission denied; refreshing access and reopening listeners.', error);
+      setIssues([]);
+      setProjects([]);
+      setMembers([]);
+      setTeams([]);
+      setLabels([]);
+      setCycles([]);
+      setIssuesError('Esperando la sincronización de permisos del workspace…');
+      unsubscribers.splice(0).forEach((unsubscribe) => unsubscribe());
+      subscribed = false;
+      const delays = [1000, 2000, 4000, 8000];
+      const delay = delays[retryAttempt++];
+      if (delay === undefined) {
+        setIssuesError('No se pudo confirmar tu acceso al workspace. Comprueba tu conexión o vuelve a intentarlo al cambiar de workspace.');
+        return;
+      }
+      retryTimer = setTimeout(start, delay);
+    };
+    const clearOnError = (clear: () => void) => (error: { code?: string }) => {
+      if (controller.signal.aborted) return;
+      clear();
+      handleListenerError(error);
+    };
     const start = () => {
       if (starting || subscribed || controller.signal.aborted) return;
       starting = true;
@@ -140,17 +212,18 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
         subscribed = true;
         unsubscribers.push(
-          subscribeWorkspaceMembers(workspaceId, setMembers, () => { if (!controller.signal.aborted) setMembers([]); }),
-          subscribeWorkspaceTeams(workspaceId, setTeams, () => { if (!controller.signal.aborted) setTeams([]); }),
+          subscribeWorkspaceMembers(workspaceId, setMembers, clearOnError(() => setMembers([]))),
+          subscribeWorkspaceTeams(workspaceId, setTeams, clearOnError(() => setTeams([]))),
           subscribeWorkspaceIssues(workspaceId, setIssues, (error) => {
             if (controller.signal.aborted) return;
             console.error('subscribeWorkspaceIssues', error);
             setIssues([]);
             setIssuesError(describeSubscriptionError(error));
+            handleListenerError(error);
           }),
-          subscribeWorkspaceProjects(workspaceId, setProjects, () => { if (!controller.signal.aborted) setProjects([]); }),
-          subscribeWorkspaceLabels(workspaceId, setLabels, () => { if (!controller.signal.aborted) setLabels([]); }),
-          subscribeWorkspaceCycles(workspaceId, setCycles, () => { if (!controller.signal.aborted) setCycles([]); }),
+          subscribeWorkspaceProjects(workspaceId, setProjects, clearOnError(() => setProjects([]))),
+          subscribeWorkspaceLabels(workspaceId, setLabels, clearOnError(() => setLabels([]))),
+          subscribeWorkspaceCycles(workspaceId, setCycles, clearOnError(() => setCycles([]))),
         );
       })
       .catch((error: unknown) => {
@@ -164,6 +237,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
     return () => {
       controller.abort();
+      if (retryTimer) clearTimeout(retryTimer);
       window.removeEventListener('online', start);
       window.removeEventListener('focus', start);
       unsubscribers.forEach((unsubscribe) => unsubscribe());

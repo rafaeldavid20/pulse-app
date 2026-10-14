@@ -24,6 +24,17 @@ export async function waitForWorkspaceAccess(
   signal: AbortSignal,
   retryDelaysMs: readonly number[] = RETRY_DELAYS_MS,
 ): Promise<void> {
+  return waitForWorkspaceAccessForAll(user, [workspaceId], signal, retryDelaysMs);
+}
+
+/** Refresh once per attempt and confirm every workspace claim on the same token. */
+export async function waitForWorkspaceAccessForAll(
+  user: Pick<User, 'getIdTokenResult'>,
+  workspaceIds: string[],
+  signal: AbortSignal,
+  retryDelaysMs: readonly number[] = RETRY_DELAYS_MS,
+): Promise<void> {
+  if (workspaceIds.length === 0) return;
   for (const delay of retryDelaysMs) {
     signal.throwIfAborted();
     if (delay > 0) await wait(delay, signal);
@@ -37,7 +48,7 @@ export async function waitForWorkspaceAccess(
     }
     signal.throwIfAborted();
     const ws = claims.ws;
-    if (ws && typeof ws === 'object' && Object.hasOwn(ws, workspaceId)) return;
+    if (ws && typeof ws === 'object' && workspaceIds.every((id) => Object.hasOwn(ws, id))) return;
   }
   throw new Error('No se pudo confirmar tu acceso al workspace. Recarga la página para reintentar. Si el problema continúa, pide al administrador que revise tu invitación.');
 }
