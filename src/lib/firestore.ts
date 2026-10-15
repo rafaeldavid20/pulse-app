@@ -772,6 +772,13 @@ export async function preflightRunnerAgent(agentId: string, repos: string[]): Pr
   return response;
 }
 
+export async function runnerProfile(input: { agentId: string; runnerId: string; op: 'read' | 'request'; requestId?: string; expectedRevision?: string; patch?: import('./runner-profile-state').ProfilePatch }) {
+  const response = await httpsCallable(functions, 'pulsePlatformAction')({ actionCode: 'runners.profile', data: input });
+  const result = response.data as PlatformActionEnvelope<import('./runner-profile-state').ProfileView & { requestId?: string; status?: string }>;
+  if (!result.success || !result.data) throw Object.assign(new Error(result.error || 'Solicitud rechazada por Pulse.'), { definitive: true });
+  return result.data;
+}
+
 export interface RunnerSummary {
   id: string;
   workspaceId: string;
