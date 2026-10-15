@@ -15,6 +15,17 @@ export interface ProfileView {
 }
 export type ProfilePatch = { model?: string | null; directories?: Array<{ repo: string; candidateId: string | null }> };
 
+// A refreshed local snapshot can arrive before the durable request result (lost ACK).
+// Keep connection/request metadata live, but expose values only after the exact ACK.
+export function reconcileProfileView(previous: ProfileView | null, next: ProfileView, pendingId: string | null): ProfileView {
+  const requestId = pendingId || (next.request?.status === 'applying' ? next.request.id : null);
+  if (!requestId || (next.request?.id === requestId && next.request.status === 'applied')) return next;
+  const sameTarget = previous && ['workspaceId', 'agentId', 'runnerId', 'binding'].every(
+    key => previous[key as keyof ProfileView] === next[key as keyof ProfileView],
+  );
+  return { ...next, snapshot: sameTarget ? previous.snapshot : null, observedAt: sameTarget ? previous.observedAt : null };
+}
+
 export function profileState(view: ProfileView | null, pendingId: string | null, now = Date.now()) {
   if (!view) return 'no_data';
   if (!view.online) return 'offline';

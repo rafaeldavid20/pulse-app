@@ -11,6 +11,10 @@ consulta su ID hasta recibir confirmación; después de una interrupción permit
 reintentar ese mismo ID explícitamente. Sin conexión o capacidad v1 no se pueden
 crear cambios nuevos. Un snapshot desconectado se identifica como histórico.
 Los conflictos con cambios locales requieren recargar el perfil.
+Si llega un snapshot nuevo antes del ACK de la solicitud pendiente, se conservan
+los valores, la revisión y la fecha anteriores hasta recibir `applied` para ese ID.
+Al reabrir sin una observación confirmada disponible, no se presenta el snapshot
+intermedio como confirmado.
 
 Los candidatos se registran desde la máquina con:
 
@@ -31,7 +35,7 @@ están documentados en `pulse-backend/docs/runner-profiles-v1.md`.
 Verificación del frontend:
 
 ```sh
-node --test scripts/runner-profile.test.mjs
+node --test scripts/runner-profile*.test.mjs
 npm run lint
 npx tsc --noEmit
 npx next build --webpack

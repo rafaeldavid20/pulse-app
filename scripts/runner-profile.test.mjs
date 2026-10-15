@@ -10,7 +10,7 @@ function load(file) {
   const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } });
   const compiled = { exports: {} }; new Function('module', 'exports', 'require', outputText)(compiled, compiled.exports, require); return compiled.exports;
 }
-const { profileState, canEditProfile } = load('../src/lib/runner-profile-state.ts');
+const { profileState, canEditProfile, reconcileProfileView } = load('../src/lib/runner-profile-state.ts');
 const now = Date.now();
 const snapshot = { version: 1, revision: 'a'.repeat(64), provider: 'codex', model: null, modelValid: true, models: ['model'], directories: [] };
 const view = { workspaceId: 'ws-one', agentId: 'agent-one', runnerId: 'runner-one', provider: 'codex', binding: 'binding', online: true, capable: true, repos: [], observedAt: new Date(now).toISOString(), snapshot, request: null };
@@ -39,4 +39,13 @@ test('disconnect keeps history and blocks editing; reconnection reconciles by ex
 });
 test('validation failure, expiry, authorization failure and local conflict have distinct states', () => {
   for (const status of ['validation_failed', 'conflict', 'expired', 'forbidden']) assert.equal(profileState({ ...view, request: { id: 'pending-id', status } }, 'pending-id', now), status);
+});
+test('pending reconciliation cannot borrow a baseline from another target or invent one after remount', () => {
+  const incoming = { ...view, request: { id: 'pending-id', status: 'applying' } };
+  for (const previous of [null, ...['workspaceId', 'agentId', 'runnerId', 'binding'].map(key => ({ ...view, [key]: 'other' }))]) {
+    const reconciled = reconcileProfileView(previous, incoming, 'pending-id');
+    assert.equal(reconciled.snapshot, null);
+    assert.equal(reconciled.observedAt, null);
+    assert.equal(profileState(reconciled, 'pending-id', now), 'applying');
+  }
 });

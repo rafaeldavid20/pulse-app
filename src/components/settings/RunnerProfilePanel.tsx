@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AgentSummary, runnerProfile } from '@/lib/firestore';
-import { canEditProfile, profileState, ProfileView } from '@/lib/runner-profile-state';
+import { canEditProfile, profileState, ProfileView, reconcileProfileView } from '@/lib/runner-profile-state';
 import { Button } from '@/components/ui/Button';
 
 const labels: Record<string, string> = {
@@ -29,6 +29,7 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
   const inputRef = useRef<Parameters<typeof runnerProfile>[0] | null>(null);
   const mounted = useRef(true);
   const previousRevision = useRef<string | null>(null);
+  const confirmedView = useRef<ProfileView | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -44,15 +45,17 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
     pendingRef.current = stored;
     async function refresh() {
       try {
-        const next = await runnerProfile({ agentId: agent.id, runnerId: agent.runnerId!, op: 'read', ...(pendingRef.current ? { requestId: pendingRef.current } : {}) });
+        const response = await runnerProfile({ agentId: agent.id, runnerId: agent.runnerId!, op: 'read', ...(pendingRef.current ? { requestId: pendingRef.current } : {}) });
         if (stopped) return;
+        const next = reconcileProfileView(confirmedView.current, response, pendingRef.current);
+        confirmedView.current = next;
         setView(next); setPending(pendingRef.current); setPendingInput(inputRef.current); setError(null); setClock(Date.now());
         if (next.snapshot && previousRevision.current !== `${next.binding}:${next.snapshot.revision}`) {
           previousRevision.current = `${next.binding}:${next.snapshot.revision}`;
           setModel(next.snapshot.model || '');
           setDirectories(Object.fromEntries(next.snapshot.directories.map(d => [d.repo, d.selected || ''])));
         }
-        if (next.request && next.request.status !== 'applying') {
+        if (next.request?.id === pendingRef.current && next.request?.status !== 'applying') {
           pendingRef.current = null; setPending(null);
           inputRef.current = null; setPendingInput(null);
           try { localStorage.removeItem(key); } catch { /* Optional storage. */ }
@@ -124,7 +127,7 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
       })}
       <Button size="sm" variant="secondary" disabled={!editable} onClick={save}>Guardar en Runner</Button>
     </>}
-    <Button size="sm" variant="secondary" disabled={saving || state === 'applying'} onClick={() => { previousRevision.current = null; setView(null); setError(null); setRejection(null); }}>Recargar perfil</Button>
+    <Button size="sm" variant="secondary" disabled={saving || state === 'applying'} onClick={() => { previousRevision.current = null; confirmedView.current = null; setView(null); setError(null); setRejection(null); }}>Recargar perfil</Button>
     <p className="text-tertiary">Los cambios confirmados rigen para próximas ejecuciones. Los jobs activos conservan su configuración.</p>
   </div>;
 }
