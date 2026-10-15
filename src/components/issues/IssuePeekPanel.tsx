@@ -11,6 +11,7 @@ import { StatusBadge } from './StatusBadge';
 import { AgentBadge } from './AgentBadge';
 import { ReviewBadge } from './ReviewBadge';
 import { AgentActivityBadge } from './AgentActivityBadge';
+import { DevelopmentSection } from './DevelopmentSection';
 import { QaReviewSection } from './QaReviewSection';
 import { LabelPicker } from '@/components/labels/LabelPicker';
 import { Issue, IssueStatus, IssuePriority, IssueType, IssueGitRef, Member, Comment, AcceptanceCriterion } from '@/types';
@@ -1165,7 +1166,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
               onChange={handleExecutionAgent}
               ariaLabel="Agente ejecutor"
               placeholder={responsibleMemberId ? 'Sin agente' : 'Elegí responsable'}
-              disabled={!responsibleMemberId || assigningExecutor}
+              disabled={!responsibleMemberId || assigningExecutor || (issue.review?.state === 'changes_requested' && !!issue.execution?.agentId)}
               options={[
                 { value: '', label: 'Sin agente' },
                 ...eligibleAgents.map((agent) => ({
@@ -1287,6 +1288,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <AcceptanceCriteriaSection issue={issue} updateIssue={updateIssue} />
 
+        <DevelopmentSection key={issue.id} issue={issue} />
         {(issue.review || issue.status === 'in_review') && <QaReviewSection issue={issue} />}
 
         {/* Labels Section */}
