@@ -3,6 +3,7 @@
 import { useLiveQuery } from '@/hooks/useLiveQuery';
 
 import { RunnerPreflightPanel } from './RunnerPreflightPanel';
+import { RunnerProfilePanel } from './RunnerProfilePanel';
 import React, { useCallback, useState } from 'react';
 import { Bot, Loader2, Plus, GitBranch, Scale, Archive, RotateCcw } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
@@ -626,6 +627,7 @@ export function AgentsSection() {
 
               {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerPreflightPanel key={`${agent.id}-${agent.runnerId}-${agent.role}-${agent.enabled}-${agent.prPublicationMode ?? 'draft'}-${effectiveAgentRepos(agent).join(',')}-${agent.reviewRepo}`} agent={agent} />}
 
+              {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerProfilePanel key={`${agent.id}:${agent.runnerId}`} agent={agent} />}
               {!agent.runnerId && <p role="status" className="text-xs text-priority-high">Configuración pendiente: vinculá un Runner local para ejecutar este agente. Los agentes de GitHub Actions fueron retirados.</p>}
               <RetiredAgentConnections agent={agent} canManage={isWorkspaceAdmin || agent.ownerMemberId === user?.uid} onChanged={refresh} />
 
