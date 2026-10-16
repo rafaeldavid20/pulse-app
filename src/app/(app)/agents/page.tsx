@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Bot, ExternalLink, Loader2 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
-import { getRunnerUsage, RunnerUsageRun } from '@/lib/firestore';
+import Link from 'next/link';
+import { listRunners, getRunnerUsage, RunnerUsageRun } from '@/lib/firestore';
 import { useLiveQuery } from '@/hooks/useLiveQuery';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
@@ -32,9 +33,10 @@ export default function AgentUsagePage() {
   const workspaceId = useAppStore((state) => state.activeWorkspace?.id);
   const setPeekIssueId = useIssueStore((state) => state.setPeekIssueId);
   const [days, setDays] = useState<(typeof periods)[number]>(30);
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     const bounds = periodBounds(days);
-    return getRunnerUsage(workspaceId!, bounds.from, bounds.to);
+    const [usage, runners] = await Promise.all([getRunnerUsage(workspaceId!, bounds.from, bounds.to), listRunners(workspaceId!).catch(() => [])]);
+    return { ...usage, runners };
   }, [workspaceId, days]);
   const { data, loading, error } = useLiveQuery(workspaceId ? `${workspaceId}:${days}` : undefined, load);
 
@@ -104,6 +106,7 @@ export default function AgentUsagePage() {
                     <span>Caché leída: {measured.some((run) => run.usage?.cacheReadInputTokens != null) ? count(cacheRead) : 'Sin datos'}</span>
                     <span>Caché creada: {measured.some((run) => run.usage?.cacheCreationInputTokens != null) ? count(cacheWrite) : 'Sin datos'}</span>
                   </div>
+                  {own.some(run => run.usage === null) && data?.runners.some(runner => runner.id === agent.runnerId && runner.usageReportSupported === false) && <p className="text-xs text-secondary">La última versión reportada de este Runner no anuncia métricas de consumo. <Link href="/settings/agentes#pulse-runners" className="text-accent hover:underline">Ver versión y cómo actualizar</Link>. Actualizar no recupera contadores históricos que nunca se enviaron.</p>}
                   <p className="text-xs text-tertiary">{count(own.length)} runs · Costo reportado: {priced.length ? money.format(priced.reduce((total, run) => total + run.costUsd!, 0)) : 'Sin datos'}</p>
                 </article>;
               })}

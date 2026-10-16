@@ -1,5 +1,6 @@
 'use client';
 
+import { RunnerVersionNotice } from './RunnerVersionNotice';
 import { useLiveQuery } from '@/hooks/useLiveQuery';
 
 import React, { useCallback, useState } from 'react';
@@ -136,7 +137,7 @@ export function RunnersSection() {
   if (!workspaceId) return null;
 
   return (
-    <section className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
+    <section id="pulse-runners" className="flex flex-col gap-4 p-5 bg-surface border border-default rounded-xl">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Cpu className="w-4 h-4 text-secondary" />
@@ -183,6 +184,7 @@ export function RunnersSection() {
                 <p className="mt-1 text-[11px] text-tertiary truncate">
                   {runner.lastHeartbeatAt ? `Último heartbeat ${formatTimeAgo(runner.lastHeartbeatAt)}` : 'Sin heartbeat todavía'} · Repos autorizados por proyecto
                 </p>
+                <RunnerVersionNotice runner={runner} activeJob={jobs.some(job => job.runnerId === runner.id && job.status === 'delivered')} />
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button size="sm" variant="secondary" disabled={workingId === runner.id} onClick={() => handleRotate(runner)} icon={workingId === runner.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}>
