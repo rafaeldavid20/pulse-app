@@ -107,19 +107,19 @@ export async function callPlatformAction<T = unknown>(
     const payload = result.data as PlatformActionEnvelope<T>;
     if (payload && payload.success) {
       // Read-only callables must not recursively invalidate their own queries.
-      if (!/\.(list|listJobs|status|getUsage|getQaCalibration|getAgentBudget|preflight|createInstallUrl)$/.test(actionCode)) {
+      if (!/\.(list|listJobs|status|getUsage|getQaCalibration|getAgentBudget|preflight|developmentStatus|createInstallUrl)$/.test(actionCode)) {
         invalidateLiveQueries();
       }
       return payload.data as T;
     }
-    if (actionCode === 'workspaces.update') {
-      throw new Error(payload?.error || 'No se pudo actualizar el workspace.');
+    if (['workspaces.update', 'issues.requestDevelopment', 'issues.developmentStatus'].includes(actionCode)) {
+      throw new Error(payload?.error || (actionCode === 'workspaces.update' ? 'No se pudo actualizar el workspace.' : 'No se pudo verificar o solicitar desarrollo.'));
     }
     logPlatformActionFallback(actionCode, 'unsuccessful', payload);
     return null;
   } catch (error) {
-    // Workspace updates never use client writes; surface contract/permission errors.
-    if (actionCode === 'workspaces.update') throw error;
+    // These actions require server evidence; surface validation and permission errors.
+    if (['workspaces.update', 'issues.requestDevelopment', 'issues.developmentStatus'].includes(actionCode)) throw error;
     logPlatformActionFallback(actionCode, 'error', error);
     return null;
   }
