@@ -18,7 +18,7 @@ function load(file, mocks = {}) {
   return compiled.exports;
 }
 
-test('panel holds acknowledged values across lost ACK polls until the exact request is applied', async () => {
+for (const fresh of [false, true]) test(fresh ? 'fresh panel discovers applying ID without storage and polls until its exact ACK' : 'panel holds acknowledged values across lost ACK polls until the exact request is applied', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://pulse.test' });
   const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true };
   const saved = Object.fromEntries(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
@@ -31,42 +31,58 @@ test('panel holds acknowledged values across lost ACK polls until the exact requ
     { repo: 'owner/repo', selected: 'old-dir', valid: true, candidates: [{ id: 'old-dir', alias: 'Checkout 1' }, { id: 'new-dir', alias: 'Checkout 2' }] },
   ] };
   const initial = { workspaceId: 'ws', agentId: 'agent', runnerId: 'runner', provider: 'codex', binding: 'binding', online: true, capable: true, repos: ['owner/repo'], observedAt: new Date().toISOString(), snapshot, request: null };
-  let response = initial; let submitted;
+  const changed = { ...snapshot, revision: 'b'.repeat(64), model: 'new-model', directories: snapshot.directories.map(d => ({ ...d, selected: 'new-dir' })) };
+  let response = fresh ? { ...initial, snapshot: changed, request: { id: 'discovered-request', status: 'applying' } } : initial;
+  let submitted; const reads = [];
+  if (fresh) {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, get() { throw new Error('storage disabled'); } });
+  }
   const { RunnerProfilePanel } = load('../src/components/settings/RunnerProfilePanel.tsx', {
-    '@/lib/firestore': { runnerProfile: async input => { if (input.op === 'request') { submitted = input; return {}; } return response; } },
+    '@/lib/firestore': { runnerProfile: async input => { if (input.op === 'request') { submitted = input; return {}; } reads.push(input); return response; } },
     '@/lib/runner-profile-state': load('../src/lib/runner-profile-state.ts'),
     '@/components/ui/Button': { Button: ({ children, disabled, onClick }) => React.createElement('button', { disabled, onClick }, children) },
   });
   const container = document.getElementById('root'); const root = createRoot(container);
   const refresh = () => act(async () => { poll(); });
   const assertOld = () => {
+    if (fresh) {
+      assert.doesNotMatch(container.textContent, /Modelo confirmado:|confirmado: Checkout|revisión bbbbb/);
+      assert.equal(container.querySelectorAll('select').length, 0);
+      return;
+    }
     assert.match(container.textContent, /Modelo confirmado: old-model/);
     assert.match(container.textContent, /owner\/repo · confirmado: Checkout 1/);
     assert.match(container.textContent, /revisión aaaaaaaaaaaa/);
   };
   try {
     await act(async () => root.render(React.createElement(RunnerProfilePanel, { agent: { id: 'agent', runnerId: 'runner', kind: 'codex' } })));
-    await act(async () => {
-      const selects = container.querySelectorAll('select');
-      selects[0].value = 'new-model'; selects[0].dispatchEvent(new window.Event('change', { bubbles: true }));
-      selects[1].value = 'new-dir'; selects[1].dispatchEvent(new window.Event('change', { bubbles: true }));
-    });
-    await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Guardar en Runner').click());
-    assert.ok(submitted.requestId);
-    const changed = { ...snapshot, revision: 'b'.repeat(64), model: 'new-model', directories: snapshot.directories.map(d => ({ ...d, selected: 'new-dir' })) };
+    if (fresh) {
+      assert.equal(reads[0].requestId, undefined);
+      submitted = { requestId: 'discovered-request' };
+    } else {
+      await act(async () => {
+        const selects = container.querySelectorAll('select');
+        selects[0].value = 'new-model'; selects[0].dispatchEvent(new window.Event('change', { bubbles: true }));
+        selects[1].value = 'new-dir'; selects[1].dispatchEvent(new window.Event('change', { bubbles: true }));
+      });
+      await act(async () => [...container.querySelectorAll('button')].find(b => b.textContent === 'Guardar en Runner').click());
+      assert.ok(submitted.requestId);
+    }
     response = { ...initial, snapshot: changed, request: { id: submitted.requestId, status: 'applying' } };
     await refresh(); assertOld();
+    assert.equal(reads.at(-1).requestId, submitted.requestId);
+    assert.match(container.textContent, /Aplicando/);
     response = { ...response, online: false };
     await refresh(); assertOld(); assert.match(container.textContent, /histórico/);
     response = { ...response, online: true, request: { id: 'another-request', status: 'applied' } };
     await refresh(); assertOld(); assert.match(container.textContent, /Aplicando/);
-    assert.ok(localStorage.length); // A different ACK must not clear the pending ID.
+    if (!fresh) assert.ok(localStorage.length); // A different ACK must not clear the pending ID.
     response = { ...response, request: { id: submitted.requestId, status: 'applied' } };
     await refresh();
     assert.match(container.textContent, /Modelo confirmado: new-model/);
     assert.match(container.textContent, /owner\/repo · confirmado: Checkout 2/);
     assert.match(container.textContent, /Cambio confirmado por el Runner/);
-    assert.equal(localStorage.length, 0);
+    if (!fresh) assert.equal(localStorage.length, 0);
   } finally {
     await act(async () => root.unmount()); dom.window.close();
     globalThis.setInterval = oldInterval; globalThis.clearInterval = oldClear;

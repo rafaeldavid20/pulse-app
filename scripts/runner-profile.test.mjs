@@ -49,3 +49,12 @@ test('pending reconciliation cannot borrow a baseline from another target or inv
     assert.equal(profileState(reconciled, 'pending-id', now), 'applying');
   }
 });
+
+test('server-discovered uncertainty drives applying state without a client ID', () => {
+  const incoming = { ...view, request: { id: 'discovered', status: 'applying' } };
+  assert.equal(profileState(incoming, null, now), 'applying');
+  assert.equal(canEditProfile(incoming, null, now), false);
+  const reconciled = reconcileProfileView(null, incoming, null);
+  assert.equal(reconciled.snapshot, null);
+  assert.equal(profileState(reconciled, null, now), 'applying');
+});

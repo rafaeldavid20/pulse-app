@@ -30,6 +30,7 @@ export function profileState(view: ProfileView | null, pendingId: string | null,
   if (!view) return 'no_data';
   if (!view.online) return 'offline';
   if (!view.capable) return 'incompatible';
+  if (view.request?.status === 'applying') return 'applying';
   if (pendingId && (!view.request || view.request.id !== pendingId || view.request.status === 'applying')) return 'applying';
   if (view.request && ['validation_failed', 'conflict', 'expired', 'forbidden'].includes(view.request.status)) return view.request.status;
   const age = view.observedAt ? now - Date.parse(view.observedAt) : NaN;

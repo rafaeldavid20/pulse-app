@@ -39,7 +39,10 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
       const raw = localStorage.getItem(key);
       if (raw) {
         const saved = JSON.parse(raw);
-        if (saved.agentId === agent.id && saved.runnerId === agent.runnerId && typeof saved.requestId === 'string') { stored = saved.requestId; inputRef.current = saved; }
+        if (saved.agentId === agent.id && saved.runnerId === agent.runnerId && typeof saved.requestId === 'string') {
+          stored = saved.requestId;
+          inputRef.current = saved.op === 'request' && saved.patch && saved.expectedRevision ? saved : null;
+        }
       }
     } catch { /* Storage may be disabled. */ }
     pendingRef.current = stored;
@@ -47,6 +50,12 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
       try {
         const response = await runnerProfile({ agentId: agent.id, runnerId: agent.runnerId!, op: 'read', ...(pendingRef.current ? { requestId: pendingRef.current } : {}) });
         if (stopped) return;
+        if (response.request?.status === 'applying' && response.request.id !== pendingRef.current) {
+          pendingRef.current = response.request.id;
+          inputRef.current = null;
+          // Discovery supplies an ID, never another client's patch to resubmit.
+          try { localStorage.setItem(key, JSON.stringify({ agentId: agent.id, runnerId: agent.runnerId, requestId: response.request.id })); } catch { /* Optional storage. */ }
+        }
         const next = reconcileProfileView(confirmedView.current, response, pendingRef.current);
         confirmedView.current = next;
         setView(next); setPending(pendingRef.current); setPendingInput(inputRef.current); setError(null); setClock(Date.now());
