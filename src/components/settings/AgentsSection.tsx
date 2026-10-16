@@ -1,5 +1,7 @@
 'use client';
 
+import { RunnerVersionNotice } from './RunnerVersionNotice';
+
 import { useLiveQuery } from '@/hooks/useLiveQuery';
 
 import { RunnerPreflightPanel } from './RunnerPreflightPanel';
@@ -625,6 +627,7 @@ export function AgentsSection() {
                 </div>
               </div>
 
+              {runners.find(runner => runner.id === agent.runnerId) && <RunnerVersionNotice runner={runners.find(runner => runner.id === agent.runnerId)!} />}
               {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerPreflightPanel key={`${agent.id}-${agent.runnerId}-${agent.role}-${agent.enabled}-${agent.prPublicationMode ?? 'draft'}-${effectiveAgentRepos(agent).join(',')}-${agent.reviewRepo}`} agent={agent} />}
 
               {agent.runnerId && (isWorkspaceAdmin || ((agent.visibility ?? 'public') === 'personal' && agent.ownerMemberId === user?.uid)) && <RunnerProfilePanel key={`${agent.id}:${agent.runnerId}`} agent={agent} />}

@@ -787,6 +787,12 @@ export interface RunnerSummary {
   status: 'online' | 'offline' | 'busy' | 'paused';
   maxConcurrentJobs: number;
   connectedRepos?: string[];
+  changesUrl?: string | null;
+  processVersion?: string | null;
+  versionReportedAt?: string;
+  usageReportSupported?: boolean | null;
+  updateStatus?: 'current' | 'update_available' | 'unknown' | 'unavailable';
+  release?: { status: 'available' | 'unavailable'; version?: string; checkedAt: string; nextCheckAt: number };
   lastHeartbeatAt?: string;
   revokedAt?: string;
 }
