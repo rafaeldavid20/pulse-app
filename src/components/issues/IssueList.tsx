@@ -285,7 +285,8 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const addHistoricalIssues = useIssueStore((s) => s.addHistoricalIssues);
   const activeTeam = useAppStore((s) => s.activeTeam);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  const [hasOlder, setHasOlder] = useState(true);
+  const [paginationState, setPaginationState] = useState<{ teamId: string | null; hasOlder: boolean }>({ teamId: null, hasOlder: true });
+  const hasOlder = paginationState.teamId !== activeTeam?.id || paginationState.hasOlder;
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const selectedIssueIds = useIssueStore((s) => s.selectedIssueIds);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
@@ -368,17 +369,6 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     );
   }
 
-  if (totalVisible === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
-        <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
-        <p className="text-tertiary text-xs">
-          Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
-        </p>
-      </div>
-    );
-  }
-
   const renderRows = (rows: Issue[]) =>
     rows.map((issue) => {
       const assignee = members.find((m) => m.userId === issue.assigneeId);
@@ -409,12 +399,12 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const loadOlder = async () => {
     const teamId = activeTeam?.id;
     const cursor = [...allIssues].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id))[0];
-    if (!teamId || !cursor || loadingOlder) return;
+    if (!teamId || loadingOlder) return;
     setLoadingOlder(true);
     try {
       const page = await loadPreviousTeamIssues(teamId, cursor);
       addHistoricalIssues(page);
-      setHasOlder(page.length === 50);
+      setPaginationState({ teamId, hasOlder: page.length === 50 });
     } finally { setLoadingOlder(false); }
   };
 
@@ -455,7 +445,14 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
         </div>
       )}
 
-      {groupBy === 'none' ? (
+      {totalVisible === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
+          <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
+          <p className="text-tertiary text-xs">
+            Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
+          </p>
+        </div>
+      ) : groupBy === 'none' ? (
         <div className="w-full flex flex-col border border-subtle rounded-lg overflow-hidden bg-surface">
           {renderRows(groups[0]?.issues ?? [])}
         </div>
@@ -476,7 +473,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
           </section>
         ))
       )}
-      {hasOlder && activeTeam && allIssues.length > 0 && (
+      {hasOlder && activeTeam && (
         <div className="flex justify-center"><Button size="sm" variant="secondary" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? 'Cargando…' : 'Cargar anteriores'}</Button></div>
       )}
     </div>

@@ -453,8 +453,9 @@ export function subscribeWorkspaceIssues(
   );
 }
 
-export async function loadPreviousTeamIssues(teamId: string, cursor: Issue, pageSize = 50): Promise<Issue[]> {
-  const q = query(collection(db, 'issues'), where('teamId', '==', teamId), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), startAfter(cursor.updatedAt, cursor.id), limit(pageSize));
+export async function loadPreviousTeamIssues(teamId: string, cursor?: Issue, pageSize = 50): Promise<Issue[]> {
+  const constraints = [where('teamId', '==', teamId), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc')];
+  const q = query(collection(db, 'issues'), ...constraints, ...(cursor ? [startAfter(cursor.updatedAt, cursor.id)] : []), limit(pageSize));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((item) => item.data() as Issue);
 }

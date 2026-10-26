@@ -154,7 +154,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const workspaceId = activeWorkspace?.id;
   const teamId = activeTeam?.id;
   const dataScope = userId && workspaceUserId === userId && workspacesLoaded
-    ? JSON.stringify([userId, workspaceId ?? null]) : null;
+    ? JSON.stringify([userId, workspaceId ?? null, teamId ?? null]) : null;
   useEffect(() => {
     resetIssuesSubscription();
     useProjectStore.getState().resetProjects();
