@@ -49,6 +49,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const setMembers = useAppStore((s) => s.setMembers);
   const setTeams = useAppStore((s) => s.setTeams);
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const activeTeam = useAppStore((s) => s.activeTeam);
   const userWorkspaces = useAppStore((s) => s.userWorkspaces);
 
   const setIssues = useIssueStore((s) => s.setIssues);
@@ -151,6 +152,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   // 4. Subscribe to Active Workspace Data (Members, Teams, Issues, Projects, Labels)
   const workspaceId = activeWorkspace?.id;
+  const teamId = activeTeam?.id;
   const dataScope = userId && workspaceUserId === userId && workspacesLoaded
     ? JSON.stringify([userId, workspaceId ?? null]) : null;
   useEffect(() => {
@@ -214,13 +216,13 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         unsubscribers.push(
           subscribeWorkspaceMembers(workspaceId, setMembers, clearOnError(() => setMembers([]))),
           subscribeWorkspaceTeams(workspaceId, setTeams, clearOnError(() => setTeams([]))),
-          subscribeWorkspaceIssues(workspaceId, setIssues, (error) => {
+          ...(teamId ? [subscribeWorkspaceIssues(teamId, setIssues, (error) => {
             if (controller.signal.aborted) return;
             console.error('subscribeWorkspaceIssues', error);
             setIssues([]);
             setIssuesError(describeSubscriptionError(error));
             handleListenerError(error);
-          }),
+          })] : []),
           subscribeWorkspaceProjects(workspaceId, setProjects, clearOnError(() => setProjects([]))),
           subscribeWorkspaceLabels(workspaceId, setLabels, clearOnError(() => setLabels([]))),
           subscribeWorkspaceCycles(workspaceId, setCycles, clearOnError(() => setCycles([]))),
@@ -242,7 +244,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       window.removeEventListener('focus', start);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [dataScope, workspaceId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
+  }, [dataScope, workspaceId, teamId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
 
   if (loading || (user && (!dataScope || workspaceDataScope !== dataScope))) {
     return (

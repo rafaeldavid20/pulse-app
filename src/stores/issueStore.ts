@@ -5,6 +5,7 @@ import { createRealIssue, updateRealIssue, deleteRealIssue, reparentIssue } from
 
 interface IssueState {
   issues: Issue[];
+  historicalIssues: Issue[];
   selectedIssueId: string | null;
   peekIssueId: string | null;
   selectedIssueIds: string[];
@@ -17,6 +18,7 @@ interface IssueState {
   issuesError: string | null;
 
   setIssues: (issues: Issue[]) => void;
+  addHistoricalIssues: (issues: Issue[]) => void;
   setIssuesError: (error: string | null) => void;
   resetIssuesSubscription: () => void;
   setSelectedIssueId: (id: string | null) => void;
@@ -38,6 +40,7 @@ interface IssueState {
 
 export const useIssueStore = create<IssueState>((set) => ({
   issues: [],
+  historicalIssues: [],
   selectedIssueId: null,
   peekIssueId: null,
   selectedIssueIds: [],
@@ -46,9 +49,20 @@ export const useIssueStore = create<IssueState>((set) => ({
   issuesLoaded: false,
   issuesError: null,
 
-  setIssues: (issues) => set({ issues, issuesLoaded: true, issuesError: null }),
+  setIssues: (issues) => set((state) => {
+    const merged = new Map(state.historicalIssues.map((issue) => [issue.id, issue]));
+    issues.forEach((issue) => merged.set(issue.id, issue));
+    return { issues: Array.from(merged.values()), issuesLoaded: true, issuesError: null };
+  }),
+  addHistoricalIssues: (issues) => set((state) => {
+    const merged = new Map(state.issues.map((issue) => [issue.id, issue]));
+    issues.forEach((issue) => { if (!merged.has(issue.id)) merged.set(issue.id, issue); });
+    const historical = new Map(state.historicalIssues.map((issue) => [issue.id, issue]));
+    issues.forEach((issue) => { if (!historical.has(issue.id)) historical.set(issue.id, issue); });
+    return { issues: Array.from(merged.values()), historicalIssues: Array.from(historical.values()) };
+  }),
   setIssuesError: (issuesError) => set({ issuesError, issuesLoaded: true }),
-  resetIssuesSubscription: () => set({ issues: [], issuesLoaded: false, issuesError: null }),
+  resetIssuesSubscription: () => set({ issues: [], historicalIssues: [], issuesLoaded: false, issuesError: null }),
   setSelectedIssueId: (selectedIssueId) => set({ selectedIssueId }),
   setPeekIssueId: (peekIssueId) => set({ peekIssueId }),
   setDefaultProjectId: (defaultProjectId) => set({ defaultProjectId }),

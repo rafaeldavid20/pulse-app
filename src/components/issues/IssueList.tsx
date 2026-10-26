@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Issue, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, Member, Project } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
@@ -23,6 +23,7 @@ import { useLabelStore } from '@/stores/labelStore';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
+import { loadPreviousTeamIssues } from '@/lib/firestore';
 import { FolderKanban, Trash2, Zap } from 'lucide-react';
 import type { Cycle } from '@/types';
 
@@ -281,6 +282,10 @@ const IssueRow: React.FC<IssueRowProps> = ({
 export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
+  const addHistoricalIssues = useIssueStore((s) => s.addHistoricalIssues);
+  const activeTeam = useAppStore((s) => s.activeTeam);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasOlder, setHasOlder] = useState(true);
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const selectedIssueIds = useIssueStore((s) => s.selectedIssueIds);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
@@ -401,6 +406,18 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
       );
     });
 
+  const loadOlder = async () => {
+    const teamId = activeTeam?.id;
+    const cursor = [...allIssues].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id))[0];
+    if (!teamId || !cursor || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await loadPreviousTeamIssues(teamId, cursor);
+      addHistoricalIssues(page);
+      setHasOlder(page.length === 50);
+    } finally { setLoadingOlder(false); }
+  };
+
   return (
     <div className="w-full flex flex-col gap-4">
       {/* Floating Bulk Action Bar */}
@@ -458,6 +475,9 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
             </div>
           </section>
         ))
+      )}
+      {hasOlder && activeTeam && allIssues.length > 0 && (
+        <div className="flex justify-center"><Button size="sm" variant="secondary" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? 'Cargando…' : 'Cargar anteriores'}</Button></div>
       )}
     </div>
   );
