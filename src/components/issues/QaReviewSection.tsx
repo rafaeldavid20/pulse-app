@@ -241,9 +241,17 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
   const reviewQueued = (review?.manualRequest?.attempt === (review?.attempt || 0) + 1 && Date.parse(review.manualRequest.expiresAt) > queueClock) || (submittedReview?.key === reviewKey && submittedReview.expiresAt > queueClock);
   const reviewActive = review?.state === 'running';
   const handleRerun = () => run('rerun', async () => {
-    await rerunReview(issue.id);
+    await rerunReview(issue.id, true);
     setSubmittedReview({ key: reviewKey, expiresAt: Date.now() + 30 * 60_000 });
   });
+
+  const confirmRerun = () => {
+    if (typeof window !== 'undefined' && window.confirm(
+      'La entrega disponible puede estar incompleta o incluir PRs en borrador. ¿Querés solicitar una revisión manual de este contenido?'
+    )) {
+      void handleRerun();
+    }
+  };
 
   const handleReturn = () =>
     run('return', async () => {
@@ -272,7 +280,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
           <button
             type="button"
             disabled={busy !== null || reviewQueued || reviewActive}
-            onClick={handleRerun}
+            onClick={confirmRerun}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
           >
             {busy === 'rerun' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -395,7 +403,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
           <button
             type="button"
             disabled={busy !== null || reviewQueued || reviewActive}
-            onClick={handleRerun}
+            onClick={confirmRerun}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
           >
             {busy === 'rerun' ? (
