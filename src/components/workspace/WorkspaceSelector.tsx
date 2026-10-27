@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { ChevronDown, Plus, UserPlus, Check, Building2 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { cn } from '@/lib/utils';
+import { PulseMark } from '@/components/brand/PulseMark';
 import { CreateWorkspaceModal } from './CreateWorkspaceModal';
 
 export const WorkspaceSelector: React.FC = () => {
@@ -23,8 +24,8 @@ export const WorkspaceSelector: React.FC = () => {
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center gap-2.5 min-w-0 hover:bg-elevated p-1 -ml-1 rounded-md transition-colors text-left"
         >
-          <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
-            🫀
+          <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center text-white shrink-0 shadow-sm">
+            <PulseMark className="w-4 h-4" />
           </div>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="font-semibold text-sm text-primary tracking-tight truncate max-w-[110px]">

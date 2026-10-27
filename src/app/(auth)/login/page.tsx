@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { PulseMark } from '@/components/brand/PulseMark';
 import { signInWithEmail, signInWithGoogle, getFirebaseErrorMessage } from '@/lib/auth';
 import { firebaseErrorCode } from '@/lib/errors';
 
@@ -50,8 +51,8 @@ export default function LoginPage() {
       <div className="w-full max-w-md bg-surface border border-default rounded-2xl p-8 shadow-2xl flex flex-col gap-6 animate-fade-in-scale">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center gap-2">
-          <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center text-white text-2xl shadow-lg shadow-accent/30 mb-2">
-            🫀
+          <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center text-white shadow-lg shadow-accent/30 mb-2">
+            <PulseMark className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-bold text-primary tracking-tight">
             Iniciar Sesión en Pulse

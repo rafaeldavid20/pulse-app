@@ -30,6 +30,7 @@ import { IssuePeekPanel } from '@/components/issues/IssuePeekPanel';
 import { InviteMemberModal } from '@/components/workspace/InviteMemberModal';
 import { CreateMenuModal } from '@/components/layout/CreateMenuModal';
 import { ProjectModal } from '@/components/projects/ProjectModal';
+import { PulseMark } from '@/components/brand/PulseMark';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -247,7 +248,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   if (loading || (user && (!dataScope || workspaceDataScope !== dataScope))) {
     return (
       <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-3 text-accent">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <PulseMark animated title="Pulse" className="w-10 h-10" />
         <span className="text-xs font-medium text-secondary">Cargando sesión...</span>
       </div>
     );

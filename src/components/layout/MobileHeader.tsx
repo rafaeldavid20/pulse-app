@@ -3,6 +3,7 @@
 import React from 'react';
 import { Search, Plus } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
+import { PulseMark } from '@/components/brand/PulseMark';
 
 export const MobileHeader: React.FC = () => {
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
@@ -13,8 +14,8 @@ export const MobileHeader: React.FC = () => {
     <header className="flex md:hidden items-center justify-between px-4 py-2.5 bg-base border-b border-subtle sticky top-0 z-30 select-none">
       {/* Workspace Brand */}
       <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center text-white font-bold text-xs shadow-sm">
-          🫀
+        <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center text-white shadow-sm">
+          <PulseMark className="w-4 h-4" />
         </div>
         <span className="font-bold text-sm text-primary tracking-tight truncate max-w-[140px]">
           {activeWorkspace?.name || 'Pulse'}
