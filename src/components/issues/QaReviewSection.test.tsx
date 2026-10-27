@@ -42,6 +42,17 @@ describe('manual QA request confirmation', () => {
     expect(await screen.findByText(/Revisión manual solicitada/)).toBeTruthy();
   });
 
+  it('keeps manual QA requests available for a completed delivery', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    rerunReview.mockResolvedValue(undefined);
+    render(<QaReviewSection issue={issue} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar revisión QA manual' }));
+
+    await waitFor(() => expect(rerunReview).toHaveBeenCalledTimes(1));
+    expect(rerunReview).toHaveBeenCalledWith('issue-test', true);
+  });
+
   it('prevents duplicate requests while one is pending and reports errors in the UI', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     let reject!: (error: Error) => void;
