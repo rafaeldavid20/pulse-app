@@ -23,9 +23,10 @@
   --color-tertiary: #757C8D;
   --color-muted: #424651;
 
-  --color-accent: #5E6AD2;
-  --color-accent-hover: #707CE6;
-  --color-accent-subtle: rgba(94, 106, 210, 0.15);
+  /* Ultramar: acento de marca. Distinto del violeta de Linear y del azul de prioridad baja. */
+  --color-accent: #4F5BFF;
+  --color-accent-hover: #6B76FF;
+  --color-accent-subtle: rgba(79, 91, 255, 0.15);
 
   --color-priority-urgent: #F75555;
   --color-priority-high: #F09436;
@@ -114,6 +115,22 @@ body {
 
 .animate-fade-in-scale {
   animation: fadeInScale 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Símbolo de Pulse dibujándose en loop (PulseMark animated): la onda se asienta y vuelve a empezar. */
+@keyframes pulseMarkDraw {
+  0% { stroke-dashoffset: 100; }
+  60%, 80% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; }
+}
+
+.pulse-mark-draw path {
+  stroke-dasharray: 100;
+  animation: pulseMarkDraw 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-mark-draw path { animation: none; stroke-dasharray: none; }
 }
 
 /* cmdk styles for command palette */
