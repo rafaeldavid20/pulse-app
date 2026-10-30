@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Issue, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, Member, Project } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
@@ -23,6 +23,7 @@ import { useLabelStore } from '@/stores/labelStore';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
+import { loadPreviousTeamIssues } from '@/lib/firestore';
 import { FolderKanban, Trash2, Zap } from 'lucide-react';
 import type { Cycle } from '@/types';
 
@@ -281,6 +282,11 @@ const IssueRow: React.FC<IssueRowProps> = ({
 export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
+  const addHistoricalIssues = useIssueStore((s) => s.addHistoricalIssues);
+  const activeTeam = useAppStore((s) => s.activeTeam);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [paginationState, setPaginationState] = useState<{ teamId: string | null; hasOlder: boolean }>({ teamId: null, hasOlder: true });
+  const hasOlder = paginationState.teamId !== activeTeam?.id || paginationState.hasOlder;
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const selectedIssueIds = useIssueStore((s) => s.selectedIssueIds);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
@@ -363,17 +369,6 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     );
   }
 
-  if (totalVisible === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
-        <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
-        <p className="text-tertiary text-xs">
-          Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
-        </p>
-      </div>
-    );
-  }
-
   const renderRows = (rows: Issue[]) =>
     rows.map((issue) => {
       const assignee = members.find((m) => m.userId === issue.assigneeId);
@@ -400,6 +395,18 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
         />
       );
     });
+
+  const loadOlder = async () => {
+    const teamId = activeTeam?.id;
+    const cursor = [...allIssues].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id))[0];
+    if (!teamId || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await loadPreviousTeamIssues(teamId, cursor);
+      addHistoricalIssues(page);
+      setPaginationState({ teamId, hasOlder: page.length === 50 });
+    } finally { setLoadingOlder(false); }
+  };
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -438,7 +445,14 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
         </div>
       )}
 
-      {groupBy === 'none' ? (
+      {totalVisible === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
+          <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
+          <p className="text-tertiary text-xs">
+            Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
+          </p>
+        </div>
+      ) : groupBy === 'none' ? (
         <div className="w-full flex flex-col border border-subtle rounded-lg overflow-hidden bg-surface">
           {renderRows(groups[0]?.issues ?? [])}
         </div>
@@ -458,6 +472,9 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
             </div>
           </section>
         ))
+      )}
+      {hasOlder && activeTeam && (
+        <div className="flex justify-center"><Button size="sm" variant="secondary" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? 'Cargando…' : 'Cargar anteriores'}</Button></div>
       )}
     </div>
   );

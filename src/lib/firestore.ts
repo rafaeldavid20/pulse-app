@@ -3,6 +3,9 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  startAfter,
+  documentId,
   setDoc,
   updateDoc,
   query,
@@ -434,20 +437,27 @@ export function describeSubscriptionError(error: FirestoreError): string {
 }
 
 export function subscribeWorkspaceIssues(
-  workspaceId: string,
+  teamId: string,
   callback: (issues: Issue[]) => void,
   onError?: (error: FirestoreError) => void
 ): Unsubscribe {
-  const q = query(collection(db, 'issues'), where('workspaceId', '==', workspaceId));
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const q = query(collection(db, 'issues'), where('teamId', '==', teamId), where('updatedAt', '>=', cutoff), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), limit(50));
   return onSnapshot(
     q,
     (snap) => {
       const issues = snap.docs.map((d) => d.data() as Issue);
-      issues.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       callback(issues);
     },
     onError
   );
+}
+
+export async function loadPreviousTeamIssues(teamId: string, cursor?: Issue, pageSize = 50): Promise<Issue[]> {
+  const constraints = [where('teamId', '==', teamId), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc')];
+  const q = query(collection(db, 'issues'), ...constraints, ...(cursor ? [startAfter(cursor.updatedAt, cursor.id)] : []), limit(pageSize));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((item) => item.data() as Issue);
 }
 
 export async function createRealIssue(
