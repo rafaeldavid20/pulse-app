@@ -4,14 +4,17 @@ import { DevelopmentSection } from './DevelopmentSection';
 import { Issue } from '@/types';
 import { DevelopmentStatus } from '@/lib/development-status';
 
-const { call } = vi.hoisted(() => ({ call: vi.fn() }));
+const { call, subscribe } = vi.hoisted(() => ({ call: vi.fn(), subscribe: vi.fn() }));
+let changed: () => void;
 vi.mock('@/lib/firestore', () => ({ callPlatformAction: call }));
+vi.mock('@/lib/control-signals', () => ({ subscribeControlSignal: subscribe }));
 const issue = { id: 'issue-test', status: 'in_progress', execution: { agentId: 'manual-agent' }, agent: { state: 'claimed' } } as Issue;
 let server: DevelopmentStatus;
 beforeEach(() => {
   localStorage.clear();
   server = { state: 'idle', available: true, active: false, mode: 'task' };
   call.mockReset();
+  subscribe.mockImplementation((_kind, _id, callback) => { changed = callback; return () => {}; });
   call.mockImplementation(async (code: string) => code === 'issues.developmentStatus' ? server : { jobId: 'job-1' });
 });
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -80,4 +83,15 @@ describe('issue development recovery', () => {
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('link').getAttribute('href')).toBe('/settings/agentes');
   });
+});
+
+it('updates development from signals and never polls an unchanged view',async()=>{
+  vi.useFakeTimers();render(<DevelopmentSection issue={issue}/>);
+  await act(async()=>{await vi.advanceTimersByTimeAsync(100);});
+  expect(call).toHaveBeenCalledTimes(1);
+  server={state:'queued',available:false,active:true,mode:'task',jobId:'queued-job'};
+  changed();await act(async()=>{await vi.advanceTimersByTimeAsync(100);});
+  expect(screen.getByText('En cola en el Runner.')).toBeTruthy();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(30_000);});
+  expect(call).toHaveBeenCalledTimes(2);
 });
