@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AgentSummary, runnerProfile } from '@/lib/firestore';
 import { canEditProfile, profileState, ProfileView, reconcileProfileView } from '@/lib/runner-profile-state';
+import { subscribeControlSignal } from '@/lib/control-signals';
+import { visibleSignalRefresh } from '@/lib/visible-signal';
 import { Button } from '@/components/ui/Button';
 
 const labels: Record<string, string> = {
@@ -30,6 +32,7 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
   const mounted = useRef(true);
   const previousRevision = useRef<string | null>(null);
   const confirmedView = useRef<ProfileView | null>(null);
+  const refreshSignal = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -46,9 +49,9 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
       }
     } catch { /* Storage may be disabled. */ }
     pendingRef.current = stored;
-    async function refresh() {
+    async function refresh(observe = false) {
       try {
-        const response = await runnerProfile({ agentId: agent.id, runnerId: agent.runnerId!, op: 'read', ...(pendingRef.current ? { requestId: pendingRef.current } : {}) });
+        const response = await runnerProfile({ agentId: agent.id, runnerId: agent.runnerId!, op: 'read', ...(observe ? { refresh: true } : {}), ...(pendingRef.current ? { requestId: pendingRef.current } : {}) });
         if (stopped) return;
         if (response.request?.status === 'applying' && response.request.id !== pendingRef.current) {
           pendingRef.current = response.request.id;
@@ -71,9 +74,15 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
         }
       } catch { if (!stopped) { setError('No se pudo consultar el Runner. Se conserva el último perfil como histórico.'); setView(v => v ? { ...v, online: false } : null); } }
     }
-    void refresh();
-    const timer = setInterval(() => { void refresh(); }, 5000);
-    return () => { stopped = true; mounted.current = false; clearInterval(timer); };
+    const subscription = visibleSignalRefresh(
+      (changed, failed) => subscribeControlSignal('profile', agent.id, changed, failed),
+      refresh,
+      () => { if (!stopped) setError('Se perdió la conexión con el Runner. Recargá para volver a consultar.'); },
+    );
+    refreshSignal.current = subscription.refresh;
+    // Local clock only: expires stale profile controls without a cloud request.
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => { stopped = true; mounted.current = false; refreshSignal.current = null; clearInterval(timer); subscription.stop(); };
   }, [agent.id, agent.runnerId, key]);
 
   async function save() {
@@ -89,6 +98,7 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
     setSaving(true); setError(null); setRejection(null);
     try {
       await runnerProfile(input);
+      refreshSignal.current?.();
       // A successful enqueue is deliberately not a successful application.
     } catch (cause) {
       if (mounted.current) {
@@ -136,7 +146,7 @@ export function RunnerProfilePanel({ agent }: { agent: AgentSummary }) {
       })}
       <Button size="sm" variant="secondary" disabled={!editable} onClick={save}>Guardar en Runner</Button>
     </>}
-    <Button size="sm" variant="secondary" disabled={saving || state === 'applying'} onClick={() => { previousRevision.current = null; confirmedView.current = null; setView(null); setError(null); setRejection(null); }}>Recargar perfil</Button>
+    <Button size="sm" variant="secondary" disabled={saving || state === 'applying'} onClick={() => { previousRevision.current = null; confirmedView.current = null; setView(null); setError(null); setRejection(null); refreshSignal.current?.(); }}>Recargar perfil</Button>
     <p className="text-tertiary">Los cambios confirmados rigen para próximas ejecuciones. Los jobs activos conservan su configuración.</p>
   </div>;
 }

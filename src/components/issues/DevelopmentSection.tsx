@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Play } from 'lucide-react';
 import { Issue } from '@/types';
 import { callPlatformAction } from '@/lib/firestore';
+import { subscribeControlSignal } from '@/lib/control-signals';
+import { visibleSignalRefresh } from '@/lib/visible-signal';
 import { developmentPresentation, DevelopmentStatus } from '@/lib/development-status';
 
 /** Server receipts and live jobs survive navigation; claims are never treated as liveness. */
@@ -28,9 +30,12 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
         if (!disposed) setError(err instanceof Error ? err.message : 'No se pudo verificar el estado.');
       }
     };
-    void load();
-    const timer = setInterval(() => void load(), 10_000);
-    return () => { disposed = true; clearInterval(timer); };
+    const subscription = visibleSignalRefresh(
+      (changed, failed) => subscribeControlSignal('issue', issue.id, changed, failed),
+      load,
+      () => { if (!disposed) setError('Se perdió la conexión. Volvé a abrir el issue para actualizar su estado.'); },
+    );
+    return () => { disposed = true; subscription.stop(); };
   }, [issue.id, issue.status, issue.execution?.agentId, issue.review?.state, issue.agent?.state]);
 
   const submit = async () => {
