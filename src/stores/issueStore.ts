@@ -5,6 +5,9 @@ import { createRealIssue, updateRealIssue, deleteRealIssue, reparentIssue } from
 
 interface IssueState {
   issues: Issue[];
+  liveIssues: Issue[];
+  liveLoaded: boolean;
+  visibleLimit: number;
   historicalIssues: Issue[];
   selectedIssueId: string | null;
   peekIssueId: string | null;
@@ -18,7 +21,7 @@ interface IssueState {
   issuesError: string | null;
 
   setIssues: (issues: Issue[]) => void;
-  addHistoricalIssues: (issues: Issue[]) => void;
+  addHistoricalIssues: (issues: Issue[], appendPage?: boolean) => void;
   setIssuesError: (error: string | null) => void;
   resetIssuesSubscription: () => void;
   setSelectedIssueId: (id: string | null) => void;
@@ -38,8 +41,13 @@ interface IssueState {
   bulkUpdateStatus: (ids: string[], status: IssueStatus) => Promise<void>;
 }
 
+const orderedPage = (values: Iterable<Issue>, maximum: number) => Array.from(values).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)).slice(0, maximum);
+
 export const useIssueStore = create<IssueState>((set) => ({
   issues: [],
+  liveIssues: [],
+  liveLoaded: false,
+  visibleLimit: 50,
   historicalIssues: [],
   selectedIssueId: null,
   peekIssueId: null,
@@ -50,19 +58,42 @@ export const useIssueStore = create<IssueState>((set) => ({
   issuesError: null,
 
   setIssues: (issues) => set((state) => {
-    const merged = new Map(state.historicalIssues.map((issue) => [issue.id, issue]));
-    issues.forEach((issue) => merged.set(issue.id, issue));
-    return { issues: Array.from(merged.values()), issuesLoaded: true, issuesError: null };
+    const incoming = new Map(issues.map(issue => [issue.id, issue]));
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const removed = new Set(state.liveIssues.filter(issue => !incoming.has(issue.id) && Date.parse(issue.updatedAt) >= cutoff).map(issue => issue.id));
+    const historical = state.historicalIssues.filter(issue => !removed.has(issue.id)).map(issue => {
+      const live = incoming.get(issue.id);
+      return live && live.updatedAt >= issue.updatedAt ? live : issue;
+    });
+    const merged = new Map(historical.map(issue => [issue.id, issue]));
+    issues.slice(0, 50).forEach(issue => {
+      const old = merged.get(issue.id);
+      if (!old || issue.updatedAt >= old.updatedAt) merged.set(issue.id, issue);
+    });
+    return { liveIssues: issues, liveLoaded: true, historicalIssues: historical, issues: orderedPage(merged.values(), state.visibleLimit), issuesLoaded: true, issuesError: null };
   }),
-  addHistoricalIssues: (issues) => set((state) => {
-    const merged = new Map(state.issues.map((issue) => [issue.id, issue]));
-    issues.forEach((issue) => { if (!merged.has(issue.id)) merged.set(issue.id, issue); });
+  addHistoricalIssues: (issues, appendPage = false) => set((state) => {
     const historical = new Map(state.historicalIssues.map((issue) => [issue.id, issue]));
-    issues.forEach((issue) => { if (!historical.has(issue.id)) historical.set(issue.id, issue); });
-    return { issues: Array.from(merged.values()), historicalIssues: Array.from(historical.values()) };
+    const live = new Map(state.liveIssues.map(issue => [issue.id, issue]));
+    issues.forEach(issue => {
+      const candidate = live.get(issue.id);
+      // A completed live snapshot is authoritative for recent documents:
+      // a delayed page must not resurrect a deleted or moved document.
+      if (state.liveLoaded && !candidate && Date.parse(issue.updatedAt) >= Date.now() - 90 * 24 * 60 * 60 * 1000) return;
+      const newest = candidate && candidate.updatedAt >= issue.updatedAt ? candidate : issue;
+      const old = historical.get(issue.id);
+      if (!old || newest.updatedAt >= old.updatedAt) historical.set(issue.id, newest);
+    });
+    const merged = new Map(historical);
+    state.liveIssues.slice(0, 50).forEach(issue => {
+      const old = merged.get(issue.id);
+      if (!old || issue.updatedAt >= old.updatedAt) merged.set(issue.id, issue);
+    });
+    const visibleLimit = state.visibleLimit + (appendPage ? 50 : 0);
+    return { issues: orderedPage(merged.values(), visibleLimit), visibleLimit, historicalIssues: Array.from(historical.values()), issuesLoaded: true };
   }),
   setIssuesError: (issuesError) => set({ issuesError, issuesLoaded: true }),
-  resetIssuesSubscription: () => set({ issues: [], historicalIssues: [], issuesLoaded: false, issuesError: null }),
+  resetIssuesSubscription: () => set({ issues: [], liveIssues: [], liveLoaded: false, visibleLimit: 50, historicalIssues: [], issuesLoaded: false, issuesError: null }),
   setSelectedIssueId: (selectedIssueId) => set({ selectedIssueId }),
   setPeekIssueId: (peekIssueId) => set({ peekIssueId }),
   setDefaultProjectId: (defaultProjectId) => set({ defaultProjectId }),

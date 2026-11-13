@@ -437,27 +437,28 @@ export function describeSubscriptionError(error: FirestoreError): string {
 }
 
 export function subscribeWorkspaceIssues(
+  workspaceId: string,
   teamId: string,
   callback: (issues: Issue[]) => void,
   onError?: (error: FirestoreError) => void
 ): Unsubscribe {
   const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-  const q = query(collection(db, 'issues'), where('teamId', '==', teamId), where('updatedAt', '>=', cutoff), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), limit(50));
+  const q = query(collection(db, 'issues'), where('workspaceId', '==', workspaceId), where('teamId', '==', teamId), where('updatedAt', '>=', cutoff), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'));
   return onSnapshot(
     q,
     (snap) => {
-      const issues = snap.docs.map((d) => d.data() as Issue);
+      const issues = snap.docs.map((d) => ({ ...d.data(), id: d.id } as Issue));
       callback(issues);
     },
     onError
   );
 }
 
-export async function loadPreviousTeamIssues(teamId: string, cursor?: Issue, pageSize = 50): Promise<Issue[]> {
-  const constraints = [where('teamId', '==', teamId), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc')];
+export async function loadPreviousTeamIssues(workspaceId: string, teamId: string, cursor?: Issue, pageSize = 50): Promise<Issue[]> {
+  const constraints = [where('workspaceId', '==', workspaceId), where('teamId', '==', teamId), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc')];
   const q = query(collection(db, 'issues'), ...constraints, ...(cursor ? [startAfter(cursor.updatedAt, cursor.id)] : []), limit(pageSize));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((item) => item.data() as Issue);
+  return snapshot.docs.map((item) => ({ ...item.data(), id: item.id } as Issue));
 }
 
 export async function createRealIssue(
@@ -782,7 +783,7 @@ export async function preflightRunnerAgent(agentId: string, repos: string[]): Pr
   return response;
 }
 
-export async function runnerProfile(input: { agentId: string; runnerId: string; op: 'read' | 'request'; requestId?: string; expectedRevision?: string; patch?: import('./runner-profile-state').ProfilePatch }) {
+export async function runnerProfile(input: { agentId: string; runnerId: string; op: 'read' | 'request'; refresh?: boolean; requestId?: string; expectedRevision?: string; patch?: import('./runner-profile-state').ProfilePatch }) {
   const response = await httpsCallable(functions, 'pulsePlatformAction')({ actionCode: 'runners.profile', data: input });
   const result = response.data as PlatformActionEnvelope<import('./runner-profile-state').ProfileView & { requestId?: string; status?: string }>;
   if (!result.success || !result.data) throw Object.assign(new Error(result.error || 'Solicitud rechazada por Pulse.'), { definitive: true });
@@ -1324,9 +1325,9 @@ export async function dismissFinding(issueId: string, findingId: string, note?: 
 }
 
 /** "Re-ejecutar QA" (D7): vuelve a despachar el intento de revisión en curso. */
-export async function rerunReview(issueId: string): Promise<void> {
+export async function rerunReview(issueId: string, acknowledgePartial = false, budgetExceptions?: string[]): Promise<void> {
   const callable = httpsCallable(functions, 'pulsePlatformAction');
-  const result = await callable({ actionCode: 'reviews.rerun', data: { issueId } });
+  const result = await callable({ actionCode: 'reviews.rerun', data: { issueId, ...(acknowledgePartial ? { acknowledgePartial: true } : {}), ...(budgetExceptions?.length ? { budgetExceptions } : {}) } });
   const payload = result.data as PlatformActionEnvelope<unknown>;
   if (!payload?.success) throw new Error(payload?.error || 'No se pudo solicitar QA. Revisá la configuración y reintentá.');
 }

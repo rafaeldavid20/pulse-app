@@ -17,6 +17,7 @@ import {
   subscribeWorkspaceMembers,
   subscribeWorkspaceTeams,
   subscribeWorkspaceIssues,
+  loadPreviousTeamIssues,
   subscribeWorkspaceProjects,
   subscribeWorkspaceLabels,
   subscribeWorkspaceCycles,
@@ -30,6 +31,7 @@ import { IssuePeekPanel } from '@/components/issues/IssuePeekPanel';
 import { InviteMemberModal } from '@/components/workspace/InviteMemberModal';
 import { CreateMenuModal } from '@/components/layout/CreateMenuModal';
 import { ProjectModal } from '@/components/projects/ProjectModal';
+import { PulseMark } from '@/components/brand/PulseMark';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -154,9 +156,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const workspaceId = activeWorkspace?.id;
   const teamId = activeTeam?.id;
   const dataScope = userId && workspaceUserId === userId && workspacesLoaded
-    ? JSON.stringify([userId, workspaceId ?? null, teamId ?? null]) : null;
+    ? JSON.stringify([userId, workspaceId ?? null]) : null;
   useEffect(() => {
-    resetIssuesSubscription();
     useProjectStore.getState().resetProjects();
     setMembers([]);
     setTeams([]);
@@ -216,13 +217,6 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         unsubscribers.push(
           subscribeWorkspaceMembers(workspaceId, setMembers, clearOnError(() => setMembers([]))),
           subscribeWorkspaceTeams(workspaceId, setTeams, clearOnError(() => setTeams([]))),
-          ...(teamId ? [subscribeWorkspaceIssues(teamId, setIssues, (error) => {
-            if (controller.signal.aborted) return;
-            console.error('subscribeWorkspaceIssues', error);
-            setIssues([]);
-            setIssuesError(describeSubscriptionError(error));
-            handleListenerError(error);
-          })] : []),
           subscribeWorkspaceProjects(workspaceId, setProjects, clearOnError(() => setProjects([]))),
           subscribeWorkspaceLabels(workspaceId, setLabels, clearOnError(() => setLabels([]))),
           subscribeWorkspaceCycles(workspaceId, setCycles, clearOnError(() => setCycles([]))),
@@ -244,12 +238,59 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       window.removeEventListener('focus', start);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [dataScope, workspaceId, teamId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
+  }, [dataScope, workspaceId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, setProjects, setLabels, setCycles]);
+
+  // Team changes must not tear down workspace/team listeners or clear the selection.
+  useEffect(() => {
+    resetIssuesSubscription();
+    useIssueStore.getState().clearSelection();
+    useIssueStore.getState().setPeekIssueId(null);
+    useIssueStore.getState().setSelectedIssueId(null);
+    if (!dataScope || !workspaceId || !userId) return;
+    if (!teamId) { setIssues([]); return; }
+    const controller = new AbortController();
+    let unsubscribe: (() => void) | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let renew: ReturnType<typeof setTimeout> | undefined;
+    let starting = false;
+    let subscribed = false;
+    let attempts = 0;
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser || firebaseUser.uid !== userId) return;
+    const start = () => {
+      if (starting || subscribed || controller.signal.aborted) return;
+      starting = true;
+      void waitForWorkspaceAccess(firebaseUser, workspaceId, controller.signal).then(() => {
+        if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
+        subscribed = true;
+        unsubscribe = subscribeWorkspaceIssues(workspaceId, teamId, setIssues, error => {
+          if (controller.signal.aborted) return;
+          setIssuesError(describeSubscriptionError(error));
+          if (renew) clearTimeout(renew);
+          unsubscribe?.(); subscribed = false;
+          if (error.code === 'permission-denied' && attempts < 4) retry = setTimeout(start, 1000 * 2 ** attempts++);
+        });
+        // The lower bound moves with time even when a tab remains open for days.
+        renew = setTimeout(() => { unsubscribe?.(); subscribed = false; start(); }, 24 * 60 * 60 * 1000);
+        void loadPreviousTeamIssues(workspaceId, teamId).then(page => {
+          if (!controller.signal.aborted) useIssueStore.getState().addHistoricalIssues(page);
+        }).catch(error => {
+          if (!controller.signal.aborted) setIssuesError(error instanceof Error ? error.message : 'No se pudo cargar la primera página.');
+        });
+      }).catch((error: unknown) => {
+        if (!controller.signal.aborted) setIssuesError(error instanceof Error ? error.message : 'No se pudo comprobar el acceso al workspace.');
+      }).finally(() => { starting = false; });
+    };
+    start();
+    window.addEventListener('online', start);
+    window.addEventListener('focus', start);
+    return () => { controller.abort(); if (retry) clearTimeout(retry); if (renew) clearTimeout(renew); unsubscribe?.(); window.removeEventListener('online', start); window.removeEventListener('focus', start); };
+  }, [dataScope, workspaceId, teamId, userId, setIssues, setIssuesError, resetIssuesSubscription]);
 
   if (loading || (user && (!dataScope || workspaceDataScope !== dataScope))) {
     return (
       <div className="min-h-screen bg-base flex flex-col items-center justify-center gap-3 text-accent">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        <PulseMark animated title="Pulse" className="w-10 h-10" />
         <span className="text-xs font-medium text-secondary">Cargando sesión...</span>
       </div>
     );

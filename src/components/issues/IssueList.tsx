@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Issue, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, Member, Project } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
 import { loadPreviousTeamIssues } from '@/lib/firestore';
 import { FolderKanban, Trash2, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Cycle } from '@/types';
 
 interface IssueListProps {
@@ -284,9 +285,16 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const issuesError = useIssueStore((s) => s.issuesError);
   const addHistoricalIssues = useIssueStore((s) => s.addHistoricalIssues);
   const activeTeam = useAppStore((s) => s.activeTeam);
-  const [loadingOlder, setLoadingOlder] = useState(false);
-  const [paginationState, setPaginationState] = useState<{ teamId: string | null; hasOlder: boolean }>({ teamId: null, hasOlder: true });
-  const hasOlder = paginationState.teamId !== activeTeam?.id || paginationState.hasOlder;
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const [loadingRequest, setLoadingRequest] = useState<{ scope: string; generation: number } | null>(null);
+  const [paginationState, setPaginationState] = useState<{ scope: string; hasOlder: boolean; cursor?: Issue }>({ scope: '', hasOlder: true });
+  const scope = `${activeWorkspace?.id ?? ''}:${activeTeam?.id ?? ''}`;
+  const [previousScope, setPreviousScope] = useState(scope);
+  if (previousScope !== scope) { setPreviousScope(scope); setLoadingRequest(null); setPaginationState({ scope: '', hasOlder: true }); }
+  const generation = useRef(0);
+  useEffect(() => { const counter = generation; counter.current++; return () => { counter.current++; }; }, [scope]);
+  const loadingOlder = loadingRequest?.scope === scope;
+  const hasOlder = paginationState.scope !== scope || paginationState.hasOlder;
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const selectedIssueIds = useIssueStore((s) => s.selectedIssueIds);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
@@ -398,14 +406,19 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
 
   const loadOlder = async () => {
     const teamId = activeTeam?.id;
-    const cursor = [...allIssues].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.id.localeCompare(b.id))[0];
-    if (!teamId || loadingOlder) return;
-    setLoadingOlder(true);
+    const workspaceId = activeWorkspace?.id;
+    const cursor = paginationState.scope === scope ? paginationState.cursor : [...allIssues].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+    if (!teamId || !workspaceId || loadingOlder) return;
+    const requestedGeneration = generation.current;
+    setLoadingRequest({ scope, generation: requestedGeneration });
     try {
-      const page = await loadPreviousTeamIssues(teamId, cursor);
-      addHistoricalIssues(page);
-      setPaginationState({ teamId, hasOlder: page.length === 50 });
-    } finally { setLoadingOlder(false); }
+      const page = await loadPreviousTeamIssues(workspaceId, teamId, cursor);
+      if (generation.current !== requestedGeneration || useAppStore.getState().activeTeam?.id !== teamId || useAppStore.getState().activeWorkspace?.id !== workspaceId) return;
+      addHistoricalIssues(page, true);
+      setPaginationState({ scope, hasOlder: page.length === 50, cursor: page.at(-1) || cursor });
+    } catch {
+      if (generation.current === requestedGeneration) toast.error('No se pudieron cargar issues anteriores. Volvé a intentarlo.');
+    } finally { if (generation.current === requestedGeneration) setLoadingRequest(null); }
   };
 
   return (

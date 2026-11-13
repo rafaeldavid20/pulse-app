@@ -24,6 +24,7 @@ import {
   SEVERITY_LABELS,
 } from '@/lib/review';
 import { overrideReview, dismissFinding, rerunReview, returnReviewToAgent } from '@/lib/firestore';
+import { withBudgetConfirmation } from '@/lib/manual-budget';
 
 const FINDING_STATUS_LABELS: Record<ReviewFinding['status'], string> = {
   open: 'Abierto',
@@ -241,9 +242,18 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
   const reviewQueued = (review?.manualRequest?.attempt === (review?.attempt || 0) + 1 && Date.parse(review.manualRequest.expiresAt) > queueClock) || (submittedReview?.key === reviewKey && submittedReview.expiresAt > queueClock);
   const reviewActive = review?.state === 'running';
   const handleRerun = () => run('rerun', async () => {
-    await rerunReview(issue.id);
+    const result = await withBudgetConfirmation(async exceptions => { if (exceptions.length) await rerunReview(issue.id, true, exceptions); else await rerunReview(issue.id, true); return true; });
+    if (!result) return;
     setSubmittedReview({ key: reviewKey, expiresAt: Date.now() + 30 * 60_000 });
   });
+
+  const confirmRerun = () => {
+    if (typeof window !== 'undefined' && window.confirm(
+      'La entrega disponible puede estar incompleta o incluir PRs en borrador. ¿Querés solicitar una revisión manual de este contenido?'
+    )) {
+      void handleRerun();
+    }
+  };
 
   const handleReturn = () =>
     run('return', async () => {
@@ -268,11 +278,12 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
             ? `Revisión reservada para ${reviewerAgent?.displayName || review.dispatchedTo}${review.dispatchedAt ? ` · ${formatTimeAgo(review.dispatchedAt)}` : ''}.`
             : 'Asigná un agente QA o configurá un QA autónomo para este repo y volvé a despachar QA.')}
         </p>
+        {issue.manualBudgetHold && <p className="text-xs text-secondary">Una ejecución superó un límite: las siguientes revisiones requieren una solicitud manual.</p>}
         <div>
           <button
             type="button"
             disabled={busy !== null || reviewQueued || reviewActive}
-            onClick={handleRerun}
+            onClick={confirmRerun}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
           >
             {busy === 'rerun' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
@@ -286,6 +297,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {issue.manualBudgetHold && <p className="text-xs text-secondary">Una ejecución superó un límite: las siguientes revisiones o correcciones requieren una solicitud manual.</p>}
       {review.dispatchError && <p role="alert" className="text-xs text-priority-urgent">{review.dispatchError}</p>}
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold text-secondary uppercase tracking-wider">
@@ -395,7 +407,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
           <button
             type="button"
             disabled={busy !== null || reviewQueued || reviewActive}
-            onClick={handleRerun}
+            onClick={confirmRerun}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40 transition-colors"
           >
             {busy === 'rerun' ? (
