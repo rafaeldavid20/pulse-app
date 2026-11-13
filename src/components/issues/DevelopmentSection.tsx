@@ -74,7 +74,7 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
         </button>
       </div>
       <p role="status" className="text-xs text-secondary">{view.stateText}</p>
-      {issue.manualBudgetHold && <p className="text-xs text-secondary">La última ejecución superó un límite: solicitá manualmente la próxima ejecución.</p>}
+      {issue.manualBudgetHold && <p className="text-xs text-secondary">Una ejecución superó un límite: las siguientes ejecuciones de esta incidencia requieren una solicitud manual.</p>}
       {status?.reason && <p className="text-xs text-secondary">{limit ? `Se alcanzó ${limit.description}.` : status.reason}</p>}
       {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
       {issue.review?.state === 'changes_requested' && !status?.active && <label className="flex flex-col gap-1 text-xs text-secondary">

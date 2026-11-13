@@ -91,6 +91,12 @@ describe('issue development recovery', () => {
     fireEvent.click(await screen.findByRole('button', {name:'Autorizar una ejecución'}));
     await waitFor(() => expect(call.mock.calls.find(([code]) => code === 'issues.requestDevelopment')?.[1].budgetExceptions).toEqual(['issue-run-limit']));
   });
+
+  it('identifies a pending repository handoff', async () => {
+    server = {state:'idle', available:true, active:false, mode:'handoff'};
+    render(<DevelopmentSection issue={issue} />);
+    expect(await screen.findByRole('button', {name:'Continuar traspaso'})).toBeTruthy();
+  });
 });
 
 it('updates development from signals and never polls an unchanged view',async()=>{
