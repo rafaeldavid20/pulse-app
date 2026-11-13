@@ -1314,9 +1314,9 @@ export async function dismissFinding(issueId: string, findingId: string, note?: 
 }
 
 /** "Re-ejecutar QA" (D7): vuelve a despachar el intento de revisión en curso. */
-export async function rerunReview(issueId: string, acknowledgePartial = false): Promise<void> {
+export async function rerunReview(issueId: string, acknowledgePartial = false, budgetExceptions?: string[]): Promise<void> {
   const callable = httpsCallable(functions, 'pulsePlatformAction');
-  const result = await callable({ actionCode: 'reviews.rerun', data: { issueId, ...(acknowledgePartial ? { acknowledgePartial: true } : {}) } });
+  const result = await callable({ actionCode: 'reviews.rerun', data: { issueId, ...(acknowledgePartial ? { acknowledgePartial: true } : {}), ...(budgetExceptions?.length ? { budgetExceptions } : {}) } });
   const payload = result.data as PlatformActionEnvelope<unknown>;
   if (!payload?.success) throw new Error(payload?.error || 'No se pudo solicitar QA. Revisá la configuración y reintentá.');
 }
