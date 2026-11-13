@@ -68,4 +68,14 @@ describe('manual QA request confirmation', () => {
 
     expect((await screen.findByRole('alert')).textContent).toContain('No se pudo solicitar QA.');
   });
+
+  it('asks before overriding an actual budget limit and retries only after consent', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    rerunReview.mockRejectedValueOnce(new Error('PULSE_BUDGET:issue-run-limit:6')).mockResolvedValueOnce(undefined);
+    render(<QaReviewSection issue={issue} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Solicitar revisión QA manual' }));
+    await waitFor(() => expect(rerunReview).toHaveBeenCalledTimes(2));
+    expect(rerunReview).toHaveBeenLastCalledWith('issue-test', true, ['issue-run-limit']);
+    expect(window.confirm).toHaveBeenLastCalledWith(expect.stringMatching(/límite de ejecuciones de esta incidencia \(6\)/));
+  });
 });

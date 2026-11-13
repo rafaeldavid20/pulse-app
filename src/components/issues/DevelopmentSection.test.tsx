@@ -83,6 +83,14 @@ describe('issue development recovery', () => {
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('link').getAttribute('href')).toBe('/settings/agentes');
   });
+
+  it('offers a single human-authorized run when the issue budget is exhausted', async () => {
+    server = {state:'failed', available:false, active:false, mode:'task', reason:'PULSE_BUDGET:issue-run-limit:6'};
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<DevelopmentSection issue={issue} />);
+    fireEvent.click(await screen.findByRole('button', {name:'Autorizar una ejecución'}));
+    await waitFor(() => expect(call.mock.calls.find(([code]) => code === 'issues.requestDevelopment')?.[1].budgetExceptions).toEqual(['issue-run-limit']));
+  });
 });
 
 it('updates development from signals and never polls an unchanged view',async()=>{

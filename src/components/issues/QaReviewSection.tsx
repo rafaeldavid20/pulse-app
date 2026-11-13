@@ -24,6 +24,7 @@ import {
   SEVERITY_LABELS,
 } from '@/lib/review';
 import { overrideReview, dismissFinding, rerunReview, returnReviewToAgent } from '@/lib/firestore';
+import { withBudgetConfirmation } from '@/lib/manual-budget';
 
 const FINDING_STATUS_LABELS: Record<ReviewFinding['status'], string> = {
   open: 'Abierto',
@@ -241,7 +242,8 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
   const reviewQueued = (review?.manualRequest?.attempt === (review?.attempt || 0) + 1 && Date.parse(review.manualRequest.expiresAt) > queueClock) || (submittedReview?.key === reviewKey && submittedReview.expiresAt > queueClock);
   const reviewActive = review?.state === 'running';
   const handleRerun = () => run('rerun', async () => {
-    await rerunReview(issue.id, true);
+    const result = await withBudgetConfirmation(async exceptions => { if (exceptions.length) await rerunReview(issue.id, true, exceptions); else await rerunReview(issue.id, true); return true; });
+    if (!result) return;
     setSubmittedReview({ key: reviewKey, expiresAt: Date.now() + 30 * 60_000 });
   });
 
@@ -294,6 +296,7 @@ export function QaReviewSection({ issue }: { issue: Issue }) {
 
   return (
     <div className="flex flex-col gap-3">
+      {issue.manualBudgetHold && <p className="text-xs text-secondary">La última ejecución superó un límite: solicitá manualmente la próxima revisión o corrección.</p>}
       {review.dispatchError && <p role="alert" className="text-xs text-priority-urgent">{review.dispatchError}</p>}
       <div className="flex items-center justify-between">
         <label className="text-xs font-semibold text-secondary uppercase tracking-wider">

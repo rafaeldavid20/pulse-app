@@ -7,6 +7,7 @@ import { callPlatformAction } from '@/lib/firestore';
 import { subscribeControlSignal } from '@/lib/control-signals';
 import { visibleSignalRefresh } from '@/lib/visible-signal';
 import { developmentPresentation, DevelopmentStatus } from '@/lib/development-status';
+import { budgetReason, withBudgetConfirmation } from '@/lib/manual-budget';
 
 /** Server receipts and live jobs survive navigation; claims are never treated as liveness. */
 export function DevelopmentSection({ issue }: { issue: Issue }) {
@@ -48,7 +49,8 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
       const key = `pulse:development:${issue.id}`;
       const requestId = localStorage.getItem(key) || crypto.randomUUID();
       localStorage.setItem(key, requestId);
-      const receipt = await callPlatformAction<{ jobId: string }>('issues.requestDevelopment', { issueId: issue.id, requestId, ...(comment.trim() ? { comment: comment.trim() } : {}) });
+      const receipt = await withBudgetConfirmation(exceptions => callPlatformAction<{ jobId: string }>('issues.requestDevelopment', { issueId: issue.id, requestId, budgetExceptions: exceptions, ...(comment.trim() ? { comment: comment.trim() } : {}) }), status?.reason);
+      if (receipt === undefined) return;
       if (!receipt?.jobId) throw new Error('No se recibió confirmación del servidor. Reintentá para consultar la misma solicitud.');
       localStorage.removeItem(key);
       await refresh();
@@ -61,17 +63,19 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
     }
   };
   const view = developmentPresentation(status, busy, issue.review?.state === 'changes_requested');
+  const limit = budgetReason(status?.reason);
   return (
     <section aria-label="Desarrollo" className="flex flex-col gap-2 p-3 bg-elevated border border-default rounded-lg">
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs font-semibold text-secondary uppercase tracking-wider">Desarrollo</span>
-        <button type="button" disabled={view.disabled} onClick={() => void submit()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40">
+        <button type="button" disabled={limit ? busy || !!status?.active : view.disabled} onClick={() => void submit()} className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-hover hover:bg-active text-primary border border-default rounded-md disabled:opacity-40">
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
-          {view.label}
+          {limit && !busy ? 'Autorizar una ejecución' : view.label}
         </button>
       </div>
       <p role="status" className="text-xs text-secondary">{view.stateText}</p>
-      {status?.reason && <p className="text-xs text-secondary">{status.reason}</p>}
+      {issue.manualBudgetHold && <p className="text-xs text-secondary">La última ejecución superó un límite: solicitá manualmente la próxima ejecución.</p>}
+      {status?.reason && <p className="text-xs text-secondary">{limit ? `Se alcanzó ${limit.description}.` : status.reason}</p>}
       {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
       {issue.review?.state === 'changes_requested' && !status?.active && <label className="flex flex-col gap-1 text-xs text-secondary">
         Indicaciones adicionales (opcional)
