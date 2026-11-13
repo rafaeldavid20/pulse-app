@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
+import { connectFirestoreEmulator, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
@@ -16,7 +16,18 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// Firestore's built-in IndexedDB cache is shared across tabs. If the browser
+// cannot initialize persistence (private mode / unsupported storage), use the
+// SDK's in-memory cache and keep the app available.
+export const db = (() => {
+  if (typeof window === 'undefined') return getFirestore(app);
+  try {
+    return initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+  } catch (error) {
+    console.warn('[Firebase] Offline persistence unavailable; using memory cache.', error);
+    return getFirestore(app);
+  }
+})();
 export const functions = getFunctions(app, 'us-east4');
 export const googleProvider = new GoogleAuthProvider();
 

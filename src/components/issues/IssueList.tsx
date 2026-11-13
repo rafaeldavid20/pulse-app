@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Issue, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, Member, Project } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
@@ -23,7 +23,9 @@ import { useLabelStore } from '@/stores/labelStore';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
+import { loadPreviousTeamIssues } from '@/lib/firestore';
 import { FolderKanban, Trash2, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Cycle } from '@/types';
 
 interface IssueListProps {
@@ -281,6 +283,18 @@ const IssueRow: React.FC<IssueRowProps> = ({
 export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
+  const addHistoricalIssues = useIssueStore((s) => s.addHistoricalIssues);
+  const activeTeam = useAppStore((s) => s.activeTeam);
+  const activeWorkspace = useAppStore((s) => s.activeWorkspace);
+  const [loadingRequest, setLoadingRequest] = useState<{ scope: string; generation: number } | null>(null);
+  const [paginationState, setPaginationState] = useState<{ scope: string; hasOlder: boolean; cursor?: Issue }>({ scope: '', hasOlder: true });
+  const scope = `${activeWorkspace?.id ?? ''}:${activeTeam?.id ?? ''}`;
+  const [previousScope, setPreviousScope] = useState(scope);
+  if (previousScope !== scope) { setPreviousScope(scope); setLoadingRequest(null); setPaginationState({ scope: '', hasOlder: true }); }
+  const generation = useRef(0);
+  useEffect(() => { const counter = generation; counter.current++; return () => { counter.current++; }; }, [scope]);
+  const loadingOlder = loadingRequest?.scope === scope;
+  const hasOlder = paginationState.scope !== scope || paginationState.hasOlder;
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
   const selectedIssueIds = useIssueStore((s) => s.selectedIssueIds);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
@@ -363,17 +377,6 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     );
   }
 
-  if (totalVisible === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
-        <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
-        <p className="text-tertiary text-xs">
-          Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
-        </p>
-      </div>
-    );
-  }
-
   const renderRows = (rows: Issue[]) =>
     rows.map((issue) => {
       const assignee = members.find((m) => m.userId === issue.assigneeId);
@@ -400,6 +403,23 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
         />
       );
     });
+
+  const loadOlder = async () => {
+    const teamId = activeTeam?.id;
+    const workspaceId = activeWorkspace?.id;
+    const cursor = paginationState.scope === scope ? paginationState.cursor : [...allIssues].sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+    if (!teamId || !workspaceId || loadingOlder) return;
+    const requestedGeneration = generation.current;
+    setLoadingRequest({ scope, generation: requestedGeneration });
+    try {
+      const page = await loadPreviousTeamIssues(workspaceId, teamId, cursor);
+      if (generation.current !== requestedGeneration || useAppStore.getState().activeTeam?.id !== teamId || useAppStore.getState().activeWorkspace?.id !== workspaceId) return;
+      addHistoricalIssues(page, true);
+      setPaginationState({ scope, hasOlder: page.length === 50, cursor: page.at(-1) || cursor });
+    } catch {
+      if (generation.current === requestedGeneration) toast.error('No se pudieron cargar issues anteriores. Volvé a intentarlo.');
+    } finally { if (generation.current === requestedGeneration) setLoadingRequest(null); }
+  };
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -438,7 +458,14 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
         </div>
       )}
 
-      {groupBy === 'none' ? (
+      {totalVisible === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
+          <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
+          <p className="text-tertiary text-xs">
+            Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
+          </p>
+        </div>
+      ) : groupBy === 'none' ? (
         <div className="w-full flex flex-col border border-subtle rounded-lg overflow-hidden bg-surface">
           {renderRows(groups[0]?.issues ?? [])}
         </div>
@@ -458,6 +485,9 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
             </div>
           </section>
         ))
+      )}
+      {hasOlder && activeTeam && (
+        <div className="flex justify-center"><Button size="sm" variant="secondary" disabled={loadingOlder} onClick={loadOlder}>{loadingOlder ? 'Cargando…' : 'Cargar anteriores'}</Button></div>
       )}
     </div>
   );
