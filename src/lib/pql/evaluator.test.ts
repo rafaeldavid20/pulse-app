@@ -48,4 +48,10 @@ describe('PQL evaluation', () => {
     expect(execute('constructor = x', issues, context)).toMatchObject({ ok: false, diagnostic: { code: 'FIELD' } });
     expect(execute('due = +999999999999999999999m', issues, context)).toMatchObject({ ok: false, diagnostic: { code: 'TYPE' } });
   });
+  it('uses agent identities rather than member document IDs for me()', () => {
+    const agentContext = { ...context, actorId: 'agent-a', members: [{ id: 'workspace_agent-a', userId: 'agent-a', displayName: 'Agent' }] };
+    const result = execute('assignee = me()', [{ id: 'issue', assigneeId: 'agent-a' }], agentContext);
+    expect(result).toMatchObject({ ok: true, issues: [{ id: 'issue' }] });
+    expect(execute('assignee = workspace_agent-a', [{ id: 'issue', assigneeId: 'agent-a' }], agentContext)).toMatchObject({ ok: false, diagnostic: { code: 'REFERENCE' } });
+  });
 });

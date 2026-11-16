@@ -17,4 +17,7 @@ describe('PQL parser', () => {
     expect(parse(`${'('.repeat(21)}status = todo${')'.repeat(21)}`).ok).toBe(false);
     expect(parse('ORDER BY a,b,c,d,e,f').ok).toBe(false);
   });
+  it('returns stable UTF-16 offsets and line and column for syntax errors', () => {
+    expect(parse('status = todo\nAND priority IN ()')).toMatchObject({ ok: false, diagnostic: { code: 'SYNTAX', start: 31, end: 32, line: 2, column: 18 } });
+  });
 });
