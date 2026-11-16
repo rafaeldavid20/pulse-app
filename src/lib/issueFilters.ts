@@ -98,15 +98,16 @@ export function sortIssues(issues: Issue[], sortBy: IssueSortBy): Issue[] {
   if (sortBy === 'manual') return issues;
 
   const sorted = [...issues];
+  const idOrder = (a: Issue, b: Issue) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   switch (sortBy) {
     case 'priority':
-      sorted.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
+      sorted.sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority) || idOrder(a, b));
       break;
     case 'updated':
-      sorted.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      sorted.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt) || idOrder(a, b));
       break;
     case 'created':
-      sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      sorted.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || idOrder(a, b));
       break;
     case 'estimate':
       sorted.sort((a, b) => (b.estimate ?? 0) - (a.estimate ?? 0));

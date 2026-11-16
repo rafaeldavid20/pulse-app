@@ -35,6 +35,10 @@ interface AppState {
   /** Cómo se agrupa el board: columnas por estado, o swimlanes por épica. */
   boardGroupBy: 'status' | 'epic';
   filterState: FilterState;
+  filterMode: 'filters' | 'pql';
+  pqlDraft: string;
+  pqlApplied: string | null;
+  pqlScope: string | null;
   /** Agrupación de la vista lista (barra de filtros). Independiente de `boardGroupBy`. */
   groupBy: IssueGroupBy;
   sortBy: IssueSortBy;
@@ -61,11 +65,14 @@ interface AppState {
   setActiveView: (view: 'list' | 'board' | 'timeline' | 'calendar') => void;
   setBoardGroupBy: (groupBy: 'status' | 'epic') => void;
   setFilterState: (filters: Partial<FilterState>) => void;
+  setPqlDraft: (draft: string) => void;
+  setPqlApplied: (query: string | null, scope: string | null) => void;
+  setFilterMode: (mode: 'filters' | 'pql', query?: string) => void;
   resetFilters: () => void;
   setGroupBy: (groupBy: IssueGroupBy) => void;
   setSortBy: (sortBy: IssueSortBy) => void;
   /** Reemplaza filtros + agrupación + orden de una sola vez (restaurar desde localStorage). */
-  setViewState: (view: { filters: FilterState; groupBy: IssueGroupBy; sortBy: IssueSortBy }) => void;
+  setViewState: (view: { filters: FilterState; groupBy: IssueGroupBy; sortBy: IssueSortBy; mode?: 'filters' | 'pql'; query?: string }) => void;
   /** A diferencia de `resetFilters`, también vuelve agrupación y orden a su default. */
   resetView: () => void;
   setListDensity: (density: IssueListDensity) => void;
@@ -109,6 +116,10 @@ export const useAppStore = create<AppState>((set) => ({
   activeView: 'list',
   boardGroupBy: 'status',
   filterState: initialFilters,
+  filterMode: 'filters',
+  pqlDraft: '',
+  pqlApplied: null,
+  pqlScope: null,
   groupBy: initialGroupBy,
   sortBy: initialSortBy,
   listDensity: 'comfortable',
@@ -118,6 +129,7 @@ export const useAppStore = create<AppState>((set) => ({
     state.workspaceUserId === workspaceUserId ? {} : {
       workspaceUserId, workspacesLoaded: false, userWorkspaces: [],
       activeWorkspace: null, workspaceDataScope: null,
+      filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null,
     }),
   setWorkspaceDataScope: (workspaceDataScope) => set({ workspaceDataScope }),
   setUserWorkspaces: (userWorkspaces, userId) =>
@@ -127,14 +139,14 @@ export const useAppStore = create<AppState>((set) => ({
       const activeWorkspace = userWorkspaces.find((w) => w.id === preferredId)
         ?? userWorkspaces[0] ?? null;
       saveWorkspaceSelection(userId, activeWorkspace?.id ?? null);
-      return { userWorkspaces, activeWorkspace, workspacesLoaded: true };
+      return { userWorkspaces, activeWorkspace, workspacesLoaded: true, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null } : {}) };
     }),
 
   setActiveWorkspace: (activeWorkspace) => set((state) => {
     if (state.workspaceUserId) {
       saveWorkspaceSelection(state.workspaceUserId, activeWorkspace?.id ?? null);
     }
-    return { activeWorkspace };
+    return { activeWorkspace, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null } : {}) };
   }),
   setTeams: (teams) =>
     set((state) => {
@@ -158,6 +170,9 @@ export const useAppStore = create<AppState>((set) => ({
   setBoardGroupBy: (boardGroupBy) => set({ boardGroupBy }),
   setFilterState: (filters) =>
     set((state) => ({ filterState: { ...state.filterState, ...filters } })),
+  setPqlDraft: (pqlDraft) => set({ pqlDraft }),
+  setPqlApplied: (pqlApplied, pqlScope) => set({ pqlApplied, pqlScope }),
+  setFilterMode: (filterMode, query = '') => set({ filterMode, pqlDraft: query, pqlApplied: null, pqlScope: null }),
   resetFilters: () => set({ filterState: initialFilters }),
   setGroupBy: (groupBy) => set({ groupBy }),
   setSortBy: (sortBy) => set({ sortBy }),
@@ -165,9 +180,9 @@ export const useAppStore = create<AppState>((set) => ({
   // algún campo de `FilterState` (p.ej. `reviewStates`, D7) — mergear con
   // `initialFilters` evita que ese campo quede `undefined` y rompa a quien
   // hace `.length` sobre él.
-  setViewState: ({ filters, groupBy, sortBy }) =>
-    set({ filterState: { ...initialFilters, ...filters }, groupBy, sortBy }),
-  resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy }),
+  setViewState: ({ filters, groupBy, sortBy, mode, query }) =>
+    set({ filterState: { ...initialFilters, ...filters }, groupBy, sortBy, filterMode: mode === 'pql' ? 'pql' : 'filters', pqlDraft: typeof query === 'string' ? query : '', pqlApplied: null, pqlScope: null }),
+  resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy, filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null }),
 
   setListDensity: (listDensity) => set({ listDensity }),
   toggleListColumn: (column) =>

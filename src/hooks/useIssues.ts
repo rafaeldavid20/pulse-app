@@ -6,7 +6,7 @@ import { useAppStore } from '@/stores/appStore';
 import { Issue } from '@/types';
 import { ISSUE_STATUSES } from '@/lib/constants/issue';
 import { descendantsOfEpic, isEpic } from '@/lib/hierarchy';
-import { applyIssueFilters, sortIssues } from '@/lib/issueFilters';
+import { useFilteredIssues } from './useFilteredIssues';
 
 /**
  * `scopeIssues`, si se pasa, reemplaza el universo "equipo activo" de base
@@ -17,8 +17,6 @@ import { applyIssueFilters, sortIssues } from '@/lib/issueFilters';
  */
 export function useIssues(scopeIssues?: Issue[]) {
   const issues = useIssueStore((s) => s.issues);
-  const filterState = useAppStore((s) => s.filterState);
-  const sortBy = useAppStore((s) => s.sortBy);
   const activeTeam = useAppStore((s) => s.activeTeam);
 
   // Issues del equipo activo, sin aplicar todavía los filtros de la barra —
@@ -30,15 +28,7 @@ export function useIssues(scopeIssues?: Issue[]) {
     [issues, activeTeam, scopeIssues]
   );
 
-  const filteredIssues = useMemo(
-    () => applyIssueFilters(teamIssues, filterState),
-    [teamIssues, filterState]
-  );
-
-  const sortedIssues = useMemo(
-    () => sortIssues(filteredIssues, sortBy),
-    [filteredIssues, sortBy]
-  );
+  const sortedIssues = useFilteredIssues(teamIssues);
 
   // Group issues by status for Kanban Board
   const issuesByStatus = useMemo(() => {
