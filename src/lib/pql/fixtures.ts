@@ -25,7 +25,7 @@ export const fixtureCases = [
   { query: 'updated > -7d ORDER BY updated DESC, priority ASC', ids: ['issue-a', 'epic-a', 'issue-b'] },
   { query: 'type = task', ids: ['issue-b'] },
   { query: 'review.reviewer = Bob AND review.verdict ~ "bien"', ids: ['issue-a'] },
-  { query: 'unknown = 1', code: 'FIELD' },
-  { query: 'status IN ()', code: 'SYNTAX' },
-  { query: 'assignee = Desconocido', code: 'REFERENCE' },
+  { query: 'unknown = 1', code: 'FIELD', start: 0, end: 11 },
+  { query: 'status IN ()', code: 'SYNTAX', start: 11, end: 12 },
+  { query: 'assignee = Desconocido', code: 'REFERENCE', start: 11, end: 22 },
 ] as const;
