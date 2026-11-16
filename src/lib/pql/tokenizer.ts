@@ -54,7 +54,7 @@ export function tokenize(source: string): TokenizeResult {
     } else {
       while (i < source.length && !/[\s(),=!<>~"']/u.test(source[i])) i++;
       value = source.slice(start, i);
-      kind = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(value) ? 'number' : 'word';
+      kind = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value) ? 'number' : 'word';
     }
     tokens.push({ kind, value, start, end: i });
     if (tokens.length > 500) return fail('TOKEN_LIMIT', 'La consulta supera 500 tokens.', start, i);

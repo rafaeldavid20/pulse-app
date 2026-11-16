@@ -2,7 +2,7 @@ import { diagnostic, type Diagnostic } from './tokenizer';
 import { fields, operatorsFor, type FieldSpec } from './schema';
 import type { Expression, Query, Value } from './parser';
 
-export interface Entity { id: string; name?: string; displayName?: string; userId?: string; key?: string; identifier?: string; teamId?: string; status?: string; endsAt?: string }
+export interface Entity { id: string; name?: string; displayName?: string; userId?: string; key?: string; identifier?: string; teamId?: string; status?: string; endsAt?: string; type?: string }
 export interface Context {
   workspaceId: string;
   actorId?: string;
@@ -45,13 +45,14 @@ export function resolve(source: string, query: Query, context: Context): Resolve
     return active[0];
   };
   const lookup = (field: string, v: Value): string => {
-    const items = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? context.members
+    const person = field === 'assignee' || field === 'creator' || field === 'review.reviewer';
+    const items = person ? context.members
       : field === 'team' ? context.teams : field === 'project' ? context.projects
-      : field === 'label' ? context.labels : field === 'cycle' ? context.cycles : context.issues;
-    const direct = items.filter(item => [item.id, item.userId].some(s => s === v.value));
+      : field === 'label' ? context.labels : field === 'cycle' ? context.cycles : field === 'epic' ? context.issues.filter(i => i.type === 'epic') : context.issues;
+    const direct = items.filter(item => (person ? item.userId ?? item.id : item.id) === v.value);
     const matches = direct.length ? direct : items.filter(item => [item.name, item.displayName, item.key, item.identifier].some(s => s?.toLowerCase() === v.value.toLowerCase()));
     if (matches.length !== 1) return fail('REFERENCE', matches.length ? 'Referencia ambigua; use un ID.' : 'Referencia no disponible.', v);
-    return (field === 'assignee' || field === 'creator' || field === 'review.reviewer') ? matches[0].userId ?? matches[0].id : matches[0].id;
+    return person ? matches[0].userId ?? matches[0].id : matches[0].id;
   };
   const resolveValue = (field: string, spec: FieldSpec, v: Value): string | number | null => {
     if (v.kind === 'function') {
@@ -80,13 +81,18 @@ export function resolve(source: string, query: Query, context: Context): Resolve
     }
     if (spec.type === 'number') {
       const n = Number(v.value);
-      if (v.quoted || !/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$/.test(v.value) || !Number.isFinite(n) || (field === 'priority' && (!Number.isInteger(n) || n < 0 || n > 4))) return fail('TYPE', 'Número no válido para este campo.', v);
+      if (v.quoted || !/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?$/i.test(v.value) || !Number.isFinite(n) || (field === 'priority' && (!Number.isInteger(n) || n < 0 || n > 4))) return fail('TYPE', 'Número no válido para este campo.', v);
       return n;
     }
     if (spec.type === 'date') {
       const relative = /^([+-]\d+)([dwm])$/i.exec(v.value);
-      if (relative) return relativeDate(now, Number(relative[1]), relative[2].toLowerCase());
-      const parts = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|([+-])(\d{2}):(\d{2})))?$/i.exec(v.value);
+      if (relative) {
+        const amount = Number(relative[1]);
+        const result = relativeDate(now, amount, relative[2].toLowerCase());
+        if (!Number.isSafeInteger(amount) || !Number.isFinite(result)) return fail('TYPE', 'Fecha relativa fuera de rango.', v);
+        return result;
+      }
+      const parts = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|([+-])(\d{2}):(\d{2})))?$/i.exec(v.value);
       const date = Date.parse(v.value);
       if (!parts || !Number.isFinite(date)) return fail('TYPE', 'Fecha ISO no válida o sin zona horaria.', v);
       const [, year, month, day, hour, minute, second, , offsetHour, offsetMinute] = parts;
@@ -99,7 +105,7 @@ export function resolve(source: string, query: Query, context: Context): Resolve
   const expression = (e: Expression): ResolvedExpression => {
     if (e.kind === 'and' || e.kind === 'or') return { kind: e.kind, left: expression(e.left), right: expression(e.right) };
     if (e.kind === 'not') return { kind: 'not', expression: expression(e.expression) };
-    const field = e.field.toLowerCase(); const spec = fields[field];
+    const field = e.field.toLowerCase(); const spec = Object.hasOwn(fields, field) ? fields[field] : undefined;
     if (!spec) return fail('FIELD', 'Campo desconocido.', e);
     if (!operatorsFor(spec.type).includes(e.operator)) return fail('OPERATOR', 'Operador incompatible con el campo.', e);
     return { kind: 'comparison', field, spec, operator: e.operator, values: e.values.map(v => resolveValue(field, spec, v)) };
@@ -108,7 +114,7 @@ export function resolve(source: string, query: Query, context: Context): Resolve
     if (!Number.isFinite(now.getTime())) return fail('CONTEXT', 'Reloj inválido.', { start: 0, end: 0 });
     const resolved = query.expression ? expression(query.expression) : undefined;
     const orderBy = query.orderBy.map(o => {
-      const field = o.field.toLowerCase(); const spec = fields[field];
+      const field = o.field.toLowerCase(); const spec = Object.hasOwn(fields, field) ? fields[field] : undefined;
       if (!spec || !spec.sortable) return fail('ORDER_FIELD', 'Campo no válido para ordenar.', o);
       return { field, spec, direction: o.direction };
     });

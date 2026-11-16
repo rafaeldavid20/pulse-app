@@ -8,7 +8,7 @@ export const fixtureContext: Context = {
   projects: [{ id: 'project-a', name: 'Proyecto' }],
   labels: [{ id: 'label-a', name: 'backend' }, { id: 'label-b', name: 'urgente' }],
   cycles: [{ id: 'cycle-a', name: 'Ciclo', teamId: 'team-a', status: 'active', endsAt: '2024-02-29T12:00:00Z' }],
-  issues: [{ id: 'epic-a', identifier: 'TES-122' }, { id: 'issue-a', identifier: 'TES-123' }],
+  issues: [{ id: 'epic-a', identifier: 'TES-122', type: 'epic' }, { id: 'issue-a', identifier: 'TES-123', type: 'story' }],
 };
 export const fixtureIssues = [
   { id: 'epic-a', identifier: 'TES-122', title: 'Épica', type: 'epic', teamId: 'team-a', status: 'todo', priority: 0, assigneeId: 'user-a', labelIds: ['label-a'], createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-30T00:00:00Z' },

@@ -2,12 +2,13 @@ import { parse } from './parser';
 import { resolve, type Context, type ResolvedExpression, type ResolvedQuery } from './resolver';
 import { fields, type FieldSpec } from './schema';
 
-export type Issue = { id: string; [key: string]: unknown };
+export type Issue = { id: string };
 const empty = (v: unknown) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
 function extract(issue: Issue, field: string, spec: FieldSpec): unknown {
-  if (field === 'epic') return issue.type === 'epic' ? issue.id : issue.epicId;
-  if (field === 'type') return issue.type ?? 'task';
-  if (field === 'text') return [issue.title, issue.identifier].filter(v => !empty(v));
+  const data = issue as Record<string, unknown>;
+  if (field === 'epic') return data.type === 'epic' ? issue.id : data.epicId;
+  if (field === 'type') return data.type ?? 'task';
+  if (field === 'text') return [data.title, data.identifier].filter(v => !empty(v));
   return spec.path.split('.').reduce<unknown>((value, part) => value && typeof value === 'object' ? (value as Record<string, unknown>)[part] : undefined, issue);
 }
 const fold = (s: unknown) => String(s).toLowerCase();

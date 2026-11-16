@@ -9,7 +9,7 @@ const context: Context = {
   members: [{ id: 'm1', userId: 'u1', displayName: 'Ana' }],
   teams: [{ id: 't1', key: 'TES', name: 'Team' }], projects: [],
   labels: [{ id: 'l1', name: 'backend' }], cycles: [{ id: 'c1', teamId: 't1', status: 'active', endsAt: '2024-02-15T00:00:00Z' }],
-  issues: [{ id: 'e1', identifier: 'TES-122' }],
+  issues: [{ id: 'e1', identifier: 'TES-122', type: 'epic' }],
 };
 const issues = [
   { id: 'e1', type: 'epic', title: 'Epic', status: 'todo', priority: 0, assigneeId: 'u1', labelIds: ['l1'], createdAt: '2024-01-01T00:00:00Z' },
@@ -43,5 +43,9 @@ describe('PQL evaluation', () => {
     const serialized = serialize(parsed.query);
     expect(execute(serialized, issues, context)).toEqual(execute(input, issues, context));
     expect(execute('due = 2024-02-30T12:00:00Z', issues, context)).toMatchObject({ ok: false, diagnostic: { code: 'TYPE' } });
+  });
+  it('rejects unsafe field names and out-of-range relative dates', () => {
+    expect(execute('constructor = x', issues, context)).toMatchObject({ ok: false, diagnostic: { code: 'FIELD' } });
+    expect(execute('due = +999999999999999999999m', issues, context)).toMatchObject({ ok: false, diagnostic: { code: 'TYPE' } });
   });
 });
