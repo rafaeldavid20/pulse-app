@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { formatDate, cn } from '@/lib/utils';
 import { FolderKanban, Trash2, Zap } from 'lucide-react';
 import type { Cycle } from '@/types';
+import { IssuePagination } from './IssuePagination';
 
 interface IssueListProps {
   /** Universo base de issues (equipo, proyecto, "mis issues"...). La barra de
@@ -363,17 +364,6 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     );
   }
 
-  if (totalVisible === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
-        <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
-        <p className="text-tertiary text-xs">
-          Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
-        </p>
-      </div>
-    );
-  }
-
   const renderRows = (rows: Issue[]) =>
     rows.map((issue) => {
       const assignee = members.find((m) => m.userId === issue.assigneeId);
@@ -438,7 +428,14 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
         </div>
       )}
 
-      {groupBy === 'none' ? (
+      {totalVisible === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-default rounded-lg my-6">
+          <p className="text-secondary text-sm mb-2">No se encontraron issues</p>
+          <p className="text-tertiary text-xs">
+            Presiona <kbd className="bg-hover px-1.5 py-0.5 rounded border border-default text-primary">C</kbd> para crear un nuevo issue
+          </p>
+        </div>
+      ) : groupBy === 'none' ? (
         <div className="w-full flex flex-col border border-subtle rounded-lg overflow-hidden bg-surface">
           {renderRows(groups[0]?.issues ?? [])}
         </div>
@@ -459,6 +456,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
           </section>
         ))
       )}
+      <IssuePagination />
     </div>
   );
 };

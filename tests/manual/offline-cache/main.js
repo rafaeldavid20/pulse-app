@@ -1,0 +1,11 @@
+import { initializeApp } from 'firebase/app';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, disableNetwork, doc, setDoc, onSnapshot } from 'firebase/firestore';
+const output = document.getElementById('result');
+Object.defineProperty(window, 'indexedDB', { configurable: true, value: { open() { throw new Error('IndexedDB bloqueado para la prueba'); } } });
+const app = initializeApp({apiKey:'test-only',projectId:'demo-tes168-offline',appId:'test-only'}, 'tes168-offline-test');
+const db = initializeFirestore(app, {localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+await disableNetwork(db);
+const ref = doc(db, 'checks', 'offline');
+onSnapshot(ref, snap => { if (snap.data()?.value === 'ok') output.textContent = 'PASS: IndexedDB bloqueado; Firestore sigue operativo con caché en memoria.'; }, error => { output.textContent = 'FAIL: ' + error.message; });
+void setDoc(ref, {value:'ok'});
+setTimeout(() => { if (!output.textContent.startsWith('PASS')) output.textContent = 'FAIL: no se recibió el dato local.'; }, 12000);
