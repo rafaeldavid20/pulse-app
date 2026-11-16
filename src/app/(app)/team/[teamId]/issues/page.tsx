@@ -4,6 +4,7 @@ import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
+import { IssuePagination } from '@/components/issues/IssuePagination';
 import { TimelineView } from '@/components/timeline/TimelineView';
 import { CalendarView } from '@/components/calendar/CalendarView';
 import { useIssues } from '@/hooks/useIssues';
@@ -38,6 +39,7 @@ export default function TeamIssuesPage() {
         ) : (
           <TimelineView />
         )}
+        {activeView !== 'list' && <IssuePagination />}
       </div>
     </div>
   );

@@ -7,7 +7,6 @@ interface IssueState {
   issues: Issue[];
   liveIssues: Issue[];
   liveLoaded: boolean;
-  visibleLimit: number;
   historicalIssues: Issue[];
   selectedIssueId: string | null;
   peekIssueId: string | null;
@@ -41,13 +40,12 @@ interface IssueState {
   bulkUpdateStatus: (ids: string[], status: IssueStatus) => Promise<void>;
 }
 
-const orderedPage = (values: Iterable<Issue>, maximum: number) => Array.from(values).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)).slice(0, maximum);
+const orderedPage = (values: Iterable<Issue>) => Array.from(values).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
 
 export const useIssueStore = create<IssueState>((set) => ({
   issues: [],
   liveIssues: [],
   liveLoaded: false,
-  visibleLimit: 50,
   historicalIssues: [],
   selectedIssueId: null,
   peekIssueId: null,
@@ -70,9 +68,9 @@ export const useIssueStore = create<IssueState>((set) => ({
       const old = merged.get(issue.id);
       if (!old || issue.updatedAt >= old.updatedAt) merged.set(issue.id, issue);
     });
-    return { liveIssues: issues, liveLoaded: true, historicalIssues: historical, issues: orderedPage(merged.values(), state.visibleLimit), issuesLoaded: true, issuesError: null };
+    return { liveIssues: issues, liveLoaded: true, historicalIssues: historical, issues: orderedPage(merged.values()), issuesLoaded: true, issuesError: null };
   }),
-  addHistoricalIssues: (issues, appendPage = false) => set((state) => {
+  addHistoricalIssues: (issues) => set((state) => {
     const historical = new Map(state.historicalIssues.map((issue) => [issue.id, issue]));
     const live = new Map(state.liveIssues.map(issue => [issue.id, issue]));
     issues.forEach(issue => {
@@ -89,11 +87,10 @@ export const useIssueStore = create<IssueState>((set) => ({
       const old = merged.get(issue.id);
       if (!old || issue.updatedAt >= old.updatedAt) merged.set(issue.id, issue);
     });
-    const visibleLimit = state.visibleLimit + (appendPage ? 50 : 0);
-    return { issues: orderedPage(merged.values(), visibleLimit), visibleLimit, historicalIssues: Array.from(historical.values()), issuesLoaded: true };
+    return { issues: orderedPage(merged.values()), historicalIssues: Array.from(historical.values()), issuesLoaded: true };
   }),
   setIssuesError: (issuesError) => set({ issuesError, issuesLoaded: true }),
-  resetIssuesSubscription: () => set({ issues: [], liveIssues: [], liveLoaded: false, visibleLimit: 50, historicalIssues: [], issuesLoaded: false, issuesError: null }),
+  resetIssuesSubscription: () => set({ issues: [], liveIssues: [], liveLoaded: false, historicalIssues: [], issuesLoaded: false, issuesError: null }),
   setSelectedIssueId: (selectedIssueId) => set({ selectedIssueId }),
   setPeekIssueId: (peekIssueId) => set({ peekIssueId }),
   setDefaultProjectId: (defaultProjectId) => set({ defaultProjectId }),

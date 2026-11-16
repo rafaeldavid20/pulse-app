@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
+import { IssuePagination } from '@/components/issues/IssuePagination';
 import { CyclePlanningPanel } from '@/components/cycles/CyclePlanningPanel';
 import { useCycleStore } from '@/stores/cycleStore';
 import { useIssueStore } from '@/stores/issueStore';
@@ -147,7 +148,7 @@ export default function CycleDetailPage({
             {activeView === 'list' ? (
               <IssueList issues={cycleIssues} />
             ) : (
-              <IssueBoard issues={cycleIssues} />
+              <><IssueBoard issues={cycleIssues} /><IssuePagination /></>
             )}
           </section>
         </div>

@@ -14,9 +14,18 @@ describe('team issue pagination', () => {
     expect(useIssueStore.getState().liveIssues).toHaveLength(60);
     useIssueStore.getState().addHistoricalIssues(live.slice(0, 50));
     useIssueStore.getState().setIssues([issue(99, new Date(Date.now() + 1000).toISOString()), ...live]);
-    expect(useIssueStore.getState().issues).toHaveLength(50);
+    expect(useIssueStore.getState().issues).toHaveLength(51);
     useIssueStore.getState().addHistoricalIssues(live.slice(50), true);
     expect(useIssueStore.getState().issues).toHaveLength(61);
+  });
+  it('keeps every loaded issue accessible when a new live issue arrives', () => {
+    const live = Array.from({length: 100}, (_, i) => issue(i));
+    useIssueStore.getState().setIssues(live);
+    useIssueStore.getState().addHistoricalIssues(live);
+    useIssueStore.getState().addHistoricalIssues([], true);
+    useIssueStore.getState().setIssues([issue(101, new Date(Date.now() + 1000).toISOString()), ...live]);
+    expect(useIssueStore.getState().issues).toHaveLength(101);
+    expect(useIssueStore.getState().issues.map(i => i.id)).toContain('issue-99');
   });
   it('retains the newest version across live snapshots and late pages, and removes deleted live documents', () => {
     const old = issue(1, '2026-11-01T00:00:00.000Z');

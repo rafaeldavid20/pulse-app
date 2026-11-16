@@ -4,6 +4,7 @@ import React, { use, useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { IssueList } from '@/components/issues/IssueList';
 import { IssueBoard } from '@/components/issues/IssueBoard';
+import { IssuePagination } from '@/components/issues/IssuePagination';
 import { useProjectStore } from '@/stores/projectStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
@@ -220,7 +221,7 @@ export default function ProjectDetailPage({
           {activeView === 'list' ? (
             <IssueList issues={projectIssues} />
           ) : (
-            <IssueBoard />
+            <><IssueBoard /><IssuePagination /></>
           )}
         </div>
       </div>
