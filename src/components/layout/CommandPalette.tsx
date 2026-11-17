@@ -38,6 +38,8 @@ const CommandPaletteInner: React.FC = () => {
   const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
   const actorId = useAppStore(s => s.workspaceUserId);
   const activeTeam = useAppStore(s => s.activeTeam);
+  const catalogReady = useAppStore(s => s.workspaceCatalogReady);
+  const catalogError = useAppStore(s => s.workspaceCatalogError);
 
   const issues = useIssueStore((s) => s.issues);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
@@ -81,14 +83,14 @@ const CommandPaletteInner: React.FC = () => {
   }, [isCmdKOpen, setCmdKOpen, closePalette]);
 
   useEffect(() => {
-    if (!isCmdKOpen || !isPql || !source.trim() || !workspaceId || !issuesLoaded || issuesError) return;
+    if (!isCmdKOpen || !isPql || !source.trim() || !workspaceId || !issuesLoaded || issuesError || !catalogReady || catalogError) return;
     const timer = window.setTimeout(() => {
       const evaluated = execute(source, issues.filter(i => i.workspaceId === workspaceId), { ...context, teamId, now: new Date().toISOString() });
       const scope = { workspaceId, actorId, teamId, source, inputIssues: issues, context };
       setResult(evaluated.ok ? { ...scope, issues: evaluated.issues } : { ...scope, diagnostic: evaluated.diagnostic });
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [isCmdKOpen, isPql, source, workspaceId, actorId, issuesLoaded, issuesError, issues, context, teamId]);
+  }, [isCmdKOpen, isPql, source, workspaceId, actorId, issuesLoaded, issuesError, catalogReady, catalogError, issues, context, teamId]);
 
   if (!isCmdKOpen) return null;
 
@@ -112,11 +114,11 @@ const CommandPaletteInner: React.FC = () => {
             {isPql ? <>
               <p role="status" className="p-3 text-xs text-secondary">
                 {!source.trim() ? 'Escribí una consulta, por ejemplo: ? status = in_review ORDER BY updated DESC. Las fechas usan UTC.'
-                  : !issuesLoaded ? 'Cargando issues…' : issuesError ? `Error al cargar issues: ${issuesError}`
+                  : issuesError ? `Error al cargar issues: ${issuesError}` : catalogError ? catalogError : !issuesLoaded || !catalogReady ? 'Cargando issues y catálogos…'
                   : !currentResult ? 'Evaluando consulta…' : currentResult.diagnostic ? `Línea ${currentResult.diagnostic.line}, columna ${currentResult.diagnostic.column + (currentResult.diagnostic.line === 1 ? input.length - trimmed.length + 1 : 0)}: ${currentResult.diagnostic.message}`
                   : currentResult.issues?.length ? `Mostrando ${Math.min(20, currentResult.issues.length)} de ${currentResult.issues.length}` : 'No se encontraron resultados.'}
               </p>
-              {issuesLoaded && !issuesError && source.trim() && currentResult?.issues && <Command.Group heading="Resultados PQL">
+              {issuesLoaded && !issuesError && catalogReady && !catalogError && source.trim() && currentResult?.issues && <Command.Group heading="Resultados PQL">
                 {currentResult.issues.slice(0, 20).map(issue => <Command.Item key={issue.id} value={issue.id} onSelect={() => { closePalette(); setPeekIssueId(issue.id); }}>
                   <span className="font-mono text-xs text-tertiary shrink-0">{issue.identifier}</span><StatusBadge status={issue.status} /><span className="truncate text-xs font-normal text-primary">{issue.title}</span><PriorityBadge priority={issue.priority} className="ml-auto shrink-0" />
                 </Command.Item>)}

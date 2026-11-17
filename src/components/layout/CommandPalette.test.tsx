@@ -19,7 +19,7 @@ const issues = Array.from({ length: 21 }, (_, n) => ({ id: `i${String(n).padStar
 describe('command palette PQL', () => {
   beforeEach(() => {
     vi.useFakeTimers(); push.mockReset(); usePqlSearchStore.getState().setSearch(null);
-    useAppStore.setState({ isCmdKOpen: true, workspaceUserId: 'user-a', activeWorkspace: { id: 'fixture' } as Workspace, activeTeam: { id: 'team-a', workspaceId: 'fixture' } as Team });
+    useAppStore.setState({ isCmdKOpen: true, workspaceUserId: 'user-a', activeWorkspace: { id: 'fixture' } as Workspace, activeTeam: { id: 'team-a', workspaceId: 'fixture' } as Team, workspaceCatalogReady: true, workspaceCatalogError: null });
     useIssueStore.getState().setIssues(issues);
   });
   afterEach(() => { cleanup(); vi.useRealTimers(); });

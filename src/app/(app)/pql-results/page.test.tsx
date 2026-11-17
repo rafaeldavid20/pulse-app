@@ -11,7 +11,7 @@ vi.mock('@/hooks/usePqlContext', () => ({ usePqlContext: () => fixtureContext })
 vi.mock('@/components/layout/Header', () => ({ Header: () => <header>Resultados PQL</header> }));
 describe('workspace PQL results', () => {
   beforeEach(() => {
-    useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a' });
+    useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', workspaceCatalogReady: true, workspaceCatalogError: null });
     useIssueStore.getState().setIssues([{ id: 'a', workspaceId: 'fixture', identifier: 'TES-1', title: 'One', status: 'todo', priority: 2, createdAt: '2024-01-01' }, { id: 'b', workspaceId: 'other', identifier: 'OTHER-1', title: 'Private', status: 'todo', priority: 2, createdAt: '2024-01-01' }] as Issue[]);
     usePqlSearchStore.getState().setSearch({ workspaceId: 'fixture', actorId: 'user-a', query: 'status = todo' });
   });
