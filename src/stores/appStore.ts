@@ -17,6 +17,8 @@ interface AppState {
   workspacesLoaded: boolean;
   /** Data stores have been cleared for this user/workspace pair. */
   workspaceDataScope: string | null;
+  workspaceCatalogReady: boolean;
+  workspaceCatalogError: string | null;
   userWorkspaces: Workspace[];
   activeWorkspace: Workspace | null;
   teams: Team[];
@@ -39,6 +41,7 @@ interface AppState {
   pqlDraft: string;
   pqlApplied: string | null;
   pqlScope: string | null;
+  pqlEvaluatedAt: string | null;
   /** Agrupación de la vista lista (barra de filtros). Independiente de `boardGroupBy`. */
   groupBy: IssueGroupBy;
   sortBy: IssueSortBy;
@@ -49,6 +52,8 @@ interface AppState {
 
   setWorkspaceUser: (userId: string | null) => void;
   setWorkspaceDataScope: (scope: string | null) => void;
+  setWorkspaceCatalogReady: (ready: boolean) => void;
+  setWorkspaceCatalogError: (error: string | null) => void;
   setUserWorkspaces: (workspaces: Workspace[], userId: string) => void;
   setActiveWorkspace: (workspace: Workspace | null) => void;
   setTeams: (teams: Team[]) => void;
@@ -66,7 +71,7 @@ interface AppState {
   setBoardGroupBy: (groupBy: 'status' | 'epic') => void;
   setFilterState: (filters: Partial<FilterState>) => void;
   setPqlDraft: (draft: string) => void;
-  setPqlApplied: (query: string | null, scope: string | null) => void;
+  setPqlApplied: (query: string | null, scope: string | null, evaluatedAt?: string) => void;
   setFilterMode: (mode: 'filters' | 'pql', query?: string) => void;
   resetFilters: () => void;
   setGroupBy: (groupBy: IssueGroupBy) => void;
@@ -100,6 +105,8 @@ export const useAppStore = create<AppState>((set) => ({
   workspaceUserId: null,
   workspacesLoaded: false,
   workspaceDataScope: null,
+  workspaceCatalogReady: false,
+  workspaceCatalogError: null,
   userWorkspaces: [],
   activeWorkspace: null,
   teams: [],
@@ -120,6 +127,7 @@ export const useAppStore = create<AppState>((set) => ({
   pqlDraft: '',
   pqlApplied: null,
   pqlScope: null,
+  pqlEvaluatedAt: null,
   groupBy: initialGroupBy,
   sortBy: initialSortBy,
   listDensity: 'comfortable',
@@ -128,10 +136,12 @@ export const useAppStore = create<AppState>((set) => ({
   setWorkspaceUser: (workspaceUserId) => set((state) =>
     state.workspaceUserId === workspaceUserId ? {} : {
       workspaceUserId, workspacesLoaded: false, userWorkspaces: [],
-      activeWorkspace: null, workspaceDataScope: null,
-      filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null,
+      activeWorkspace: null, workspaceDataScope: null, workspaceCatalogReady: false,
+      filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null,
     }),
   setWorkspaceDataScope: (workspaceDataScope) => set({ workspaceDataScope }),
+  setWorkspaceCatalogReady: (workspaceCatalogReady) => set({ workspaceCatalogReady }),
+  setWorkspaceCatalogError: (workspaceCatalogError) => set({ workspaceCatalogError }),
   setUserWorkspaces: (userWorkspaces, userId) =>
     set((state) => {
       if (state.workspaceUserId !== userId) return {};
@@ -139,14 +149,14 @@ export const useAppStore = create<AppState>((set) => ({
       const activeWorkspace = userWorkspaces.find((w) => w.id === preferredId)
         ?? userWorkspaces[0] ?? null;
       saveWorkspaceSelection(userId, activeWorkspace?.id ?? null);
-      return { userWorkspaces, activeWorkspace, workspacesLoaded: true, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null } : {}) };
+      return { userWorkspaces, activeWorkspace, workspacesLoaded: true, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { workspaceCatalogReady: false, filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null } : {}) };
     }),
 
   setActiveWorkspace: (activeWorkspace) => set((state) => {
     if (state.workspaceUserId) {
       saveWorkspaceSelection(state.workspaceUserId, activeWorkspace?.id ?? null);
     }
-    return { activeWorkspace, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null } : {}) };
+    return { activeWorkspace, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { workspaceCatalogReady: false, filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null } : {}) };
   }),
   setTeams: (teams) =>
     set((state) => {
@@ -171,8 +181,8 @@ export const useAppStore = create<AppState>((set) => ({
   setFilterState: (filters) =>
     set((state) => ({ filterState: { ...state.filterState, ...filters } })),
   setPqlDraft: (pqlDraft) => set({ pqlDraft }),
-  setPqlApplied: (pqlApplied, pqlScope) => set({ pqlApplied, pqlScope }),
-  setFilterMode: (filterMode, query = '') => set({ filterMode, pqlDraft: query, pqlApplied: null, pqlScope: null }),
+  setPqlApplied: (pqlApplied, pqlScope, evaluatedAt) => set({ pqlApplied, pqlScope, pqlEvaluatedAt: pqlApplied === null ? null : evaluatedAt ?? new Date().toISOString() }),
+  setFilterMode: (filterMode, query = '') => set({ filterMode, pqlDraft: query, pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null }),
   resetFilters: () => set({ filterState: initialFilters }),
   setGroupBy: (groupBy) => set({ groupBy }),
   setSortBy: (sortBy) => set({ sortBy }),
@@ -181,8 +191,8 @@ export const useAppStore = create<AppState>((set) => ({
   // `initialFilters` evita que ese campo quede `undefined` y rompa a quien
   // hace `.length` sobre él.
   setViewState: ({ filters, groupBy, sortBy, mode, query }) =>
-    set({ filterState: { ...initialFilters, ...filters }, groupBy, sortBy, filterMode: mode === 'pql' ? 'pql' : 'filters', pqlDraft: typeof query === 'string' ? query : '', pqlApplied: null, pqlScope: null }),
-  resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy, filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null }),
+    set({ filterState: { ...initialFilters, ...filters }, groupBy, sortBy, filterMode: mode === 'pql' ? 'pql' : 'filters', pqlDraft: typeof query === 'string' ? query : '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null }),
+  resetView: () => set({ filterState: initialFilters, groupBy: initialGroupBy, sortBy: initialSortBy, filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null }),
 
   setListDensity: (listDensity) => set({ listDensity }),
   toggleListColumn: (column) =>

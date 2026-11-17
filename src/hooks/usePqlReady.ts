@@ -10,5 +10,7 @@ export function usePqlReady(): boolean {
   const scope = useAppStore(s => s.pqlScope);
   const workspace = useAppStore(s => s.activeWorkspace?.id);
   const actor = useAppStore(s => s.workspaceUserId);
-  return mode === 'filters' || (applied !== null && !!workspace && scope === `${workspace}:${actor ?? undefined}:${pathname}`);
+  const catalogReady = useAppStore(s => s.workspaceCatalogReady);
+  const catalogError = useAppStore(s => s.workspaceCatalogError);
+  return mode === 'filters' || (applied !== null && catalogReady && !catalogError && !!workspace && scope === `${workspace}:${actor ?? undefined}:${pathname}`);
 }

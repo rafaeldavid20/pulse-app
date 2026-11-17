@@ -15,15 +15,18 @@ export function useFilteredIssues(issues: Issue[]): Issue[] {
   const mode = useAppStore(s => s.filterMode);
   const query = useAppStore(s => s.pqlApplied);
   const scope = useAppStore(s => s.pqlScope);
+  const evaluatedAt = useAppStore(s => s.pqlEvaluatedAt);
+  const catalogReady = useAppStore(s => s.workspaceCatalogReady);
+  const catalogError = useAppStore(s => s.workspaceCatalogError);
   const context = usePqlContext();
   const pathname = usePathname();
   return useMemo(() => {
     if (mode === 'filters') return sortIssues(applyIssueFilters(issues, filters), sortBy);
-    if (query === null || !context.workspaceId || scope !== `${context.workspaceId}:${context.actorId}:${pathname}`) return [];
+    if (query === null || !evaluatedAt || !catalogReady || catalogError || !context.workspaceId || scope !== `${context.workspaceId}:${context.actorId}:${pathname}`) return [];
     const routeTeam = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname)?.[1];
     if (routeTeam && routeTeam !== context.teamId) return [];
     const scoped = issues.filter(issue => issue.workspaceId === context.workspaceId && (!routeTeam || issue.teamId === routeTeam));
-    const result = execute(query, scoped, { ...context, now: new Date().toISOString() });
+    const result = execute(query, scoped, { ...context, now: evaluatedAt });
     return result.ok ? result.issues : [];
-  }, [issues, filters, sortBy, mode, query, context, scope, pathname]);
+  }, [issues, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError]);
 }

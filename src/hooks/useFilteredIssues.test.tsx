@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/team/team-a/issues' }))
 vi.mock('./usePqlContext', () => ({ usePqlContext: () => fixtureContext }));
 
 describe('PQL scope', () => {
-  beforeEach(() => useAppStore.getState().resetView());
+  beforeEach(() => { useAppStore.getState().resetView(); useAppStore.setState({ workspaceCatalogReady: true, workspaceCatalogError: null }); });
   it('intersects route and workspace before evaluating OR or NOT', () => {
     const issues = [
       { id: 'a', workspaceId: 'fixture', teamId: 'team-a', status: 'todo' },

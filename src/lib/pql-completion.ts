@@ -16,9 +16,9 @@ function tokenBounds(source: string, cursor: number): { start: number; end: numb
   }
   return { start, end, text: source.slice(start, cursor).replace(/^["']/, '').toLowerCase() };
 }
-const names = (items: Entity[]): string[] => items.map(item => {
+const names = (items: Entity[], all: Entity[] = items): string[] => items.map(item => {
   const name = item.displayName ?? item.name ?? item.identifier ?? item.key ?? item.id;
-  const duplicates = items.filter(other => (other.displayName ?? other.name ?? other.identifier ?? other.key ?? other.id).toLowerCase() === name.toLowerCase());
+  const duplicates = all.filter(other => (other.displayName ?? other.name ?? other.identifier ?? other.key ?? other.id).toLowerCase() === name.toLowerCase());
   return duplicates.length > 1 ? item.userId ?? item.id : name;
 });
 export function completePql(source: string, cursor: number, context: Context): Suggestion[] {
@@ -47,7 +47,7 @@ export function completePql(source: string, cursor: number, context: Context): S
       : field === 'team' ? context.teams : field === 'project' ? context.projects : field === 'label' ? context.labels
       : field === 'cycle' ? context.cycles : field === 'epic' ? context.issues.filter(i => i.type === 'epic') : field === 'parent' ? context.issues : [];
     const scopedCatalog = context.teamId && ['project', 'label', 'cycle', 'epic', 'parent'].includes(field) ? catalog.filter(item => item.teamId === context.teamId) : catalog;
-    const values = spec.values ? [...spec.values] : names(scopedCatalog);
+    const values = spec.values ? [...spec.values] : names(scopedCatalog, catalog);
     options = values.map(value => ({ label: value, insert: quote(value) }));
     const functions = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? ['me()']
       : field === 'cycle' ? ['currentCycle()'] : spec.type === 'date' ? ['now()', 'startOfWeek()', 'endOfCycle()'] : [];

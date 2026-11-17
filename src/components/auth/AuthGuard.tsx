@@ -47,6 +47,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const workspacesLoaded = useAppStore((s) => s.workspacesLoaded);
   const workspaceDataScope = useAppStore((s) => s.workspaceDataScope);
   const setWorkspaceDataScope = useAppStore((s) => s.setWorkspaceDataScope);
+  const setWorkspaceCatalogReady = useAppStore((s) => s.setWorkspaceCatalogReady);
+  const setWorkspaceCatalogError = useAppStore((s) => s.setWorkspaceCatalogError);
   const setMembers = useAppStore((s) => s.setMembers);
   const setTeams = useAppStore((s) => s.setTeams);
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
@@ -156,6 +158,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     ? JSON.stringify([userId, workspaceId ?? null]) : null;
   useEffect(() => {
     resetIssuesSubscription();
+    setWorkspaceCatalogReady(false);
+    setWorkspaceCatalogError(null);
     useProjectStore.getState().resetProjects();
     setMembers([]);
     setTeams([]);
@@ -171,6 +175,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     const controller = new AbortController();
     const unsubscribers: Array<() => void> = [];
     let retryAttempt = 0;
+    const pendingCatalogs = new Set(['members', 'teams', 'projects', 'labels', 'cycles']);
+    const catalogLoaded = (name: string) => { pendingCatalogs.delete(name); if (!pendingCatalogs.size && !controller.signal.aborted) { setWorkspaceCatalogError(null); setWorkspaceCatalogReady(true); } };
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const firebaseUser = auth.currentUser;
     if (!firebaseUser || firebaseUser.uid !== userId) return;
@@ -182,6 +188,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     let subscribed = false;
     const handleListenerError = (error: { code?: string }) => {
       if (controller.signal.aborted || error.code !== 'permission-denied') return;
+      setWorkspaceCatalogReady(false);
+      for (const name of ['members', 'teams', 'projects', 'labels', 'cycles']) pendingCatalogs.add(name);
       console.error('Workspace subscription permission denied; refreshing access and reopening listeners.', error);
       setIssues([]);
       setProjects([]);
@@ -202,6 +210,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     };
     const clearOnError = (clear: () => void) => (error: { code?: string }) => {
       if (controller.signal.aborted) return;
+      setWorkspaceCatalogReady(false);
+      setWorkspaceCatalogError('No se pudieron cargar los catálogos del workspace.');
       clear();
       handleListenerError(error);
     };
@@ -213,8 +223,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
         subscribed = true;
         unsubscribers.push(
-          subscribeWorkspaceMembers(workspaceId, setMembers, clearOnError(() => setMembers([]))),
-          subscribeWorkspaceTeams(workspaceId, setTeams, clearOnError(() => setTeams([]))),
+          subscribeWorkspaceMembers(workspaceId, value => { setMembers(value); catalogLoaded('members'); }, clearOnError(() => setMembers([]))),
+          subscribeWorkspaceTeams(workspaceId, value => { setTeams(value); catalogLoaded('teams'); }, clearOnError(() => setTeams([]))),
           subscribeWorkspaceIssues(workspaceId, setIssues, (error) => {
             if (controller.signal.aborted) return;
             console.error('subscribeWorkspaceIssues', error);
@@ -222,9 +232,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
             setIssuesError(describeSubscriptionError(error));
             handleListenerError(error);
           }),
-          subscribeWorkspaceProjects(workspaceId, setProjects, clearOnError(() => setProjects([]))),
-          subscribeWorkspaceLabels(workspaceId, setLabels, clearOnError(() => setLabels([]))),
-          subscribeWorkspaceCycles(workspaceId, setCycles, clearOnError(() => setCycles([]))),
+          subscribeWorkspaceProjects(workspaceId, value => { setProjects(value); catalogLoaded('projects'); }, clearOnError(() => setProjects([]))),
+          subscribeWorkspaceLabels(workspaceId, value => { setLabels(value); catalogLoaded('labels'); }, clearOnError(() => setLabels([]))),
+          subscribeWorkspaceCycles(workspaceId, value => { setCycles(value); catalogLoaded('cycles'); }, clearOnError(() => setCycles([]))),
         );
       })
       .catch((error: unknown) => {
@@ -243,7 +253,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       window.removeEventListener('focus', start);
       unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
-  }, [dataScope, workspaceId, userId, setWorkspaceDataScope, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
+  }, [dataScope, workspaceId, userId, setWorkspaceDataScope, setWorkspaceCatalogReady, setWorkspaceCatalogError, setMembers, setTeams, setIssues, setIssuesError, resetIssuesSubscription, setProjects, setLabels, setCycles]);
 
   if (loading || (user && (!dataScope || workspaceDataScope !== dataScope))) {
     return (

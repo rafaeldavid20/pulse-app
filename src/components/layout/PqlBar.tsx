@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { parse, resolve, type Diagnostic } from '@/lib/pql';
+import { parse, resolve, tokenize, type Diagnostic } from '@/lib/pql';
 import { filtersToPql, pqlToFilters } from '@/lib/pql-filter-conversion';
 import { completePql, type Suggestion } from '@/lib/pql-completion';
 import { usePqlContext } from '@/hooks/usePqlContext';
@@ -23,6 +23,8 @@ export function PqlBar() {
   const groupBy = useAppStore(s => s.groupBy);
   const loaded = useIssueStore(s => s.issuesLoaded);
   const error = useIssueStore(s => s.issuesError);
+  const catalogReady = useAppStore(s => s.workspaceCatalogReady);
+  const catalogError = useAppStore(s => s.workspaceCatalogError);
   const context = usePqlContext();
   const pathname = usePathname();
   const [diagnostic, setDiagnostic] = useState<Diagnostic | null>(null);
@@ -32,18 +34,31 @@ export function PqlBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const suggestions = useMemo(() => completePql(draft, cursor, context), [draft, cursor, context]);
+  const highlighted = useMemo(() => {
+    const lexical = tokenize(draft);
+    if (!lexical.ok) return draft;
+    let previous = 0;
+    return lexical.tokens.filter(token => token.kind !== 'eof').map((token, index) => {
+      const gap = draft.slice(previous, token.start); previous = token.end;
+      const keyword = token.kind === 'word' && /^(and|or|not|in|is|empty|order|by|asc|desc)$/i.test(token.value);
+      const color = keyword ? 'text-accent' : token.kind === 'string' ? 'text-status-done' : token.kind === 'number' ? 'text-priority-high' : 'text-primary';
+      return <span key={`${token.start}-${index}`}>{gap}<span className={color}>{draft.slice(token.start, token.end)}</span></span>;
+    });
+  }, [draft]);
 
   useEffect(() => {
-    if (mode !== 'pql' || !loaded || error || !context.workspaceId) return;
+    if (mode !== 'pql' || !loaded || error || !catalogReady || catalogError || !context.workspaceId) return;
     const timer = window.setTimeout(() => {
+      const evaluatedAt = new Date().toISOString();
       const parsed = parse(draft);
-      const result = parsed.ok ? resolve(draft, parsed.query, { ...context, now: new Date().toISOString() }) : parsed;
+      const result = parsed.ok ? resolve(draft, parsed.query, { ...context, now: evaluatedAt }) : parsed;
       if (!result.ok) setDiagnostic(result.diagnostic);
-      else { setDiagnostic(null); setApplied(draft, `${context.workspaceId}:${context.actorId}:${pathname}`); }
+      else { setDiagnostic(null); setApplied(draft, `${context.workspaceId}:${context.actorId}:${pathname}`, evaluatedAt); }
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [mode, draft, loaded, error, context, pathname, setApplied]);
+  }, [mode, draft, loaded, error, catalogReady, catalogError, context, pathname, setApplied]);
 
   const toFilters = () => {
     if (mode === 'filters') return;
@@ -71,20 +86,21 @@ export function PqlBar() {
     {mode === 'pql' && <>
       {notice && <p className="text-xs text-secondary">{notice}</p>}
       <label className="block text-xs text-secondary" htmlFor="pql-query">Consulta PQL</label>
-      <div className="relative">
-        <input ref={inputRef} id="pql-query" value={draft} onChange={e => { setDiagnostic(null); setDraft(e.target.value); setCursor(e.target.selectionStart ?? e.target.value.length); setSelected(0); setMenuOpen(true); }} onSelect={e => setCursor(e.currentTarget.selectionStart ?? 0)} onFocus={() => setMenuOpen(true)} onBlur={() => setMenuOpen(false)} onKeyDown={e => {
+      <div className="relative rounded-md bg-surface">
+        <div ref={highlightRef} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre px-[9px] py-[5px] font-mono text-sm">{highlighted}</div>
+        <input ref={inputRef} id="pql-query" value={draft} onChange={e => { setDiagnostic(null); setDraft(e.target.value); setCursor(e.target.selectionStart ?? e.target.value.length); setSelected(0); setMenuOpen(true); }} onScroll={e => { if (highlightRef.current) highlightRef.current.scrollLeft = e.currentTarget.scrollLeft; }} onSelect={e => setCursor(e.currentTarget.selectionStart ?? 0)} onFocus={() => setMenuOpen(true)} onBlur={() => setMenuOpen(false)} onKeyDown={e => {
           if (e.nativeEvent.isComposing) return;
           if (e.key === 'Escape' && menuOpen) { e.preventDefault(); setMenuOpen(false); }
           else if (menuOpen && suggestions.length && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); setSelected(i => (i + (e.key === 'ArrowDown' ? 1 : suggestions.length - 1)) % suggestions.length); }
           else if (menuOpen && suggestions.length && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); insertSuggestion(suggestions[Math.min(selected, suggestions.length - 1)]); }
           else if (e.key === 'Enter') e.preventDefault();
-        }} spellCheck={false} role="combobox" aria-expanded={menuOpen && suggestions.length > 0} aria-controls="pql-suggestions" aria-activedescendant={menuOpen && suggestions.length ? `pql-option-${Math.min(selected, suggestions.length - 1)}` : undefined} aria-autocomplete="list" aria-invalid={!!diagnostic} aria-describedby="pql-message" className="w-full rounded-md border border-default bg-surface px-2 py-1 text-sm text-primary" placeholder="status = todo AND assignee = me()" />
+        }} spellCheck={false} role="combobox" aria-expanded={menuOpen && suggestions.length > 0} aria-controls="pql-suggestions" aria-activedescendant={menuOpen && suggestions.length ? `pql-option-${Math.min(selected, suggestions.length - 1)}` : undefined} aria-autocomplete="list" aria-invalid={!!diagnostic} aria-describedby="pql-message" className="relative w-full rounded-md border border-default bg-transparent px-2 py-1 font-mono text-sm text-transparent placeholder:text-tertiary" style={{ caretColor: 'var(--color-primary)' }} placeholder="status = todo AND assignee = me()" />
         {menuOpen && suggestions.length > 0 && <ul id="pql-suggestions" role="listbox" className="absolute z-50 max-h-48 overflow-auto rounded-md border border-default bg-surface shadow-lg">
           {suggestions.map((suggestion, index) => <li key={`${suggestion.label}-${index}`} id={`pql-option-${index}`} role="option" aria-selected={index === selected} className={`cursor-pointer px-3 py-1 text-xs ${index === selected ? 'bg-hover' : ''}`} onMouseDown={e => { e.preventDefault(); insertSuggestion(suggestion); }}>{suggestion.label}</li>)}
         </ul>}
       </div>
       <p id="pql-message" role="status" className="text-xs text-secondary">
-        {!loaded ? 'Cargando issues…' : error ? `Error al cargar issues: ${error}` : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
+        {error ? `Error al cargar issues: ${error}` : catalogError ? catalogError : !loaded || !catalogReady ? 'Cargando issues y catálogos…' : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
       </p>
       {diagnostic && <p className="break-all font-mono text-xs text-secondary" aria-hidden="true">{draft.slice(0, diagnostic.start)}<mark>{draft.slice(diagnostic.start, diagnostic.end) || ' '}</mark>{draft.slice(diagnostic.end)}</p>}
     </>}

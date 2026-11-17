@@ -9,7 +9,7 @@ vi.mock('next/navigation', () => ({ usePathname: () => '/team/team-a/issues' }))
 vi.mock('@/hooks/usePqlContext', () => ({ usePqlContext: () => fixtureContext }));
 
 describe('PQL bar', () => {
-  beforeEach(() => { vi.useFakeTimers(); useAppStore.getState().resetView(); useIssueStore.getState().setIssues([]); });
+  beforeEach(() => { vi.useFakeTimers(); useAppStore.getState().resetView(); useAppStore.setState({ workspaceCatalogReady: true, workspaceCatalogError: null }); useIssueStore.getState().setIssues([]); });
   afterEach(() => { cleanup(); vi.useRealTimers(); });
   it('keeps last valid results identified while a draft is invalid', () => {
     render(<PqlBar />);
