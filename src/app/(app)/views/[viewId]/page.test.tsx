@@ -1,0 +1,51 @@
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import SavedViewPage from './page';
+import { fixtureContext } from '@/lib/pql/fixtures';
+import { useAppStore } from '@/stores/appStore';
+import { useIssueStore } from '@/stores/issueStore';
+import { useSavedViewStore } from '@/stores/savedViewStore';
+import type { Issue, SavedView, Workspace } from '@/types';
+
+const action = vi.fn(), push = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
+vi.mock('@/hooks/usePqlContext', () => ({ usePqlContext: () => fixtureContext }));
+vi.mock('@/lib/saved-views', () => ({ viewAction: (...args: unknown[]) => action(...args) }));
+vi.mock('@/components/layout/Header', () => ({ Header: ({ title }: { title: string }) => <header>{title}</header> }));
+vi.mock('@/components/issues/IssueList', () => ({ IssueList: ({ issues }: { issues: Issue[] }) => <div>{issues.map(i => <span key={i.id}>{i.identifier}</span>)}</div> }));
+vi.mock('@/components/issues/IssueBoard', () => ({ IssueBoard: () => <div>Board</div> }));
+const view: SavedView = { id: 'view-a', workspaceId: 'fixture', ownerId: 'user-a', name: 'Mi vista', query: 'assignee = me()', queryVersion: 1, display: 'list', shared: false, createdAt: '2024-01-01', updatedAt: '2024-01-01' };
+beforeEach(() => {
+  action.mockReset(); push.mockReset();
+  useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', members: [], teams: [] });
+  useSavedViewStore.getState().setViews([view]);
+  useIssueStore.getState().setIssues([{ id: 'a', workspaceId: 'fixture', teamId: 'team-a', identifier: 'TES-1', assigneeId: 'user-a', status: 'todo', priority: 2, title: 'A', createdAt: '2024-01-01' }, { id: 'b', workspaceId: 'other', identifier: 'NO-1', assigneeId: 'user-a', status: 'todo', priority: 2, title: 'B', createdAt: '2024-01-01' }] as Issue[]);
+});
+afterEach(cleanup);
+it('isolates the workspace and preserves an invalid draft without showing results', async () => {
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  expect(await screen.findByText('TES-1')).toBeTruthy(); expect(screen.queryByText('NO-1')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Consulta PQL'), { target: { value: 'status =' } });
+  expect(screen.getByRole('alert').textContent).toContain('Se esperaba un valor');
+  expect(screen.queryByText('TES-1')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+  expect(screen.getByText('TES-1')).toBeTruthy();
+  act(() => useSavedViewStore.getState().setViews([]));
+  expect(screen.getByText(/no está disponible/)).toBeTruthy();
+});
+it('keeps edits on a failed save and offers a private copy to a shared-view reader', async () => {
+  action.mockRejectedValue(new Error('Sin permiso'));
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  const name = screen.getByLabelText('Nombre') as HTMLInputElement;
+  fireEvent.change(name, { target: { value: 'Editada' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('Sin permiso');
+  expect(name.value).toBe('Editada');
+  cleanup();
+  useAppStore.setState({ workspaceUserId: 'reader' });
+  useSavedViewStore.getState().setViews([{ ...view, shared: true }]);
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  expect(screen.queryByRole('button', { name: 'Guardar' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Guardar copia' })).toBeTruthy();
+});

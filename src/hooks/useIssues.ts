@@ -15,9 +15,10 @@ import { useFilteredIssues } from './useFilteredIssues';
  * `issues`, sin duplicar el resto del pipeline (filtros de la barra, orden,
  * agrupación por estado/épica).
  */
-export function useIssues(scopeIssues?: Issue[]) {
+export function useIssues(scopeIssues?: Issue[], alreadyFiltered = false) {
   const issues = useIssueStore((s) => s.issues);
   const activeTeam = useAppStore((s) => s.activeTeam);
+  const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
 
   // Issues del equipo activo, sin aplicar todavía los filtros de la barra —
   // lo usan las páginas que necesitan el universo "sin filtrar" del equipo
@@ -28,7 +29,7 @@ export function useIssues(scopeIssues?: Issue[]) {
     [issues, activeTeam, scopeIssues]
   );
 
-  const sortedIssues = useFilteredIssues(teamIssues);
+  const sortedIssues = useFilteredIssues(teamIssues, alreadyFiltered);
 
   // Group issues by status for Kanban Board
   const issuesByStatus = useMemo(() => {
@@ -56,21 +57,21 @@ export function useIssues(scopeIssues?: Issue[]) {
   const issuesByEpic = useMemo(() => {
     const map = new Map<string, Issue[]>();
     sortedIssues.forEach((issue) => {
-      if (isEpic(issue)) return;
-      const key = issue.epicId ?? '';
+      if (isEpic(issue) && !alreadyFiltered) return;
+      const key = isEpic(issue) ? issue.id : issue.epicId ?? '';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(issue);
     });
     return map;
-  }, [sortedIssues]);
+  }, [sortedIssues, alreadyFiltered]);
 
   const epics = useMemo(
     () =>
       issues
-        .filter((i) => isEpic(i) && (!activeTeam || i.teamId === activeTeam.id))
+        .filter((i) => isEpic(i) && (!alreadyFiltered ? (!activeTeam || i.teamId === activeTeam.id) : i.workspaceId === workspaceId))
         .map((epic) => ({ epic, children: descendantsOfEpic(issues, epic.id) }))
         .sort((a, b) => a.epic.number - b.epic.number),
-    [issues, activeTeam]
+    [issues, activeTeam, alreadyFiltered, workspaceId]
   );
 
   return {

@@ -16,16 +16,24 @@ import {
   Zap,
   RotateCw,
   Bot,
+  List,
+  Eye,
+  Flag,
+  Calendar,
+  Lock,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useAuth } from '@/hooks/useAuth';
 import { useCycleStore } from '@/stores/cycleStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useSavedViewStore } from '@/stores/savedViewStore';
 import { currentCycle, daysRemaining } from '@/lib/cycles';
 import { Avatar } from '@/components/ui/Avatar';
 import { cn } from '@/lib/utils';
 import { logoutUser } from '@/lib/auth';
 import { WorkspaceSelector } from '@/components/workspace/WorkspaceSelector';
+
+const VIEW_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { list: List, inbox: Inbox, user: UserCheck, eye: Eye, flag: Flag, calendar: Calendar, lock: Lock, zap: Zap };
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
@@ -39,6 +47,9 @@ export const Sidebar: React.FC = () => {
   const { user } = useAuth();
   const cycles = useCycleStore((s) => s.cycles);
   const unreadCount = useNotificationStore((s) => s.unreadNotifications.length);
+  const views = useSavedViewStore(s => s.views);
+  const viewsLoaded = useSavedViewStore(s => s.loaded);
+  const viewsError = useSavedViewStore(s => s.error);
 
   const [isUserMenuOpen, setUserMenuOpen] = useState(false);
 
@@ -173,6 +184,15 @@ export const Sidebar: React.FC = () => {
             })}
           </div>
         </div>
+        <section className="flex flex-col px-2 pt-6" aria-label="Vistas guardadas">
+          <h2 className="px-2.5 pb-2 text-[11px] font-semibold text-tertiary uppercase tracking-wider">Vistas</h2>
+          {viewsError ? <p className="px-2.5 text-xs text-secondary">{viewsError}</p> : !viewsLoaded ? <p className="px-2.5 text-xs text-tertiary">Cargando…</p> : views.map(view => {
+            const Icon = VIEW_ICONS[view.icon ?? ''] ?? List;
+            return <Link key={view.id} href={`/views/${view.id}`} className={cn('flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs text-secondary hover:bg-elevated', pathname === `/views/${view.id}` && 'bg-hover text-primary')}>
+              <Icon className="h-3.5 w-3.5 shrink-0" /><span>{view.name}</span><span className="text-tertiary">{view.shared ? '· Compartida' : '· Privada'}{view.teamId ? ' · Equipo' : ''}</span>
+            </Link>;
+          })}
+        </section>
       </div>
 
       {/* User Logout Popup Menu */}

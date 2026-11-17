@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Issue, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, Member, Project } from '@/types';
+import { Issue, IssueGroupBy, IssueListColumn, IssueListDensity, IssuePriority, IssueStatus, Member, Project } from '@/types';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -32,6 +32,8 @@ interface IssueListProps {
   /** Universo base de issues (equipo, proyecto, "mis issues"...). La barra de
    *  filtros, la agrupación y el orden se aplican acá adentro, no en el caller. */
   issues: Issue[];
+  alreadyFiltered?: boolean;
+  groupByOverride?: IssueGroupBy;
 }
 
 interface QuickSelectOption {
@@ -280,7 +282,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
   );
 };
 
-export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
+export const IssueList: React.FC<IssueListProps> = ({ issues, alreadyFiltered = false, groupByOverride }) => {
   const pqlReady = usePqlReady();
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
@@ -294,7 +296,8 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const updateIssue = useIssueStore((s) => s.updateIssue);
   const bulkUpdateStatus = useIssueStore((s) => s.bulkUpdateStatus);
   const members = useAppStore((s) => s.members);
-  const groupBy = useAppStore((s) => s.groupBy);
+  const storeGroupBy = useAppStore((s) => s.groupBy);
+  const groupBy = groupByOverride ?? storeGroupBy;
   const listDensity = useAppStore((s) => s.listDensity);
   const visibleColumns = useAppStore((s) => s.visibleColumns);
   const projects = useProjectStore((s) => s.projects);
@@ -320,7 +323,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     return map;
   }, [allIssues]);
 
-  const filteredIssues = useFilteredIssues(issues);
+  const filteredIssues = useFilteredIssues(issues, alreadyFiltered);
   const groups = useMemo(() => groupIssues(filteredIssues, groupBy, { members, projects, epicsById, cyclesById }),
     [filteredIssues, groupBy, members, projects, epicsById, cyclesById]);
 
@@ -362,7 +365,7 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     );
   }
 
-  if (!pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
+  if (!alreadyFiltered && !pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
 
   if (totalVisible === 0) {
     return (

@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import { useIssues } from '@/hooks/useIssues';
+import { usePqlReady } from '@/hooks/usePqlReady';
+import { SaveViewDialog } from './SaveViewDialog';
 import { useProjectStore } from '@/stores/projectStore';
 import { useLabelStore } from '@/stores/labelStore';
 import {
@@ -135,6 +137,9 @@ const OptionRow: React.FC<OptionRowProps> = ({ isChecked, onClick, children }) =
 export const FilterBar: React.FC = () => {
   const filterState = useAppStore((s) => s.filterState);
   const filterMode = useAppStore((s) => s.filterMode);
+  const pqlDraft = useAppStore((s) => s.pqlDraft);
+  const pqlApplied = useAppStore((s) => s.pqlApplied);
+  const pqlReady = usePqlReady();
   const setFilterState = useAppStore((s) => s.setFilterState);
   const resetFilters = useAppStore((s) => s.resetFilters);
   const groupBy = useAppStore((s) => s.groupBy);
@@ -156,6 +161,7 @@ export const FilterBar: React.FC = () => {
   const labels = useLabelStore((s) => s.labels);
 
   const [openChip, setOpenChip] = useState<string | null>(null);
+  const [savingView, setSavingView] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -454,13 +460,14 @@ export const FilterBar: React.FC = () => {
 
         <button
           type="button"
-          disabled
-          title="Próximamente: guardar esta combinación como una vista (TES-C4)"
-          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border border-default text-tertiary cursor-not-allowed opacity-60"
+          disabled={filterMode === 'pql' && (!pqlReady || pqlDraft !== pqlApplied)}
+          onClick={() => setSavingView(true)}
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium border border-default text-secondary disabled:opacity-50"
         >
           <Save className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Guardar como vista</span>
         </button>
+        {savingView && <SaveViewDialog close={() => setSavingView(false)} />}
       </div>
     </div>
   );
