@@ -111,6 +111,7 @@ export const fixtureCases = [
   { query: 'unknown = 1', code: 'FIELD', diagnostic: { start: 0, end: 11, line: 1, column: 1 } },
   { query: 'status =', code: 'SYNTAX', diagnostic: { start: 8, end: 8, line: 1, column: 9 } },
   { query: 'due = 2024-01-01T00:00:00', code: 'TYPE', diagnostic: { start: 6, end: 25, line: 1, column: 7 } },
+  { query: `text="${'a'.repeat(4089)}"`, ids: [] },
   { query: 'a'.repeat(4097), code: 'TEXT_LIMIT', diagnostic: { start: 4096, end: 4097, line: 1, column: 4097 } },
   { query: Array(501).fill('x').join(' '), code: 'TOKEN_LIMIT', diagnostic: { start: 1000, end: 1001, line: 1, column: 1001 } },
 ] as const;
