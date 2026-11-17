@@ -3,24 +3,31 @@ import { fields, operatorsFor, type Context, type Entity } from '@/lib/pql';
 export interface Suggestion { label: string; insert: string; start: number; end: number }
 const quote = (value: string) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 function tokenBounds(source: string, cursor: number): { start: number; end: number; text: string } {
-  let start = cursor;
-  while (start > 0 && !/[\s(),]/.test(source[start - 1])) start--;
-  let end = cursor;
-  while (end < source.length && !/[\s(),]/.test(source[end])) end++;
-  const quoteStart = Math.max(source.lastIndexOf('"', cursor - 1), source.lastIndexOf("'", cursor - 1));
-  if (quoteStart >= 0 && (quoteStart === 0 || /[\s(,]/.test(source[quoteStart - 1]))) {
-    const q = source[quoteStart];
-    let close = quoteStart + 1;
-    let escaped = false;
-    while (close < source.length) {
-      if (!escaped && source[close] === q) break;
-      if (!escaped && source[close] === '\\') escaped = true; else escaped = false;
-      close++;
+  // Mirror the tokenizer's delimiters while tolerating unfinished strings.
+  // Scan quoted tokens as a unit so escaped quotes and operators inside strings
+  // never affect replacement boundaries.
+  const delimiter = /[\s(),=!<>~"']/;
+  let i = 0;
+  while (i < source.length) {
+    const start = i;
+    const char = source[i];
+    if (char === '"' || char === "'") {
+      i++;
+      while (i < source.length) {
+        if (source[i] === '\\') { i = Math.min(i + 2, source.length); continue; }
+        if (source[i++] === char) break;
+      }
+      if (cursor > start && cursor <= i) return { start, end: i, text: source.slice(start + 1, cursor).toLowerCase() };
+    } else if (delimiter.test(char)) {
+      i++;
+    } else {
+      while (i < source.length && !delimiter.test(source[i])) i++;
+      if (cursor >= start && cursor <= i) return { start, end: i, text: source.slice(start, cursor).toLowerCase() };
     }
-    if (close >= cursor) { start = quoteStart; end = Math.min(source.length, close + 1); }
   }
-  return { start, end, text: source.slice(start, cursor).replace(/^["']/, '').toLowerCase() };
+  return { start: cursor, end: cursor, text: '' };
 }
+
 const label = (item: Entity) => item.displayName ?? item.name ?? item.identifier ?? item.key ?? item.id;
 const names = (items: Entity[], all: Entity[] = items): string[] => {
   const counts = new Map<string, number>();
@@ -31,7 +38,7 @@ export function completePql(source: string, cursor: number, context: Context): S
   const token = tokenBounds(source, cursor);
   const before = source.slice(0, token.start);
   const order = /\border\s+by\s+(?:[^,]+,\s*)?$/i.test(before);
-  const valueMatch = /([\w.]+)\s+(?:not\s+in|in|!=|=|<=|>=|<|>|~)\s*(?:\([^)]*)?$/i.exec(before);
+  const valueMatch = /([\w.]+)\s*(?:not\s+in\b|in\b|!=|<=|>=|=|<|>|~)\s*(?:\([^)]*)?$/i.exec(before);
   const fieldMatch = /(?:^|\b(?:and|or|not)\s+|\()([\w.]+)\s+$/i.exec(before);
   const emptyKeyword = /\bis\s+(?:not\s+)?$/i.test(before);
   const orderDirection = /\border\s+by\s+(?:[^,]+,\s*)?[\w.]+\s+$/i.test(before);
@@ -49,7 +56,7 @@ export function completePql(source: string, cursor: number, context: Context): S
     const field = valueMatch[1].toLowerCase();
     const spec = Object.hasOwn(fields, field) ? fields[field] : undefined;
     if (!spec) return [];
-    const catalog = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? context.members
+    const catalog = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? [...context.members, ...context.agents]
       : field === 'team' ? context.teams : field === 'project' ? context.projects : field === 'label' ? context.labels
       : field === 'cycle' ? context.cycles : field === 'epic' ? context.issues.filter(i => i.type === 'epic') : field === 'parent' ? context.issues : [];
     const scopedCatalog = context.teamId && ['project', 'label', 'cycle', 'epic', 'parent'].includes(field) ? catalog.filter(item => item.teamId === context.teamId) : catalog;

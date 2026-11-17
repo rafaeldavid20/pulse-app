@@ -20,6 +20,16 @@ describe('view persistence', () => {
     act(() => useAppStore.setState({ activeWorkspace: { id: 'w2' } as Workspace }));
     expect(useAppStore.getState().filterMode).toBe('filters');
   });
+  it('preserves each workspace across the synchronous reset and return', () => {
+    renderHook(() => useViewPersistence(true));
+    act(() => useAppStore.getState().setFilterMode('pql', 'status = todo'));
+    act(() => useAppStore.getState().setActiveWorkspace({ id: 'w2' } as Workspace));
+    expect(JSON.parse(localStorage.getItem('pulse:view:u1:w1:/team/team-a/issues')!).query).toBe('status = todo');
+    act(() => useAppStore.getState().setFilterMode('pql', 'status = done'));
+    act(() => useAppStore.getState().setActiveWorkspace({ id: 'w1' } as Workspace));
+    expect(useAppStore.getState()).toMatchObject({ filterMode: 'pql', pqlDraft: 'status = todo' });
+    expect(JSON.parse(localStorage.getItem('pulse:view:u1:w2:/team/team-a/issues')!).query).toBe('status = done');
+  });
   it('ignores corrupt stored values', () => {
     localStorage.setItem('pulse:view:u1:w1:/team/team-a/issues', '{bad');
     renderHook(() => useViewPersistence(true));

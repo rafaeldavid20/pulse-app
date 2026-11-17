@@ -9,6 +9,16 @@ describe('PQL completion', () => {
     expect(completePql('status IN (to', 13, fixtureContext)).toContainEqual(expect.objectContaining({ insert: '"todo"' }));
     expect(completePql('assignee = me', 13, fixtureContext)).toContainEqual(expect.objectContaining({ insert: 'me()' }));
   });
+  it('recognizes values adjacent to comparison operators and preserves suffixes', () => {
+    for (const [query, cursor, start, end] of [
+      ['status=to', 9, 7, 9], ['status!=todo AND priority=2', 10, 8, 12],
+      ['status IN(to,done)', 12, 10, 12],
+    ] as const) {
+      expect(completePql(query, cursor, fixtureContext)).toContainEqual(expect.objectContaining({ label: 'todo', start, end }));
+    }
+    const quoted = 'label="back" AND status=done';
+    expect(completePql(quoted, 10, { ...fixtureContext, teamId: undefined })).toContainEqual(expect.objectContaining({ label: 'backend', start: 6, end: 12 }));
+  });
   it('replaces only the token at the cursor including an incomplete quote', () => {
     const query = 'label = "back" AND status = done';
     const context = { ...fixtureContext, teamId: undefined };

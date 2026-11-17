@@ -43,6 +43,15 @@ describe('PQL bar', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(input.value).toBe('status = "todo" AND priority = 2');
   });
+  it('completes a value beside an operator at an intermediate cursor', () => {
+    render(<PqlBar />);
+    fireEvent.click(screen.getByRole('button', { name: 'PQL' }));
+    const input = screen.getByRole('combobox', { name: 'Consulta PQL' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'status=todo AND priority=2', selectionStart: 9, selectionEnd: 9 } });
+    fireEvent.select(input, { target: { selectionStart: 9, selectionEnd: 9 } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input.value).toBe('status="todo" AND priority=2');
+  });
   it('closes suggestions on Escape and does not intercept IME input', () => {
     render(<PqlBar />);
     fireEvent.click(screen.getByRole('button', { name: 'PQL' }));
@@ -54,6 +63,25 @@ describe('PQL bar', () => {
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(input.getAttribute('aria-expanded')).toBe('false');
     expect(input.value).toBe('sta');
+  });
+  it('shows the scoped applied count and retains it while an invalid draft is displayed', () => {
+    const issues = [
+      { id: 'a', workspaceId: 'fixture', teamId: 'team-a', status: 'todo' },
+      { id: 'b', workspaceId: 'fixture', teamId: 'team-a', status: 'done' },
+      { id: 'outside', workspaceId: 'other', teamId: 'team-a', status: 'todo' },
+    ] as import('@/types').Issue[];
+    render(<PqlBar issues={issues} />);
+    fireEvent.click(screen.getByRole('button', { name: 'PQL' }));
+    const input = screen.getByRole('combobox', { name: 'Consulta PQL' });
+    fireEvent.change(input, { target: { value: 'status=todo' } });
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.getByRole('status').textContent).toContain('1 coincidencia.');
+    fireEvent.change(input, { target: { value: 'status=' } });
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.getByRole('status').textContent).toContain('1 coincidencia de la última consulta válida');
+    fireEvent.change(input, { target: { value: 'status=in_review' } });
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.getByRole('status').textContent).toContain('0 coincidencias.');
   });
   it('distinguishes loading from a catalog error', () => {
     useAppStore.setState({ workspaceCatalogReady: false });

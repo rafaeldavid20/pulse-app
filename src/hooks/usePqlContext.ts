@@ -29,6 +29,7 @@ export function usePqlContext(): Context {
       teamId: routeTeam && teamIds.has(routeTeam) ? routeTeam : undefined,
       teams: authorizedTeams,
       members: members.filter(m => m.workspaceId === workspaceId),
+      agents: [],
       issues: issues.filter(i => i.workspaceId === workspaceId).map(i => ({ id: i.id, identifier: i.identifier, name: i.title, type: i.type, teamId: i.teamId })),
       projects: projects.filter(p => teamIds.has(p.teamId)),
       labels: labels.filter(l => teamIds.has(l.teamId)),

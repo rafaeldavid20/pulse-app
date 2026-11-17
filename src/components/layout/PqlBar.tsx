@@ -8,8 +8,12 @@ import { completePql, type Suggestion } from '@/lib/pql-completion';
 import { usePqlContext } from '@/hooks/usePqlContext';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
+import { useFilteredIssues } from '@/hooks/useFilteredIssues';
+import type { Issue } from '@/types';
 
-export function PqlBar() {
+const EMPTY_ISSUES: Issue[] = [];
+
+export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   const mode = useAppStore(s => s.filterMode);
   const draft = useAppStore(s => s.pqlDraft);
   const applied = useAppStore(s => s.pqlApplied);
@@ -27,6 +31,10 @@ export function PqlBar() {
   const catalogError = useAppStore(s => s.workspaceCatalogError);
   const context = usePqlContext();
   const pathname = usePathname();
+  const matches = useFilteredIssues(issues);
+  const appliedScope = useAppStore(s => s.pqlScope);
+  const evaluatedAt = useAppStore(s => s.pqlEvaluatedAt);
+  const hasApplied = applied !== null && !!evaluatedAt && appliedScope === `${context.workspaceId}:${context.actorId}:${pathname}`;
   const [diagnostic, setDiagnostic] = useState<Diagnostic | null>(null);
   const [conversionError, setConversionError] = useState('');
   const [notice, setNotice] = useState('');
@@ -101,6 +109,7 @@ export function PqlBar() {
       </div>
       <p id="pql-message" role="status" className="text-xs text-secondary">
         {error ? `Error al cargar issues: ${error}` : catalogError ? catalogError : !loaded || !catalogReady ? 'Cargando issues y catálogos…' : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
+        {!error && !catalogError && loaded && catalogReady && hasApplied && ` ${matches.length} ${matches.length === 1 ? 'coincidencia' : 'coincidencias'}${draft !== applied ? ' de la última consulta válida' : ''}.`}
       </p>
       {diagnostic && <p className="break-all font-mono text-xs text-secondary" aria-hidden="true">{draft.slice(0, diagnostic.start)}<mark>{draft.slice(diagnostic.start, diagnostic.end) || ' '}</mark>{draft.slice(diagnostic.end)}</p>}
     </>}

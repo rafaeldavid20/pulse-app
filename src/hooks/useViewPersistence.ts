@@ -67,7 +67,7 @@ export function useViewPersistence(enabled: boolean) {
     restoredForRef.current = key;
 
     const unsubscribe = useAppStore.subscribe((state) => {
-      if (restoredForRef.current !== key) return;
+      if (restoredForRef.current !== key || state.activeWorkspace?.id !== workspaceId || state.workspaceUserId !== userId) return;
       try {
         const view: StoredView = {
           filters: state.filterState,

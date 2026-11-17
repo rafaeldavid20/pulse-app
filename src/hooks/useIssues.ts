@@ -51,13 +51,12 @@ export function useIssues(scopeIssues?: Issue[]) {
   /**
    * Los issues filtrados agrupados por épica, para las swimlanes del board.
    * La clave `''` junta a los que no cuelgan de ninguna épica; las épicas
-   * mismas no aparecen como items dentro de su propio grupo.
+   * mismas aparecen en su lane cuando coinciden con el filtro.
    */
   const issuesByEpic = useMemo(() => {
     const map = new Map<string, Issue[]>();
     sortedIssues.forEach((issue) => {
-      if (isEpic(issue)) return;
-      const key = issue.epicId ?? '';
+      const key = isEpic(issue) ? issue.id : issue.epicId ?? '';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(issue);
     });
