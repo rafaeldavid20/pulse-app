@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useFilteredIssues } from './useFilteredIssues';
+import { useIssues } from './useIssues';
 import { useAppStore } from '@/stores/appStore';
 import { fixtureContext } from '@/lib/pql/fixtures';
 import type { Issue } from '@/types';
@@ -23,5 +24,18 @@ describe('PQL scope', () => {
     useAppStore.getState().setPqlApplied('', 'other:user-a:/team/team-a/issues');
     const next = renderHook(() => useFilteredIssues(issues));
     expect(next.result.current).toEqual([]);
+  });
+  it('feeds list and board the same filtered IDs and order', () => {
+    const issues = [
+      { id: 'b', workspaceId: 'fixture', teamId: 'team-a', status: 'todo', priority: 2, createdAt: '2024-01-01' },
+      { id: 'a', workspaceId: 'fixture', teamId: 'team-a', status: 'todo', priority: 1, createdAt: '2024-01-01' },
+      { id: 'c', workspaceId: 'fixture', teamId: 'team-a', status: 'done', priority: 1, createdAt: '2024-01-01' },
+    ] as Issue[];
+    useAppStore.getState().setFilterMode('pql', 'status = todo ORDER BY priority ASC');
+    useAppStore.getState().setPqlApplied('status = todo ORDER BY priority ASC', 'fixture:user-a:/team/team-a/issues');
+    const list = renderHook(() => useFilteredIssues(issues));
+    const board = renderHook(() => useIssues(issues));
+    expect(list.result.current.map(i => i.id)).toEqual(['a', 'b']);
+    expect(board.result.current.issuesByStatus.todo.map(i => i.id)).toEqual(['a', 'b']);
   });
 });

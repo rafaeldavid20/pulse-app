@@ -43,4 +43,25 @@ describe('PQL bar', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(input.value).toBe('status = "todo" AND priority = 2');
   });
+  it('closes suggestions on Escape and does not intercept IME input', () => {
+    render(<PqlBar />);
+    fireEvent.click(screen.getByRole('button', { name: 'PQL' }));
+    const input = screen.getByRole('combobox', { name: 'Consulta PQL' }) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'sta', selectionStart: 3, selectionEnd: 3 } });
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(input.value).toBe('sta');
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(input.getAttribute('aria-expanded')).toBe('false');
+    expect(input.value).toBe('sta');
+  });
+  it('distinguishes loading from a catalog error', () => {
+    useAppStore.setState({ workspaceCatalogReady: false });
+    render(<PqlBar />);
+    fireEvent.click(screen.getByRole('button', { name: 'PQL' }));
+    expect(screen.getByText(/Cargando issues y catálogos/)).toBeTruthy();
+    act(() => useAppStore.setState({ workspaceCatalogError: 'Sin acceso a catálogos' }));
+    expect(screen.getByText('Sin acceso a catálogos')).toBeTruthy();
+    expect(useAppStore.getState().pqlApplied).toBeNull();
+  });
 });
