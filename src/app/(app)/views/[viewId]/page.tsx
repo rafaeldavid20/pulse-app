@@ -34,6 +34,8 @@ function SavedViewEditor({ view }: { view: SavedView }) {
   const actorId = useAppStore(s => s.workspaceUserId);
   const members = useAppStore(s => s.members);
   const teams = useAppStore(s => s.teams);
+  const catalogReady = useAppStore(s => s.workspaceCatalogReady);
+  const catalogError = useAppStore(s => s.workspaceCatalogError);
   const issues = useIssueStore(s => s.issues);
   const issuesLoaded = useIssueStore(s => s.issuesLoaded);
   const issuesError = useIssueStore(s => s.issuesError);
@@ -45,7 +47,7 @@ function SavedViewEditor({ view }: { view: SavedView }) {
   const canEdit = actorId === view.ownerId || (!!view.systemKey && view.shared && (role === 'owner' || role === 'admin'));
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   const result = useMemo(() => {
-    if (!issuesLoaded || issuesError || context.workspaceId !== view.workspaceId) return null;
+    if (!issuesLoaded || issuesError || !catalogReady || catalogError || context.workspaceId !== view.workspaceId) return null;
     if (draft.teamId && !context.teams.some(team => team.id === draft.teamId)) return { ok: false as const, diagnostic: { message: 'El equipo de la vista no está disponible.', line: 1, column: 1 } };
     const parsed = parse(draft.query);
     if (!parsed.ok) return parsed;
@@ -53,7 +55,7 @@ function SavedViewEditor({ view }: { view: SavedView }) {
     const source = [draft.query, ordering].filter(Boolean).join(' ');
     const scoped = issues.filter(issue => issue.workspaceId === view.workspaceId && (!draft.teamId || issue.teamId === draft.teamId));
     return execute(source, scoped, { ...context, teamId: draft.teamId || undefined, now: new Date().toISOString() });
-  }, [context, draft.query, draft.teamId, draft.ordering, issues, issuesLoaded, issuesError, view.workspaceId]);
+  }, [context, draft.query, draft.teamId, draft.ordering, issues, issuesLoaded, issuesError, catalogReady, catalogError, view.workspaceId]);
   const parsed = parse(draft.query);
   const hasOrder = parsed.ok && parsed.query.orderBy.length > 0;
   const orderValue = draft.ordering.length === 1 ? `${draft.ordering[0].field}:${draft.ordering[0].direction}` : draft.ordering.length ? 'custom' : '';
@@ -95,7 +97,7 @@ function SavedViewEditor({ view }: { view: SavedView }) {
         </div>
         {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
       </div>
-      {!issuesLoaded ? <p role="status">Cargando issues…</p> : issuesError ? <p role="alert">{issuesError}</p>
+      {issuesError || catalogError ? <p role="alert">{issuesError || catalogError}</p> : !issuesLoaded || !catalogReady ? <p role="status">Cargando issues y catálogos…</p>
         : result && !result.ok ? <p role="alert">Línea {result.diagnostic.line}, columna {result.diagnostic.column}: {result.diagnostic.message}</p>
         : result?.ok ? <><p role="status" className="text-xs text-secondary">{result.issues.length} resultados{draft.query.toLowerCase().includes('currentcycle()') && draft.teamId && !context.cycles.some(c => c.teamId === draft.teamId && c.status === 'active') ? ' · Este equipo no tiene un ciclo activo.' : ''}</p>
           {draft.display === 'board' ? <IssueBoard issues={result.issues} alreadyFiltered groupByOverride={draft.grouping === 'epic' ? 'epic' : 'status'} /> : <IssueList issues={result.issues} alreadyFiltered groupByOverride={draft.grouping} />}</> : null}

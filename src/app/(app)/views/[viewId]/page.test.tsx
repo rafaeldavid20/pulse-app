@@ -18,7 +18,7 @@ vi.mock('@/components/issues/IssueBoard', () => ({ IssueBoard: () => <div>Board<
 const view: SavedView = { id: 'view-a', workspaceId: 'fixture', ownerId: 'user-a', name: 'Mi vista', query: 'assignee = me()', queryVersion: 1, display: 'list', shared: false, createdAt: '2024-01-01', updatedAt: '2024-01-01' };
 beforeEach(() => {
   action.mockReset(); push.mockReset();
-  useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', members: [], teams: [] });
+  useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', members: [], teams: [], workspaceCatalogReady: true, workspaceCatalogError: null });
   useSavedViewStore.getState().setViews([view]);
   useIssueStore.getState().setIssues([{ id: 'a', workspaceId: 'fixture', teamId: 'team-a', identifier: 'TES-1', assigneeId: 'user-a', status: 'todo', priority: 2, title: 'A', createdAt: '2024-01-01' }, { id: 'b', workspaceId: 'other', identifier: 'NO-1', assigneeId: 'user-a', status: 'todo', priority: 2, title: 'B', createdAt: '2024-01-01' }] as Issue[]);
 });
