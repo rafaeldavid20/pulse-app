@@ -27,7 +27,8 @@ import type { Issue } from '@/types';
 export const CommandPalette: React.FC = () => {
   const workspaceId = useAppStore(s => s.activeWorkspace?.id);
   const actorId = useAppStore(s => s.workspaceUserId);
-  return <CommandPaletteInner key={`${workspaceId}:${actorId}`} />;
+  const teamId = useAppStore(s => s.activeTeam?.id);
+  return <CommandPaletteInner key={`${workspaceId}:${actorId}:${teamId}`} />;
 };
 
 const CommandPaletteInner: React.FC = () => {

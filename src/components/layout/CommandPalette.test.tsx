@@ -68,4 +68,16 @@ describe('command palette PQL', () => {
     expect(useAppStore.getState().isCmdKOpen).toBe(false);
     expect(useIssueStore.getState().peekIssueId).toMatch(/^i\d\d$/);
   });
+  it('shows a single result and leaves creation actions working outside PQL', () => {
+    render(<CommandPalette />);
+    const input = screen.getByPlaceholderText('Escribe un comando o busca un issue...');
+    fireEvent.change(input, { target: { value: '? text = "TES-0"' } });
+    act(() => vi.advanceTimersByTime(200));
+    expect(screen.getByText('Mostrando 1 de 1')).toBeTruthy();
+    expect(screen.getByText('TES-0')).toBeTruthy();
+    fireEvent.change(input, { target: { value: 'Crear' } });
+    fireEvent.click(screen.getByText('Crear nuevo issue...'));
+    expect(useAppStore.getState().isCreateIssueOpen).toBe(true);
+    expect(useAppStore.getState().isCmdKOpen).toBe(false);
+  });
 });
