@@ -32,7 +32,7 @@ function match(issue: Issue, expression: ResolvedExpression): boolean {
   const anyEqual = candidates.some(a => values.some(b => equals(a, b)));
   // A missing currentCycle reference is a sentinel that matches no issue,
   // including for negative comparisons (which otherwise negate anyEqual).
-  if (values.includes(null) && field === 'cycle') return false;
+  if (field === 'cycle' && values.every(value => value === null)) return false;
   if (operator === '=' || operator === 'in') return anyEqual;
   if (operator === '!=' || operator === 'not in') return !anyEqual;
   if (operator === '~') return candidates.some(a => fold(a).includes(fold(values[0])));
