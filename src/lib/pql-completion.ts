@@ -11,16 +11,22 @@ function tokenBounds(source: string, cursor: number): { start: number; end: numb
   if (quoteStart >= 0 && (quoteStart === 0 || /[\s(,]/.test(source[quoteStart - 1]))) {
     const q = source[quoteStart];
     let close = quoteStart + 1;
-    while (close < source.length && (source[close] !== q || source[close - 1] === '\\')) close++;
+    let escaped = false;
+    while (close < source.length) {
+      if (!escaped && source[close] === q) break;
+      if (!escaped && source[close] === '\\') escaped = true; else escaped = false;
+      close++;
+    }
     if (close >= cursor) { start = quoteStart; end = Math.min(source.length, close + 1); }
   }
   return { start, end, text: source.slice(start, cursor).replace(/^["']/, '').toLowerCase() };
 }
-const names = (items: Entity[], all: Entity[] = items): string[] => items.map(item => {
-  const name = item.displayName ?? item.name ?? item.identifier ?? item.key ?? item.id;
-  const duplicates = all.filter(other => (other.displayName ?? other.name ?? other.identifier ?? other.key ?? other.id).toLowerCase() === name.toLowerCase());
-  return duplicates.length > 1 ? item.userId ?? item.id : name;
-});
+const label = (item: Entity) => item.displayName ?? item.name ?? item.identifier ?? item.key ?? item.id;
+const names = (items: Entity[], all: Entity[] = items): string[] => {
+  const counts = new Map<string, number>();
+  for (const item of all) { const key = label(item).toLowerCase(); counts.set(key, (counts.get(key) ?? 0) + 1); }
+  return items.map(item => (counts.get(label(item).toLowerCase()) ?? 0) > 1 ? item.userId ?? item.id : label(item));
+};
 export function completePql(source: string, cursor: number, context: Context): Suggestion[] {
   const token = tokenBounds(source, cursor);
   const before = source.slice(0, token.start);

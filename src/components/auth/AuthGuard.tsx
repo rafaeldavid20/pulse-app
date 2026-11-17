@@ -208,8 +208,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
       }
       retryTimer = setTimeout(start, delay);
     };
-    const clearOnError = (clear: () => void) => (error: { code?: string }) => {
+    const clearOnError = (name: string, clear: () => void) => (error: { code?: string }) => {
       if (controller.signal.aborted) return;
+      pendingCatalogs.add(name);
       setWorkspaceCatalogReady(false);
       setWorkspaceCatalogError('No se pudieron cargar los catálogos del workspace.');
       clear();
@@ -223,8 +224,8 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         if (controller.signal.aborted || auth.currentUser?.uid !== userId) return;
         subscribed = true;
         unsubscribers.push(
-          subscribeWorkspaceMembers(workspaceId, value => { setMembers(value); catalogLoaded('members'); }, clearOnError(() => setMembers([]))),
-          subscribeWorkspaceTeams(workspaceId, value => { setTeams(value); catalogLoaded('teams'); }, clearOnError(() => setTeams([]))),
+          subscribeWorkspaceMembers(workspaceId, value => { setMembers(value); catalogLoaded('members'); }, clearOnError('members', () => setMembers([]))),
+          subscribeWorkspaceTeams(workspaceId, value => { setTeams(value); catalogLoaded('teams'); }, clearOnError('teams', () => setTeams([]))),
           subscribeWorkspaceIssues(workspaceId, setIssues, (error) => {
             if (controller.signal.aborted) return;
             console.error('subscribeWorkspaceIssues', error);
@@ -232,9 +233,9 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
             setIssuesError(describeSubscriptionError(error));
             handleListenerError(error);
           }),
-          subscribeWorkspaceProjects(workspaceId, value => { setProjects(value); catalogLoaded('projects'); }, clearOnError(() => setProjects([]))),
-          subscribeWorkspaceLabels(workspaceId, value => { setLabels(value); catalogLoaded('labels'); }, clearOnError(() => setLabels([]))),
-          subscribeWorkspaceCycles(workspaceId, value => { setCycles(value); catalogLoaded('cycles'); }, clearOnError(() => setCycles([]))),
+          subscribeWorkspaceProjects(workspaceId, value => { setProjects(value); catalogLoaded('projects'); }, clearOnError('projects', () => setProjects([]))),
+          subscribeWorkspaceLabels(workspaceId, value => { setLabels(value); catalogLoaded('labels'); }, clearOnError('labels', () => setLabels([]))),
+          subscribeWorkspaceCycles(workspaceId, value => { setCycles(value); catalogLoaded('cycles'); }, clearOnError('cycles', () => setCycles([]))),
         );
       })
       .catch((error: unknown) => {
