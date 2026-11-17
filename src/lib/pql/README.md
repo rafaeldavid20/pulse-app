@@ -26,11 +26,16 @@ hasta cinco campos escalares con `ASC` o `DESC`.
 literal sin distinguir mayúsculas. `epic` incluye la propia épica y sus
 descendientes. Las referencias aceptan ID o nombre exacto no ambiguo; las
 personas se identifican por su `userId`, no por el ID del documento miembro.
+El contexto separa `members` y `agents`; ambos catálogos autorizados participan
+en las referencias de persona. `me()` falla con diagnóstico de contexto si el
+actor no aparece en ninguno de esos catálogos.
 Un valor escalar vacío no satisface comparaciones ordinarias, ni siquiera `!=`;
 un conjunto vacío sí satisface `label != x` y `label NOT IN (x)`.
 
 `me()` resuelve la identidad de ejecución. `now()` y `startOfWeek()` usan el
 reloj inyectado; `currentCycle()` y `endOfCycle()` requieren equipo explícito.
+Si no hay ciclo activo, `currentCycle()` es una referencia vacía que no coincide
+con issues bajo `=`, `!=`, `IN` ni `NOT IN`; `endOfCycle()` da error de contexto.
 Las fechas son UTC: `YYYY-MM-DD` es medianoche UTC y los instantes requieren
 `Z` u offset. Relativos como `-7d`, `+2w`, `-1m` usan días de 24 horas,
 semanas de siete días y meses de calendario UTC con ajuste de fin de mes.
@@ -54,3 +59,11 @@ ORDER BY priority ASC, updated DESC
 Para repetir la medición local: `PQL_BENCH=1 npm test -- src/lib/pql/performance.test.ts`.
 Una ejecución sobre macOS arm64 con Node 22.23.2 evaluó y ordenó 5000
 fixtures en 7,34 ms; es una observación local, no una garantía de latencia.
+El corpus exportable de `fixtures.ts` incluye resultados de consulta, errores con
+rango completo y casos de referencias ambiguas/ajenas, límites y ciclos ausentes.
+
+Para paridad, importar `fixtureCases`, `fixtureIssues` y `fixtureContexts` de
+`fixtures.ts`. Cada caso usa `fixtureContexts[case.context ?? 'default']`;
+los casos válidos declaran `ids` en el orden esperado y los inválidos declaran
+`code` y `diagnostic` (rango UTF-16, línea y columna). Todos los contextos
+y datos se exportan sin dependencias de UI ni Firestore.

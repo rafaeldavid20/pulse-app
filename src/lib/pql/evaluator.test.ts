@@ -6,7 +6,7 @@ import type { Context } from './resolver';
 
 const context: Context = {
   workspaceId: 'ws', actorId: 'u1', now: '2024-01-31T12:00:00Z', teamId: 't1',
-  members: [{ id: 'm1', userId: 'u1', displayName: 'Ana' }],
+  members: [{ id: 'm1', userId: 'u1', displayName: 'Ana' }], agents: [{ id: 'agent-a', displayName: 'Agent' }],
   teams: [{ id: 't1', key: 'TES', name: 'Team' }], projects: [],
   labels: [{ id: 'l1', name: 'backend' }], cycles: [{ id: 'c1', teamId: 't1', status: 'active', endsAt: '2024-02-15T00:00:00Z' }],
   issues: [{ id: 'e1', identifier: 'TES-122', type: 'epic' }],
@@ -49,9 +49,24 @@ describe('PQL evaluation', () => {
     expect(execute('due = +999999999999999999999m', issues, context)).toMatchObject({ ok: false, diagnostic: { code: 'TYPE' } });
   });
   it('uses agent identities rather than member document IDs for me()', () => {
-    const agentContext = { ...context, actorId: 'agent-a', members: [{ id: 'workspace_agent-a', userId: 'agent-a', displayName: 'Agent' }] };
+    const agentContext = { ...context, actorId: 'agent-a' };
     const result = execute('assignee = me()', [{ id: 'issue', assigneeId: 'agent-a' }], agentContext);
     expect(result).toMatchObject({ ok: true, issues: [{ id: 'issue' }] });
-    expect(execute('assignee = workspace_agent-a', [{ id: 'issue', assigneeId: 'agent-a' }], agentContext)).toMatchObject({ ok: false, diagnostic: { code: 'REFERENCE' } });
+    expect(execute('assignee = "Build agent"', [{ id: 'issue', assigneeId: 'agent-a' }], { ...agentContext, agents: [...agentContext.agents, { id: 'agent-a', displayName: 'Build agent' }] })).toMatchObject({ ok: true, issues: [{ id: 'issue' }] });
+    expect(execute('assignee = me()', issues, { ...context, actorId: 'deleted' })).toMatchObject({ ok: false, diagnostic: { code: 'CONTEXT' } });
+  });
+  it('does not match a missing current cycle through negative comparisons', () => {
+    const noCycle = { ...context, cycles: [] };
+    expect(execute('cycle != currentCycle()', issues, noCycle)).toMatchObject({ ok: true, issues: [] });
+    expect(execute('cycle NOT IN (currentCycle())', issues, noCycle)).toMatchObject({ ok: true, issues: [] });
+  });
+  it('round trips a flat expression longer than the parser nesting limit', () => {
+    const source = Array.from({ length: 22 }, (_, i) => `priority = ${i % 5}`).join(' OR ');
+    const parsed = parse(source);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const serialized = serialize(parsed.query);
+    expect(parse(serialized).ok).toBe(true);
+    expect(execute(serialized, issues, context)).toEqual(execute(source, issues, context));
   });
 });
