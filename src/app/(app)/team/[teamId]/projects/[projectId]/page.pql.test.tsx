@@ -16,7 +16,7 @@ vi.mock('@/components/projects/ProjectModal', () => ({ ProjectModal: () => null 
 
 beforeEach(() => {
   useAppStore.getState().resetView();
-  useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', workspaceCatalogReady: true, workspaceCatalogError: null, activeView: 'list' });
+  useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', pqlAgentCatalog: { workspaceId: 'fixture', userId: 'user-a', agents: [], loading: false, error: null }, workspaceCatalogReady: true, workspaceCatalogError: null, activeView: 'list' });
   useProjectStore.getState().setProjects([{ id: 'project-a', name: 'Proyecto', teamId: 'team-a', status: 'planned' } as Project]);
   useIssueStore.getState().setIssues([
     { id: 'in', identifier: 'TES-101', number: 101, title: 'Dentro', workspaceId: 'fixture', teamId: 'team-a', projectId: 'project-a', status: 'todo', priority: 1 },

@@ -34,7 +34,7 @@ const names = (items: Entity[], all: Entity[] = items): string[] => {
   for (const item of all) { const key = label(item).toLowerCase(); counts.set(key, (counts.get(key) ?? 0) + 1); }
   return items.map(item => (counts.get(label(item).toLowerCase()) ?? 0) > 1 ? item.userId ?? item.id : label(item));
 };
-export function completePql(source: string, cursor: number, context: Context): Suggestion[] {
+export function completePql(source: string, cursor: number, context: Context, allowedIssueIds?: ReadonlySet<string>): Suggestion[] {
   const token = tokenBounds(source, cursor);
   const before = source.slice(0, token.start);
   const order = /\border\s+by\s+(?:[^,]+,\s*)?$/i.test(before);
@@ -60,7 +60,8 @@ export function completePql(source: string, cursor: number, context: Context): S
       : field === 'team' ? context.teams : field === 'project' ? context.projects : field === 'label' ? context.labels
       : field === 'cycle' ? context.cycles : field === 'epic' ? context.issues.filter(i => i.type === 'epic') : field === 'parent' ? context.issues : [];
     const scopedCatalog = context.teamId && ['project', 'label', 'cycle', 'epic', 'parent'].includes(field) ? catalog.filter(item => item.teamId === context.teamId) : catalog;
-    const values = spec.values ? [...spec.values] : names(scopedCatalog, catalog);
+    const visibleCatalog = allowedIssueIds && (field === 'parent' || field === 'epic') ? scopedCatalog.filter(item => allowedIssueIds.has(item.id)) : scopedCatalog;
+    const values = spec.values ? [...spec.values] : names(visibleCatalog, catalog);
     options = values.map(value => ({ label: value, insert: quote(value) }));
     const functions = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? ['me()']
       : field === 'cycle' ? ['currentCycle()'] : spec.type === 'date' ? ['now()', 'startOfWeek()', 'endOfCycle()'] : [];

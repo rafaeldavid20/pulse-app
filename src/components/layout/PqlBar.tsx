@@ -6,6 +6,7 @@ import { parse, resolve, tokenize, type Diagnostic } from '@/lib/pql';
 import { filtersToPql, pqlToFilters } from '@/lib/pql-filter-conversion';
 import { completePql, type Suggestion } from '@/lib/pql-completion';
 import { usePqlContext } from '@/hooks/usePqlContext';
+import { usePqlAgentStatus } from '@/hooks/usePqlAgentStatus';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useFilteredIssues } from '@/hooks/useFilteredIssues';
@@ -30,6 +31,7 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   const catalogReady = useAppStore(s => s.workspaceCatalogReady);
   const catalogError = useAppStore(s => s.workspaceCatalogError);
   const context = usePqlContext();
+  const agents = usePqlAgentStatus();
   const pathname = usePathname();
   const matches = useFilteredIssues(issues);
   const appliedScope = useAppStore(s => s.pqlScope);
@@ -43,7 +45,8 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
-  const suggestions = useMemo(() => completePql(draft, cursor, context), [draft, cursor, context]);
+  const suggestionIssueIds = useMemo(() => new Set(issues.filter(issue => issue.workspaceId === context.workspaceId && (!context.teamId || issue.teamId === context.teamId)).map(issue => issue.id)), [issues, context.workspaceId, context.teamId]);
+  const suggestions = useMemo(() => agents.ready && catalogReady && !catalogError ? completePql(draft, cursor, context, suggestionIssueIds) : [], [draft, cursor, context, suggestionIssueIds, agents.ready, catalogReady, catalogError]);
   const highlighted = useMemo(() => {
     const lexical = tokenize(draft);
     if (!lexical.ok) return draft;
@@ -57,7 +60,7 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   }, [draft]);
 
   useEffect(() => {
-    if (mode !== 'pql' || !loaded || error || !catalogReady || catalogError || !context.workspaceId) return;
+    if (mode !== 'pql' || !loaded || error || !catalogReady || catalogError || !agents.ready || !context.workspaceId) return;
     const timer = window.setTimeout(() => {
       const evaluatedAt = new Date().toISOString();
       const parsed = parse(draft);
@@ -66,7 +69,7 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
       else { setDiagnostic(null); setApplied(draft, `${context.workspaceId}:${context.actorId}:${pathname}`, evaluatedAt); }
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [mode, draft, loaded, error, catalogReady, catalogError, context, pathname, setApplied]);
+  }, [mode, draft, loaded, error, catalogReady, catalogError, agents.ready, context, pathname, setApplied]);
 
   const toFilters = () => {
     if (mode === 'filters') return;
@@ -108,8 +111,8 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
         </ul>}
       </div>
       <p id="pql-message" role="status" className="text-xs text-secondary">
-        {error ? `Error al cargar issues: ${error}` : catalogError ? catalogError : !loaded || !catalogReady ? 'Cargando issues y catálogos…' : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
-        {!error && !catalogError && loaded && catalogReady && hasApplied && ` ${matches.length} ${matches.length === 1 ? 'coincidencia' : 'coincidencias'}${draft !== applied ? ' de la última consulta válida' : ''}.`}
+        {error ? `Error al cargar issues: ${error}` : catalogError ? catalogError : agents.error ? 'No se pudieron cargar los agentes del workspace.' : !loaded || !catalogReady || !agents.ready ? 'Cargando issues y catálogos…' : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
+        {!error && !catalogError && !agents.error && agents.ready && loaded && catalogReady && hasApplied && ` ${matches.length} ${matches.length === 1 ? 'coincidencia' : 'coincidencias'}${draft !== applied ? ' de la última consulta válida' : ''}.`}
       </p>
       {diagnostic && <p className="break-all font-mono text-xs text-secondary" aria-hidden="true">{draft.slice(0, diagnostic.start)}<mark>{draft.slice(diagnostic.start, diagnostic.end) || ' '}</mark>{draft.slice(diagnostic.end)}</p>}
     </>}

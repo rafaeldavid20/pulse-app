@@ -16,6 +16,7 @@ export function usePqlContext(): Context {
   const actorId = useAppStore(s => s.workspaceUserId ?? undefined);
   const teams = useAppStore(s => s.teams);
   const members = useAppStore(s => s.members);
+  const agentCatalog = useAppStore(s => s.pqlAgentCatalog);
   const issues = useIssueStore(s => s.issues);
   const projects = useProjectStore(s => s.projects);
   const labels = useLabelStore(s => s.labels);
@@ -28,12 +29,12 @@ export function usePqlContext(): Context {
       workspaceId, actorId, now: new Date().toISOString(),
       teamId: routeTeam && teamIds.has(routeTeam) ? routeTeam : undefined,
       teams: authorizedTeams,
-      members: members.filter(m => m.workspaceId === workspaceId),
-      agents: [],
+      members: members.filter(m => m.workspaceId === workspaceId && !m.isAgent),
+      agents: agentCatalog?.workspaceId === workspaceId && agentCatalog.userId === actorId && !agentCatalog.loading && !agentCatalog.error ? agentCatalog.agents.filter(a => a.workspaceId === workspaceId) : [],
       issues: issues.filter(i => i.workspaceId === workspaceId).map(i => ({ id: i.id, identifier: i.identifier, name: i.title, type: i.type, teamId: i.teamId })),
       projects: projects.filter(p => teamIds.has(p.teamId)),
       labels: labels.filter(l => teamIds.has(l.teamId)),
       cycles: cycles.filter(c => c.workspaceId === workspaceId && teamIds.has(c.teamId)),
     };
-  }, [pathname, workspaceId, actorId, teams, members, issues, projects, labels, cycles]);
+  }, [pathname, workspaceId, actorId, teams, members, agentCatalog, issues, projects, labels, cycles]);
 }

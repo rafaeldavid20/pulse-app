@@ -19,6 +19,14 @@ describe('PQL completion', () => {
     const quoted = 'label="back" AND status=done';
     expect(completePql(quoted, 10, { ...fixtureContext, teamId: undefined })).toContainEqual(expect.objectContaining({ label: 'backend', start: 6, end: 12 }));
   });
+  it('limits issue suggestions without using ambiguous names from outside the scope', () => {
+    const context = { ...fixtureContext, issues: [
+      { id: 'a', name: 'Duplicado', type: 'epic', teamId: 'team-a' },
+      { id: 'b', name: 'Duplicado', type: 'epic', teamId: 'team-a' },
+    ] };
+    const suggestions = completePql('epic = ', 7, context, new Set(['a']));
+    expect(suggestions).toEqual([expect.objectContaining({ label: 'a', insert: '"a"' })]);
+  });
   it('replaces only the token at the cursor including an incomplete quote', () => {
     const query = 'label = "back" AND status = done';
     const context = { ...fixtureContext, teamId: undefined };

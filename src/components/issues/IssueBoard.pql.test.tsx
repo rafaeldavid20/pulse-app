@@ -17,7 +17,7 @@ const other = { id: 'other', identifier: 'TES-999', number: 999, title: 'Otro pr
 describe('PQL list and board rendering', () => {
   beforeEach(() => {
     useAppStore.getState().resetView();
-    useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', workspaceCatalogReady: true, workspaceCatalogError: null, boardGroupBy: 'epic' });
+    useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', pqlAgentCatalog: { workspaceId: 'fixture', userId: 'user-a', agents: [], loading: false, error: null }, workspaceCatalogReady: true, workspaceCatalogError: null, boardGroupBy: 'epic' });
     useIssueStore.getState().setIssues([epic, child, other]);
   });
   afterEach(cleanup);

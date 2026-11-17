@@ -7,6 +7,7 @@ import { useAppStore } from '@/stores/appStore';
 import { applyIssueFilters, sortIssues } from '@/lib/issueFilters';
 import { execute } from '@/lib/pql';
 import { usePqlContext } from './usePqlContext';
+import { usePqlAgentStatus } from './usePqlAgentStatus';
 
 /** The caller supplies an already scoped set; PQL cannot broaden that scope. */
 export function useFilteredIssues(issues: Issue[]): Issue[] {
@@ -19,14 +20,15 @@ export function useFilteredIssues(issues: Issue[]): Issue[] {
   const catalogReady = useAppStore(s => s.workspaceCatalogReady);
   const catalogError = useAppStore(s => s.workspaceCatalogError);
   const context = usePqlContext();
+  const agents = usePqlAgentStatus();
   const pathname = usePathname();
   return useMemo(() => {
     if (mode === 'filters') return sortIssues(applyIssueFilters(issues, filters), sortBy);
-    if (query === null || !evaluatedAt || !catalogReady || catalogError || !context.workspaceId || scope !== `${context.workspaceId}:${context.actorId}:${pathname}`) return [];
+    if (query === null || !evaluatedAt || !catalogReady || catalogError || !agents.ready || !context.workspaceId || scope !== `${context.workspaceId}:${context.actorId}:${pathname}`) return [];
     const routeTeam = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname)?.[1];
     if (routeTeam && routeTeam !== context.teamId) return [];
     const scoped = issues.filter(issue => issue.workspaceId === context.workspaceId && (!routeTeam || issue.teamId === routeTeam));
     const result = execute(query, scoped, { ...context, now: evaluatedAt });
     return result.ok ? result.issues : [];
-  }, [issues, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError]);
+  }, [issues, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError, agents.ready]);
 }
