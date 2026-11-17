@@ -61,3 +61,9 @@ Una ejecución sobre macOS arm64 con Node 22.23.2 evaluó y ordenó 5000
 fixtures en 7,34 ms; es una observación local, no una garantía de latencia.
 El corpus exportable de `fixtures.ts` incluye resultados de consulta, errores con
 rango completo y casos de referencias ambiguas/ajenas, límites y ciclos ausentes.
+
+Para paridad, importar `fixtureCases`, `fixtureIssues` y `fixtureContexts` de
+`fixtures.ts`. Cada caso usa `fixtureContexts[case.context ?? 'default']`;
+los casos válidos declaran `ids` en el orden esperado y los inválidos declaran
+`code` y `diagnostic` (rango UTF-16, línea y columna). Todos los contextos
+y datos se exportan sin dependencias de UI ni Firestore.
