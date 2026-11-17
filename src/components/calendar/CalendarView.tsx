@@ -15,6 +15,7 @@ import {
 } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useIssues } from '@/hooks/useIssues';
+import { usePqlReady } from '@/hooks/usePqlReady';
 import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -109,6 +110,8 @@ const SidePanel: React.FC<{ panel: SidePanelState; onClose: () => void; onOpenIs
 
 export const CalendarView: React.FC = () => {
   const { issues } = useIssues();
+  const pqlReady = usePqlReady();
+  const issuesError = useIssueStore(s => s.issuesError);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const projects = useProjectStore((s) => s.projects);
@@ -144,6 +147,11 @@ export const CalendarView: React.FC = () => {
   const monthLabel = format(cursor, 'MMMM yyyy', { locale: es });
 
   const openIssue = (id: string) => setPeekIssueId(id);
+  // The panel may outlive a filter or workspace change. Re-resolve its items
+  // from the current authorized result instead of rendering its old snapshot.
+  const panelIssues = panel ? issues.filter(issue => panel.issues.some(old => old.id === issue.id && old.workspaceId === issue.workspaceId)) : [];
+
+  if (issuesError) return <p role="alert" className="text-sm text-priority-urgent">{issuesError}</p>;
 
   if (!issuesLoaded) {
     return (
@@ -153,6 +161,8 @@ export const CalendarView: React.FC = () => {
       </div>
     );
   }
+
+  if (!pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
 
   return (
     <div className="flex flex-col gap-4">
@@ -271,7 +281,7 @@ export const CalendarView: React.FC = () => {
         </div>
       </div>
 
-      {panel && <SidePanel panel={panel} onClose={() => setPanel(null)} onOpenIssue={openIssue} />}
+      {panel && panelIssues.length > 0 && <SidePanel panel={{ ...panel, issues: panelIssues }} onClose={() => setPanel(null)} onOpenIssue={openIssue} />}
     </div>
   );
 };

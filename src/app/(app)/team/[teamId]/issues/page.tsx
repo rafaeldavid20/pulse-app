@@ -42,7 +42,7 @@ export default function TeamIssuesPage() {
         ) : activeView === 'calendar' ? (
           <CalendarView />
         ) : (
-          <TimelineView />
+          <TimelineView filtered />
         )}
       </div>
     </div>

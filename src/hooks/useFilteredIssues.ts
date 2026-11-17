@@ -11,6 +11,7 @@ import { usePqlAgentStatus } from './usePqlAgentStatus';
 
 /** The caller supplies an already scoped set; PQL cannot broaden that scope. */
 export function useFilteredIssues(issues: Issue[]): Issue[] {
+  const workspaceId = useAppStore(s => s.activeWorkspace?.id);
   const filters = useAppStore(s => s.filterState);
   const sortBy = useAppStore(s => s.sortBy);
   const mode = useAppStore(s => s.filterMode);
@@ -23,12 +24,12 @@ export function useFilteredIssues(issues: Issue[]): Issue[] {
   const agents = usePqlAgentStatus();
   const pathname = usePathname();
   return useMemo(() => {
-    if (mode === 'filters') return sortIssues(applyIssueFilters(issues, filters), sortBy);
-    if (query === null || !evaluatedAt || !catalogReady || catalogError || !agents.ready || !context.workspaceId || scope !== `${context.workspaceId}:${context.actorId}:${pathname}`) return [];
     const routeTeam = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname)?.[1];
-    if (routeTeam && routeTeam !== context.teamId) return [];
-    const scoped = issues.filter(issue => issue.workspaceId === context.workspaceId && (!routeTeam || issue.teamId === routeTeam));
+    const scoped = workspaceId ? issues.filter(issue => issue.workspaceId === workspaceId && (!routeTeam || issue.teamId === routeTeam)) : [];
+    if (mode === 'filters') return sortIssues(applyIssueFilters(scoped, filters), sortBy);
+    if (query === null || !evaluatedAt || !catalogReady || catalogError || !agents.ready || !context.workspaceId || scope !== `${context.workspaceId}:${context.actorId}:${pathname}`) return [];
+    if (workspaceId !== context.workspaceId || (routeTeam && routeTeam !== context.teamId)) return [];
     const result = execute(query, scoped, { ...context, now: evaluatedAt });
     return result.ok ? result.issues : [];
-  }, [issues, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError, agents.ready]);
+  }, [issues, workspaceId, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError, agents.ready]);
 }

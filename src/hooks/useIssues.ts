@@ -18,6 +18,7 @@ import { useFilteredIssues } from './useFilteredIssues';
 export function useIssues(scopeIssues?: Issue[]) {
   const issues = useIssueStore((s) => s.issues);
   const activeTeam = useAppStore((s) => s.activeTeam);
+  const activeWorkspaceId = useAppStore((s) => s.activeWorkspace?.id);
 
   // Issues del equipo activo, sin aplicar todavía los filtros de la barra —
   // lo usan las páginas que necesitan el universo "sin filtrar" del equipo
@@ -64,12 +65,14 @@ export function useIssues(scopeIssues?: Issue[]) {
   }, [sortedIssues]);
 
   const epics = useMemo(
-    () =>
-      issues
+    () => {
+      const workspaceIssues = issues.filter(i => !!activeWorkspaceId && i.workspaceId === activeWorkspaceId);
+      return workspaceIssues
         .filter((i) => isEpic(i) && (!activeTeam || i.teamId === activeTeam.id))
-        .map((epic) => ({ epic, children: descendantsOfEpic(issues, epic.id) }))
-        .sort((a, b) => a.epic.number - b.epic.number),
-    [issues, activeTeam]
+        .map((epic) => ({ epic, children: descendantsOfEpic(workspaceIssues, epic.id) }))
+        .sort((a, b) => a.epic.number - b.epic.number);
+    },
+    [issues, activeTeam, activeWorkspaceId]
   );
 
   return {
