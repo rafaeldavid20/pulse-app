@@ -46,7 +46,15 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const suggestionIssueIds = useMemo(() => new Set(issues.filter(issue => issue.workspaceId === context.workspaceId && (!context.teamId || issue.teamId === context.teamId)).map(issue => issue.id)), [issues, context.workspaceId, context.teamId]);
-  const suggestions = useMemo(() => agents.ready && catalogReady && !catalogError ? completePql(draft, cursor, context, suggestionIssueIds) : [], [draft, cursor, context, suggestionIssueIds, agents.ready, catalogReady, catalogError]);
+  const suggestions = useMemo(() => {
+    const teamRoute = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname);
+    // Never fall back to workspace-wide suggestions for an unauthorized team route.
+    if (!agents.ready || !catalogReady || catalogError || (teamRoute && teamRoute[1] !== context.teamId)) return [];
+    const detailRoute = /^\/team\/[^/]+\/(projects|cycles)\/([^/]+)\/?$/.exec(pathname);
+    const scope = detailRoute?.[1] === 'projects' ? { projectId: detailRoute[2] }
+      : detailRoute?.[1] === 'cycles' ? { cycleId: detailRoute[2] } : {};
+    return completePql(draft, cursor, context, suggestionIssueIds, scope);
+  }, [draft, cursor, context, suggestionIssueIds, agents.ready, catalogReady, catalogError, pathname]);
   const highlighted = useMemo(() => {
     const lexical = tokenize(draft);
     if (!lexical.ok) return draft;

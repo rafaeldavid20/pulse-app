@@ -1,6 +1,7 @@
 import { fields, operatorsFor, type Context, type Entity } from '@/lib/pql';
 
 export interface Suggestion { label: string; insert: string; start: number; end: number }
+export interface SuggestionScope { projectId?: string; cycleId?: string }
 const quote = (value: string) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 // Decode only escapes accepted by the PQL tokenizer. An unfinished trailing
 // backslash is ignored until the next keystroke; invalid escapes remain literal.
@@ -52,7 +53,7 @@ const names = (items: Entity[], all: Entity[] = items): string[] => {
   for (const item of all) { const key = label(item).toLowerCase(); counts.set(key, (counts.get(key) ?? 0) + 1); }
   return items.map(item => (counts.get(label(item).toLowerCase()) ?? 0) > 1 ? item.userId ?? item.id : label(item));
 };
-export function completePql(source: string, cursor: number, context: Context, allowedIssueIds?: ReadonlySet<string>): Suggestion[] {
+export function completePql(source: string, cursor: number, context: Context, allowedIssueIds?: ReadonlySet<string>, routeScope: SuggestionScope = {}): Suggestion[] {
   const token = tokenBounds(source, cursor);
   const before = source.slice(0, token.start);
   const order = /\border\s+by\s+(?:[^,]+,\s*)?$/i.test(before);
@@ -77,8 +78,14 @@ export function completePql(source: string, cursor: number, context: Context, al
     const catalog = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? [...context.members, ...context.agents]
       : field === 'team' ? context.teams : field === 'project' ? context.projects : field === 'label' ? context.labels
       : field === 'cycle' ? context.cycles : field === 'epic' ? context.issues.filter(i => i.type === 'epic') : field === 'parent' ? context.issues : [];
-    const scopedCatalog = context.teamId && ['project', 'label', 'cycle', 'epic', 'parent'].includes(field) ? catalog.filter(item => item.teamId === context.teamId) : catalog;
-    const visibleCatalog = allowedIssueIds && (field === 'parent' || field === 'epic') ? scopedCatalog.filter(item => allowedIssueIds.has(item.id)) : scopedCatalog;
+    const visibleCatalog = catalog.filter(item => {
+      if (context.teamId && field === 'team' && item.id !== context.teamId) return false;
+      if (context.teamId && ['project', 'label', 'cycle', 'epic', 'parent'].includes(field) && item.teamId !== context.teamId) return false;
+      if (field === 'project' && routeScope.projectId && item.id !== routeScope.projectId) return false;
+      if (field === 'cycle' && routeScope.cycleId && item.id !== routeScope.cycleId) return false;
+      if (allowedIssueIds && (field === 'parent' || field === 'epic') && !allowedIssueIds.has(item.id)) return false;
+      return true;
+    });
     const values = spec.values ? [...spec.values] : names(visibleCatalog, catalog);
     options = values.map(value => ({ label: value, insert: quote(value) }));
     const functions = field === 'assignee' || field === 'creator' || field === 'review.reviewer' ? ['me()']
