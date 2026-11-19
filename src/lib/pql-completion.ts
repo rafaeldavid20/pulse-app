@@ -2,6 +2,19 @@ import { fields, operatorsFor, type Context, type Entity } from '@/lib/pql';
 
 export interface Suggestion { label: string; insert: string; start: number; end: number }
 const quote = (value: string) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+// Decode only escapes accepted by the PQL tokenizer. An unfinished trailing
+// backslash is ignored until the next keystroke; invalid escapes remain literal.
+function decodePrefix(value: string, delimiter: string): string {
+  let result = '';
+  for (let i = 0; i < value.length; i++) {
+    if (value[i] !== '\\') { result += value[i]; continue; }
+    if (i + 1 === value.length) break;
+    const next = value[i + 1];
+    if (next === delimiter || next === '\\') { result += next; i++; }
+    else result += '\\';
+  }
+  return result;
+}
 function tokenBounds(source: string, cursor: number): { start: number; end: number; text: string } {
   // Mirror the tokenizer's delimiters while tolerating unfinished strings.
   // Scan quoted tokens as a unit so escaped quotes and operators inside strings
@@ -13,11 +26,16 @@ function tokenBounds(source: string, cursor: number): { start: number; end: numb
     const char = source[i];
     if (char === '"' || char === "'") {
       i++;
+      let closing = source.length;
       while (i < source.length) {
         if (source[i] === '\\') { i = Math.min(i + 2, source.length); continue; }
-        if (source[i++] === char) break;
+        if (source[i] === char) { closing = i++; break; }
+        i++;
       }
-      if (cursor > start && cursor <= i) return { start, end: i, text: source.slice(start + 1, cursor).toLowerCase() };
+      if (cursor > start && cursor <= i) {
+        const prefix = source.slice(start + 1, Math.min(cursor, closing));
+        return { start, end: i, text: decodePrefix(prefix, char).toLowerCase() };
+      }
     } else if (delimiter.test(char)) {
       i++;
     } else {

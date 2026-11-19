@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { PqlBar } from './PqlBar';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
+import { useLabelStore } from '@/stores/labelStore';
 import type { Issue, Member, Team, Workspace } from '@/types';
 import type { AgentSummary } from '@/lib/firestore';
 
@@ -60,4 +61,20 @@ it('inserts an authorized agent and resolves it to matching issues', () => {
   act(() => vi.advanceTimersByTime(200));
   expect(useAppStore.getState().pqlApplied).toBe('assignee = "Build Agent"');
   expect(screen.getByRole('status').textContent).toContain('1 coincidencia');
+});
+
+it('inserts an escaped catalog name at a middle cursor and preserves the rest of the query', () => {
+  useLabelStore.getState().setLabels([{ id: 'label-special', name: 'API "core"', teamId: 't1' } as import('@/types').Label]);
+  render(<PqlBar issues={all.filter(i => i.projectId === 'p1')} />);
+  fireEvent.click(screen.getByRole('button', { name: 'PQL' }));
+  const input = screen.getByRole('combobox', { name: 'Consulta PQL' }) as HTMLInputElement;
+  const query = String.raw`label = "API \"core\"" AND status=todo`;
+  const cursor = String.raw`label = "API \"c`.length;
+  fireEvent.change(input, { target: { value: query, selectionStart: cursor, selectionEnd: cursor } });
+  fireEvent.select(input, { target: { selectionStart: cursor, selectionEnd: cursor } });
+  expect(screen.getByRole('option', { name: 'API "core"' })).toBeTruthy();
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(input.value).toBe(query);
+  act(() => vi.advanceTimersByTime(200));
+  expect(useAppStore.getState().pqlApplied).toBe(query);
 });

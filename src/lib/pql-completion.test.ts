@@ -27,6 +27,31 @@ describe('PQL completion', () => {
     const suggestions = completePql('epic = ', 7, context, new Set(['a']));
     expect(suggestions).toEqual([expect.objectContaining({ label: 'a', insert: '"a"' })]);
   });
+  it('matches escaped quote and backslash prefixes with incomplete input and intermediate cursors', () => {
+    const context = { ...fixtureContext, teamId: undefined, labels: [
+      { id: 'q', name: 'API "core"' },
+      { id: 's', name: 'path\\server' },
+      { id: 'a', name: "team's repo" },
+    ] };
+    const cases = [
+      { query: String.raw`label = "API \"c`, prefix: String.raw`label = "API \"c`, name: 'API "core"', insert: String.raw`"API \"core\""` },
+      { query: String.raw`label = "API \"core\"" AND status=done`, prefix: String.raw`label = "API \"c`, name: 'API "core"', insert: String.raw`"API \"core\""` },
+      { query: String.raw`label IN ("path\\ser", "other")`, prefix: String.raw`label IN ("path\\s`, name: 'path\\server', insert: String.raw`"path\\server"` },
+      { query: String.raw`label = 'team\'s`, prefix: String.raw`label = 'team\'s`, name: "team's repo", insert: `"team's repo"` },
+      { query: String.raw`label = "API ` + '\\', prefix: String.raw`label = "API ` + '\\', name: 'API "core"', insert: String.raw`"API \"core\""` },
+      { query: String.raw`label = "path\\`, prefix: String.raw`label = "path` + '\\', name: 'path\\server', insert: String.raw`"path\\server"` },
+    ];
+    for (const { query, prefix, name, insert } of cases) {
+      const result = completePql(query, prefix.length, context).find(item => item.label === name);
+      expect(result, query).toEqual(expect.objectContaining({ insert, start: query.indexOf('"') === -1 ? query.indexOf("'") : query.indexOf('"') }));
+      const replaced = query.slice(0, result!.start) + result!.insert + query.slice(result!.end);
+      expect(replaced.slice(result!.start, result!.start + insert.length)).toBe(insert);
+      if (query.includes(' AND ')) expect(replaced.endsWith(' AND status=done')).toBe(true);
+      if (query.includes(', ')) expect(replaced.endsWith(', "other")')).toBe(true);
+    }
+    const complete = String.raw`label = "API \"core\""`;
+    expect(completePql(complete, complete.length, context)).toContainEqual(expect.objectContaining({ label: 'API "core"' }));
+  });
   it('replaces only the token at the cursor including an incomplete quote', () => {
     const query = 'label = "back" AND status = done';
     const context = { ...fixtureContext, teamId: undefined };
