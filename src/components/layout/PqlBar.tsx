@@ -45,7 +45,16 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
-  const suggestionIssueIds = useMemo(() => new Set(issues.filter(issue => issue.workspaceId === context.workspaceId && (!context.teamId || issue.teamId === context.teamId)).map(issue => issue.id)), [issues, context.workspaceId, context.teamId]);
+  const suggestionIds = useMemo(() => {
+    const scoped = issues.filter(issue => issue.workspaceId === context.workspaceId && (!context.teamId || issue.teamId === context.teamId));
+    return {
+      issues: new Set(scoped.map(issue => issue.id)),
+      // Related entities can sit outside the route (e.g. an epic is never a
+      // cycle item) while still being meaningful predicates for its issues.
+      epics: new Set(scoped.flatMap(issue => issue.epicId ? [issue.epicId] : [])),
+      parents: new Set(scoped.flatMap(issue => issue.parentId ? [issue.parentId] : [])),
+    };
+  }, [issues, context.workspaceId, context.teamId]);
   const suggestions = useMemo(() => {
     const teamRoute = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname);
     // Never fall back to workspace-wide suggestions for an unauthorized team route.
@@ -53,8 +62,10 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
     const detailRoute = /^\/team\/[^/]+\/(projects|cycles)\/([^/]+)\/?$/.exec(pathname);
     const scope = detailRoute?.[1] === 'projects' ? { projectId: detailRoute[2] }
       : detailRoute?.[1] === 'cycles' ? { cycleId: detailRoute[2] } : {};
-    return completePql(draft, cursor, context, suggestionIssueIds, scope);
-  }, [draft, cursor, context, suggestionIssueIds, agents.ready, catalogReady, catalogError, pathname]);
+    return completePql(draft, cursor, context, suggestionIds.issues, {
+      ...scope, referencedEpicIds: suggestionIds.epics, referencedParentIds: suggestionIds.parents,
+    });
+  }, [draft, cursor, context, suggestionIds, agents.ready, catalogReady, catalogError, pathname]);
   const highlighted = useMemo(() => {
     const lexical = tokenize(draft);
     if (!lexical.ok) return draft;

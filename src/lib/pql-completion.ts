@@ -1,7 +1,12 @@
 import { fields, operatorsFor, type Context, type Entity } from '@/lib/pql';
 
 export interface Suggestion { label: string; insert: string; start: number; end: number }
-export interface SuggestionScope { projectId?: string; cycleId?: string }
+export interface SuggestionScope {
+  projectId?: string;
+  cycleId?: string;
+  referencedEpicIds?: ReadonlySet<string>;
+  referencedParentIds?: ReadonlySet<string>;
+}
 const quote = (value: string) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 // Decode only escapes accepted by the PQL tokenizer. An unfinished trailing
 // backslash is ignored until the next keystroke; invalid escapes remain literal.
@@ -83,7 +88,8 @@ export function completePql(source: string, cursor: number, context: Context, al
       if (context.teamId && ['project', 'label', 'cycle', 'epic', 'parent'].includes(field) && item.teamId !== context.teamId) return false;
       if (field === 'project' && routeScope.projectId && item.id !== routeScope.projectId) return false;
       if (field === 'cycle' && routeScope.cycleId && item.id !== routeScope.cycleId) return false;
-      if (allowedIssueIds && (field === 'parent' || field === 'epic') && !allowedIssueIds.has(item.id)) return false;
+      if (allowedIssueIds && field === 'epic' && !allowedIssueIds.has(item.id) && !routeScope.referencedEpicIds?.has(item.id)) return false;
+      if (allowedIssueIds && field === 'parent' && !allowedIssueIds.has(item.id) && !routeScope.referencedParentIds?.has(item.id)) return false;
       return true;
     });
     const values = spec.values ? [...spec.values] : names(visibleCatalog, catalog);
