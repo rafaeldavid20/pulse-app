@@ -4,6 +4,7 @@ import { useLabelStore } from '@/stores/labelStore';
 import React, { useState } from 'react';
 import { Issue, IssueStatus } from '@/types';
 import { useIssues } from '@/hooks/useIssues';
+import { usePqlReady } from '@/hooks/usePqlReady';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { useCycleStore } from '@/stores/cycleStore';
@@ -30,6 +31,7 @@ interface IssueBoardProps {
 }
 
 export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) => {
+  const pqlReady = usePqlReady();
   const { issuesByStatus, issuesByEpic, epics } = useIssues(scopeIssues);
   const boardGroupBy = useAppStore((s) => s.boardGroupBy);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
@@ -87,6 +89,8 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) =
       </div>
     );
   }
+
+  if (!pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
 
   const toggleLane = (laneId: string) =>
     setCollapsedLanes((prev) =>
@@ -325,7 +329,10 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) =
       })),
   ];
 
-  const orphans = issuesByEpic.get('') || [];
+  const knownEpicIds = new Set(epics.map(({ epic }) => epic.id));
+  const orphans = [...issuesByEpic.entries()]
+    .filter(([id]) => !id || !knownEpicIds.has(id))
+    .flatMap(([, issues]) => issues);
   if (orphans.length > 0) {
     lanes.push({ id: 'none', epic: null, issues: orphans });
   }

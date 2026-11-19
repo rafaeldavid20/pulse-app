@@ -7,6 +7,9 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,6 +18,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint 2>&1 | tee -a verify-output.txt
+      - run: npm test 2>&1 | tee -a verify-output.txt
       - run: npx tsc --noEmit 2>&1 | tee -a verify-output.txt
       - run: node --test scripts/*.test.mjs 2>&1 | tee -a verify-output.txt
       - run: npx next build --webpack 2>&1 | tee -a verify-output.txt

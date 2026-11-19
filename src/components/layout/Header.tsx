@@ -7,9 +7,12 @@ import { useViewPersistence } from '@/hooks/useViewPersistence';
 import { useListPreferences } from '@/hooks/useListPreferences';
 import { Button } from '@/components/ui/Button';
 import { FilterBar } from './FilterBar';
+import { PqlBar } from './PqlBar';
+import type { Issue } from '@/types';
 
 interface HeaderProps {
   title: string;
+  scopeIssues?: Issue[];
   subtitle?: string;
   showViewToggle?: boolean;
   /** El botón "Board" no aplica a páginas sin tablero (p.ej. Épicas). Default `true`. */
@@ -28,6 +31,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   title,
+  scopeIssues,
   subtitle,
   showViewToggle = true,
   showBoardOption = true,
@@ -44,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   const setCreateMenuOpen = useAppStore((s) => s.setCreateMenuOpen);
   const filterState = useAppStore((s) => s.filterState);
   const setFilterState = useAppStore((s) => s.setFilterState);
+  const filterMode = useAppStore((s) => s.filterMode);
 
   useViewPersistence(showFilterBar);
   useListPreferences();
@@ -66,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Right: Controls & View Toggle */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Search Input */}
-        {showSearch && (
+        {showSearch && (!showFilterBar || filterMode === 'filters') && (
           <div className="relative flex items-center">
             <Search className="w-3.5 h-3.5 absolute left-2.5 text-tertiary" />
             <input
@@ -184,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
     </header>
 
-    {showFilterBar && <FilterBar />}
+    {showFilterBar && <><PqlBar issues={scopeIssues} /><FilterBar /></>}
     </>
   );
 };

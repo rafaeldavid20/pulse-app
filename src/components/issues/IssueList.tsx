@@ -14,7 +14,9 @@ import { IssueTypeBadge } from './IssueTypeBadge';
 import { EpicProgress } from './EpicProgress';
 import { CycleBadge } from '@/components/cycles/CycleBadge';
 import { progressOf, isEpic } from '@/lib/hierarchy';
-import { applyIssueFilters, sortIssues, groupIssues } from '@/lib/issueFilters';
+import { groupIssues } from '@/lib/issueFilters';
+import { useFilteredIssues } from '@/hooks/useFilteredIssues';
+import { usePqlReady } from '@/hooks/usePqlReady';
 import { buildLabelIndex, resolveLabel, LabelIndex } from '@/lib/labels';
 import { ISSUE_PRIORITIES, ISSUE_STATUSES } from '@/lib/constants/issue';
 import { Avatar } from '@/components/ui/Avatar';
@@ -279,6 +281,7 @@ const IssueRow: React.FC<IssueRowProps> = ({
 };
 
 export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
+  const pqlReady = usePqlReady();
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
   const issuesError = useIssueStore((s) => s.issuesError);
   const selectedIssueId = useIssueStore((s) => s.selectedIssueId);
@@ -291,8 +294,6 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
   const updateIssue = useIssueStore((s) => s.updateIssue);
   const bulkUpdateStatus = useIssueStore((s) => s.bulkUpdateStatus);
   const members = useAppStore((s) => s.members);
-  const filterState = useAppStore((s) => s.filterState);
-  const sortBy = useAppStore((s) => s.sortBy);
   const groupBy = useAppStore((s) => s.groupBy);
   const listDensity = useAppStore((s) => s.listDensity);
   const visibleColumns = useAppStore((s) => s.visibleColumns);
@@ -319,11 +320,9 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
     return map;
   }, [allIssues]);
 
-  const groups = useMemo(() => {
-    const filtered = applyIssueFilters(issues, filterState);
-    const sorted = sortIssues(filtered, sortBy);
-    return groupIssues(sorted, groupBy, { members, projects, epicsById, cyclesById });
-  }, [issues, filterState, sortBy, groupBy, members, projects, epicsById, cyclesById]);
+  const filteredIssues = useFilteredIssues(issues);
+  const groups = useMemo(() => groupIssues(filteredIssues, groupBy, { members, projects, epicsById, cyclesById }),
+    [filteredIssues, groupBy, members, projects, epicsById, cyclesById]);
 
   const totalVisible = groups.reduce((sum, g) => sum + g.issues.length, 0);
 
@@ -362,6 +361,8 @@ export const IssueList: React.FC<IssueListProps> = ({ issues }) => {
       </div>
     );
   }
+
+  if (!pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
 
   if (totalVisible === 0) {
     return (
