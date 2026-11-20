@@ -8,9 +8,11 @@ import { fixtureContext } from '@/lib/pql/fixtures';
 import type { Issue, Team, Workspace } from '@/types';
 
 const push = vi.fn();
+const agentMocks = vi.hoisted(() => ({ update: vi.fn(), paused: false }));
+vi.mock('@/lib/firestore', async (importOriginal) => ({ ...await importOriginal<typeof import('@/lib/firestore')>(), updateWorkspaceGuardrails: agentMocks.update }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }), usePathname: () => '/team/team-a/issues' }));
 vi.mock('@/hooks/usePqlContext', () => ({ usePqlContext: () => fixtureContext }));
-vi.mock('@/hooks/useLiveQuery', () => ({ useLiveQuery: () => ({ data: null }) }));
+vi.mock('@/hooks/useLiveQuery', () => ({ useLiveQuery: () => ({ data: { agentsPaused: agentMocks.paused } }) }));
 beforeAll(() => {
   globalThis.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
   Element.prototype.scrollIntoView = vi.fn();
@@ -18,7 +20,8 @@ beforeAll(() => {
 const issues = Array.from({ length: 21 }, (_, n) => ({ id: `i${String(n).padStart(2, '0')}`, workspaceId: 'fixture', teamId: 'team-a', identifier: `TES-${n}`, title: `Issue ${n}`, status: 'in_review', priority: 2, createdAt: '2024-01-01T00:00:00Z', updatedAt: '2024-01-02T00:00:00Z' })) as Issue[];
 describe('command palette PQL', () => {
   beforeEach(() => {
-    vi.useFakeTimers(); push.mockReset(); usePqlSearchStore.getState().setSearch(null);
+    vi.useFakeTimers(); push.mockReset(); agentMocks.update.mockReset().mockResolvedValue(undefined); agentMocks.paused = false;
+    useIssueStore.getState().setPeekIssueId(null); useAppStore.setState({ isCreateIssueOpen: false }); usePqlSearchStore.getState().setSearch(null);
     useAppStore.setState({ isCmdKOpen: true, workspaceUserId: 'user-a', activeWorkspace: { id: 'fixture' } as Workspace, activeTeam: { id: 'team-a', workspaceId: 'fixture' } as Team, workspaceCatalogReady: true, workspaceCatalogError: null });
     useIssueStore.getState().setIssues(issues);
   });
@@ -80,4 +83,45 @@ describe('command palette PQL', () => {
     expect(useAppStore.getState().isCreateIssueOpen).toBe(true);
     expect(useAppStore.getState().isCmdKOpen).toBe(false);
   });
+  it('filters ordinary issue search and opens the matching issue with Enter', () => {
+    render(<CommandPalette />);
+    const input = screen.getByPlaceholderText('Escribe un comando o busca un issue...');
+    fireEvent.change(input, { target: { value: 'TES-17' } });
+    expect(screen.getByText('TES-17')).toBeTruthy();
+    expect(screen.queryByText('TES-16')).toBeNull();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(useIssueStore.getState().peekIssueId).toBe('i17');
+    expect(useAppStore.getState().isCmdKOpen).toBe(false);
+  });
+  it('navigates using ordinary search and the keyboard', () => {
+    render(<CommandPalette />);
+    const input = screen.getByPlaceholderText('Escribe un comando o busca un issue...');
+    fireEvent.change(input, { target: { value: 'Ir a Inbox' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(push).toHaveBeenCalledWith('/inbox');
+    expect(useAppStore.getState().isCmdKOpen).toBe(false);
+  });
+  it.each([[false, 'Pausar agentes', true], [true, 'Reanudar agentes', false]])(
+    'keeps agent action %s safe across PQL transitions and executes it on Enter',
+    (paused, label, expected) => {
+      agentMocks.paused = paused;
+      render(<CommandPalette />);
+      const input = screen.getByPlaceholderText('Escribe un comando o busca un issue...');
+      fireEvent.change(input, { target: { value: label } });
+      fireEvent.change(input, { target: { value: '?' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      fireEvent.change(input, { target: { value: '? status = in_review' } });
+      act(() => vi.advanceTimersByTime(200));
+      fireEvent.change(input, { target: { value: label } });
+      expect(agentMocks.update).not.toHaveBeenCalled();
+      expect(push).not.toHaveBeenCalled();
+      expect(useIssueStore.getState().peekIssueId).toBeNull();
+      expect(useAppStore.getState().isCreateIssueOpen).toBe(false);
+      expect(screen.getByText(label)).toBeTruthy();
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(agentMocks.update).toHaveBeenCalledExactlyOnceWith('fixture', { agentsPaused: expected });
+      expect(useAppStore.getState().isCmdKOpen).toBe(false);
+    },
+  );
+
 });
