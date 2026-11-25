@@ -28,6 +28,38 @@ function validStoredView(view: StoredView): boolean {
   return (view.mode === undefined || view.mode === 'filters' || view.mode === 'pql') && (view.query === undefined || typeof view.query === 'string');
 }
 
+/** Claim an unscoped legacy preference for exactly one identity. A durable
+ * claim is written before reading it, so a failed removal or quota error never
+ * makes the old value available to another user/workspace. A current scoped
+ * preference always wins over the legacy value. */
+function readView(key: string, pathname: string): string | null {
+  const current = localStorage.getItem(key);
+  const legacyKey = STORAGE_PREFIX + pathname;
+  const claimKey = `pulse:view-migration:${pathname}`;
+  try {
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy === null) return current;
+    let owner = localStorage.getItem(claimKey);
+    if (owner === null) {
+      localStorage.setItem(claimKey, key);
+      owner = localStorage.getItem(claimKey);
+    }
+    if (owner !== key) return current;
+    if (current === null) {
+      const parsed = JSON.parse(legacy) as StoredView;
+      if (!validStoredView(parsed)) throw new Error('Vista heredada inválida');
+      localStorage.setItem(key, legacy);
+      // Do not apply the legacy data if storage silently refused the write.
+      if (localStorage.getItem(key) !== legacy) return null;
+    }
+    try { localStorage.removeItem(legacyKey); } catch { /* The claim still isolates the value. */ }
+    return current ?? legacy;
+  } catch {
+    // If migration cannot be committed, never expose an unscoped preference.
+    return current;
+  }
+}
+
 /**
  * Restaura filtros/agrupación/orden guardados para la ruta actual, y los
  * persiste en localStorage a medida que cambian. Cada ruta tiene su propia
@@ -53,7 +85,7 @@ export function useViewPersistence(enabled: boolean) {
 
     const { setViewState, resetView } = useAppStore.getState();
     try {
-      const raw = localStorage.getItem(key) ?? localStorage.getItem(STORAGE_PREFIX + pathname);
+      const raw = readView(key, pathname);
       if (raw) {
         const view = JSON.parse(raw) as StoredView;
         if (!validStoredView(view)) throw new Error('Vista inválida');
@@ -67,7 +99,7 @@ export function useViewPersistence(enabled: boolean) {
     restoredForRef.current = key;
 
     const unsubscribe = useAppStore.subscribe((state) => {
-      if (restoredForRef.current !== key) return;
+      if (restoredForRef.current !== key || state.activeWorkspace?.id !== workspaceId || state.workspaceUserId !== userId) return;
       try {
         const view: StoredView = {
           filters: state.filterState,

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { AgentSummary } from '@/lib/firestore';
 import { readWorkspaceSelection, saveWorkspaceSelection } from '@/lib/workspace-selection';
 import {
   Workspace,
@@ -19,6 +20,7 @@ interface AppState {
   workspaceDataScope: string | null;
   workspaceCatalogReady: boolean;
   workspaceCatalogError: string | null;
+  pqlAgentCatalog: { workspaceId: string; userId: string; agents: AgentSummary[]; loading: boolean; error: string | null } | null;
   userWorkspaces: Workspace[];
   activeWorkspace: Workspace | null;
   teams: Team[];
@@ -54,6 +56,7 @@ interface AppState {
   setWorkspaceDataScope: (scope: string | null) => void;
   setWorkspaceCatalogReady: (ready: boolean) => void;
   setWorkspaceCatalogError: (error: string | null) => void;
+  setPqlAgentCatalog: (catalog: AppState['pqlAgentCatalog']) => void;
   setUserWorkspaces: (workspaces: Workspace[], userId: string) => void;
   setActiveWorkspace: (workspace: Workspace | null) => void;
   setTeams: (teams: Team[]) => void;
@@ -107,6 +110,7 @@ export const useAppStore = create<AppState>((set) => ({
   workspaceDataScope: null,
   workspaceCatalogReady: false,
   workspaceCatalogError: null,
+  pqlAgentCatalog: null,
   userWorkspaces: [],
   activeWorkspace: null,
   teams: [],
@@ -135,13 +139,14 @@ export const useAppStore = create<AppState>((set) => ({
 
   setWorkspaceUser: (workspaceUserId) => set((state) =>
     state.workspaceUserId === workspaceUserId ? {} : {
-      workspaceUserId, workspacesLoaded: false, userWorkspaces: [],
+      pqlAgentCatalog: null, workspaceUserId, workspacesLoaded: false, userWorkspaces: [],
       activeWorkspace: null, workspaceDataScope: null, workspaceCatalogReady: false,
       filterMode: 'filters', pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null,
     }),
   setWorkspaceDataScope: (workspaceDataScope) => set({ workspaceDataScope }),
   setWorkspaceCatalogReady: (workspaceCatalogReady) => set({ workspaceCatalogReady }),
   setWorkspaceCatalogError: (workspaceCatalogError) => set({ workspaceCatalogError }),
+  setPqlAgentCatalog: (pqlAgentCatalog) => set({ pqlAgentCatalog }),
   setUserWorkspaces: (userWorkspaces, userId) =>
     set((state) => {
       if (state.workspaceUserId !== userId) return {};
@@ -149,14 +154,14 @@ export const useAppStore = create<AppState>((set) => ({
       const activeWorkspace = userWorkspaces.find((w) => w.id === preferredId)
         ?? userWorkspaces[0] ?? null;
       saveWorkspaceSelection(userId, activeWorkspace?.id ?? null);
-      return { userWorkspaces, activeWorkspace, workspacesLoaded: true, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { workspaceCatalogReady: false, filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null } : {}) };
+      return { userWorkspaces, activeWorkspace, workspacesLoaded: true, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { workspaceCatalogReady: false, pqlAgentCatalog: null, filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null } : {}) };
     }),
 
   setActiveWorkspace: (activeWorkspace) => set((state) => {
     if (state.workspaceUserId) {
       saveWorkspaceSelection(state.workspaceUserId, activeWorkspace?.id ?? null);
     }
-    return { activeWorkspace, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { workspaceCatalogReady: false, filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null } : {}) };
+    return { activeWorkspace, ...(state.activeWorkspace?.id !== activeWorkspace?.id ? { workspaceCatalogReady: false, pqlAgentCatalog: null, filterMode: 'filters' as const, pqlDraft: '', pqlApplied: null, pqlScope: null, pqlEvaluatedAt: null } : {}) };
   }),
   setTeams: (teams) =>
     set((state) => {

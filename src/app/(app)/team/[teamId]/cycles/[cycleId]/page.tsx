@@ -87,6 +87,7 @@ export default function CycleDetailPage({
         subtitle={`${formatDate(cycle.startsAt)} – ${formatDate(cycle.endsAt)}`}
         showViewToggle
         showFilterBar
+        scopeIssues={cycleIssues}
       />
 
       <div className="flex-1 overflow-y-auto flex flex-col">

@@ -332,7 +332,10 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues, alr
       })),
   ];
 
-  const orphans = issuesByEpic.get('') || [];
+  const knownEpicIds = new Set(epics.map(({ epic }) => epic.id));
+  const orphans = [...issuesByEpic.entries()]
+    .filter(([id]) => !id || !knownEpicIds.has(id))
+    .flatMap(([, issues]) => issues);
   if (orphans.length > 0) {
     lanes.push({ id: 'none', epic: null, issues: orphans });
   }

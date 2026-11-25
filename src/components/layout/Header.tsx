@@ -8,9 +8,11 @@ import { useListPreferences } from '@/hooks/useListPreferences';
 import { Button } from '@/components/ui/Button';
 import { FilterBar } from './FilterBar';
 import { PqlBar } from './PqlBar';
+import type { Issue } from '@/types';
 
 interface HeaderProps {
   title: string;
+  scopeIssues?: Issue[];
   subtitle?: string;
   showViewToggle?: boolean;
   /** El botón "Board" no aplica a páginas sin tablero (p.ej. Épicas). Default `true`. */
@@ -29,6 +31,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   title,
+  scopeIssues,
   subtitle,
   showViewToggle = true,
   showBoardOption = true,
@@ -186,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
     </header>
 
-    {showFilterBar && <><PqlBar /><FilterBar /></>}
+    {showFilterBar && <><PqlBar issues={scopeIssues} /><FilterBar /></>}
     </>
   );
 };

@@ -6,10 +6,15 @@ import { parse, resolve, tokenize, type Diagnostic } from '@/lib/pql';
 import { filtersToPql, pqlToFilters } from '@/lib/pql-filter-conversion';
 import { completePql, type Suggestion } from '@/lib/pql-completion';
 import { usePqlContext } from '@/hooks/usePqlContext';
+import { usePqlAgentStatus } from '@/hooks/usePqlAgentStatus';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
+import { useFilteredIssues } from '@/hooks/useFilteredIssues';
+import type { Issue } from '@/types';
 
-export function PqlBar() {
+const EMPTY_ISSUES: Issue[] = [];
+
+export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
   const mode = useAppStore(s => s.filterMode);
   const draft = useAppStore(s => s.pqlDraft);
   const applied = useAppStore(s => s.pqlApplied);
@@ -26,7 +31,12 @@ export function PqlBar() {
   const catalogReady = useAppStore(s => s.workspaceCatalogReady);
   const catalogError = useAppStore(s => s.workspaceCatalogError);
   const context = usePqlContext();
+  const agents = usePqlAgentStatus();
   const pathname = usePathname();
+  const matches = useFilteredIssues(issues);
+  const appliedScope = useAppStore(s => s.pqlScope);
+  const evaluatedAt = useAppStore(s => s.pqlEvaluatedAt);
+  const hasApplied = applied !== null && !!evaluatedAt && appliedScope === `${context.workspaceId}:${context.actorId}:${pathname}`;
   const [diagnostic, setDiagnostic] = useState<Diagnostic | null>(null);
   const [conversionError, setConversionError] = useState('');
   const [notice, setNotice] = useState('');
@@ -35,7 +45,27 @@ export function PqlBar() {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
-  const suggestions = useMemo(() => completePql(draft, cursor, context), [draft, cursor, context]);
+  const suggestionIds = useMemo(() => {
+    const scoped = issues.filter(issue => issue.workspaceId === context.workspaceId && (!context.teamId || issue.teamId === context.teamId));
+    return {
+      issues: new Set(scoped.map(issue => issue.id)),
+      // Related entities can sit outside the route (e.g. an epic is never a
+      // cycle item) while still being meaningful predicates for its issues.
+      epics: new Set(scoped.flatMap(issue => issue.epicId ? [issue.epicId] : [])),
+      parents: new Set(scoped.flatMap(issue => issue.parentId ? [issue.parentId] : [])),
+    };
+  }, [issues, context.workspaceId, context.teamId]);
+  const suggestions = useMemo(() => {
+    const teamRoute = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname);
+    // Never fall back to workspace-wide suggestions for an unauthorized team route.
+    if (!agents.ready || !catalogReady || catalogError || (teamRoute && teamRoute[1] !== context.teamId)) return [];
+    const detailRoute = /^\/team\/[^/]+\/(projects|cycles)\/([^/]+)\/?$/.exec(pathname);
+    const scope = detailRoute?.[1] === 'projects' ? { projectId: detailRoute[2] }
+      : detailRoute?.[1] === 'cycles' ? { cycleId: detailRoute[2] } : {};
+    return completePql(draft, cursor, context, suggestionIds.issues, {
+      ...scope, referencedEpicIds: suggestionIds.epics, referencedParentIds: suggestionIds.parents,
+    });
+  }, [draft, cursor, context, suggestionIds, agents.ready, catalogReady, catalogError, pathname]);
   const highlighted = useMemo(() => {
     const lexical = tokenize(draft);
     if (!lexical.ok) return draft;
@@ -49,7 +79,7 @@ export function PqlBar() {
   }, [draft]);
 
   useEffect(() => {
-    if (mode !== 'pql' || !loaded || error || !catalogReady || catalogError || !context.workspaceId) return;
+    if (mode !== 'pql' || !loaded || error || !catalogReady || catalogError || !agents.ready || !context.workspaceId) return;
     const timer = window.setTimeout(() => {
       const evaluatedAt = new Date().toISOString();
       const parsed = parse(draft);
@@ -58,7 +88,7 @@ export function PqlBar() {
       else { setDiagnostic(null); setApplied(draft, `${context.workspaceId}:${context.actorId}:${pathname}`, evaluatedAt); }
     }, 200);
     return () => window.clearTimeout(timer);
-  }, [mode, draft, loaded, error, catalogReady, catalogError, context, pathname, setApplied]);
+  }, [mode, draft, loaded, error, catalogReady, catalogError, agents.ready, context, pathname, setApplied]);
 
   const toFilters = () => {
     if (mode === 'filters') return;
@@ -100,7 +130,8 @@ export function PqlBar() {
         </ul>}
       </div>
       <p id="pql-message" role="status" className="text-xs text-secondary">
-        {error ? `Error al cargar issues: ${error}` : catalogError ? catalogError : !loaded || !catalogReady ? 'Cargando issues y catálogos…' : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
+        {error ? `Error al cargar issues: ${error}` : catalogError ? catalogError : agents.error ? 'No se pudieron cargar los agentes del workspace.' : !loaded || !catalogReady || !agents.ready ? 'Cargando issues y catálogos…' : diagnostic ? `Línea ${diagnostic.line}, columna ${diagnostic.column}: ${diagnostic.message}${applied !== null ? ' Resultados de la última consulta válida.' : ''}` : draft !== applied ? 'Evaluando consulta…' : 'Consulta aplicada.'}
+        {!error && !catalogError && !agents.error && agents.ready && loaded && catalogReady && hasApplied && ` ${matches.length} ${matches.length === 1 ? 'coincidencia' : 'coincidencias'}${draft !== applied ? ' de la última consulta válida' : ''}.`}
       </p>
       {diagnostic && <p className="break-all font-mono text-xs text-secondary" aria-hidden="true">{draft.slice(0, diagnostic.start)}<mark>{draft.slice(diagnostic.start, diagnostic.end) || ' '}</mark>{draft.slice(diagnostic.end)}</p>}
     </>}

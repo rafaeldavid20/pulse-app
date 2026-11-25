@@ -31,17 +31,18 @@ export default function TeamIssuesPage() {
         showTimelineOption
         showCalendarOption
         showFilterBar
+        scopeIssues={teamIssues}
       />
 
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
         {activeView === 'list' ? (
           <IssueList issues={teamIssues} />
         ) : activeView === 'board' ? (
-          <IssueBoard />
+          <IssueBoard issues={teamIssues} />
         ) : activeView === 'calendar' ? (
           <CalendarView />
         ) : (
-          <TimelineView />
+          <TimelineView filtered />
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { auth } from '@/lib/firebase';
 import { waitForWorkspaceAccess, waitForWorkspaceAccessForAll } from '@/lib/workspace-access';
 import { useKeyboard } from '@/hooks/useKeyboard';
+import { usePqlAgentCatalogSync } from '@/hooks/usePqlAgentCatalogSync';
 import { useAppStore } from '@/stores/appStore';
 import { useIssueStore } from '@/stores/issueStore';
 import { useProjectStore } from '@/stores/projectStore';
@@ -156,6 +157,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
 
   // 4. Subscribe to Active Workspace Data (Members, Teams, Issues, Projects, Labels)
   const workspaceId = activeWorkspace?.id;
+  usePqlAgentCatalogSync(userId);
   const dataScope = userId && workspaceUserId === userId && workspacesLoaded
     ? JSON.stringify([userId, workspaceId ?? null]) : null;
   useEffect(() => {

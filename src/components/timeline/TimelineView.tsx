@@ -3,6 +3,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { CalendarOff } from 'lucide-react';
 import { useIssues } from '@/hooks/useIssues';
+import { usePqlReady } from '@/hooks/usePqlReady';
 import { useIssueStore } from '@/stores/issueStore';
 import { useAppStore } from '@/stores/appStore';
 import { useCycleStore } from '@/stores/cycleStore';
@@ -29,8 +30,19 @@ const ZOOM_OPTIONS: { value: TimelineZoom; label: string }[] = [
   { value: 'quarters', label: 'Trimestres' },
 ];
 
-export const TimelineView: React.FC = () => {
-  const { epics } = useIssues();
+export const TimelineView: React.FC<{ filtered?: boolean }> = ({ filtered = false }) => {
+  const { epics: allEpics, issues: filteredIssues } = useIssues();
+  const pqlReady = usePqlReady();
+  const issuesError = useIssueStore(s => s.issuesError);
+  // Keep the full descendant set for progress, but show only matching roots.
+  const epics = useMemo(() => {
+    if (!filtered) return allEpics;
+    const byId = new Map(allEpics.map(item => [item.epic.id, item]));
+    return filteredIssues.flatMap(issue => {
+      const item = byId.get(issue.id);
+      return item ? [item] : [];
+    });
+  }, [allEpics, filteredIssues, filtered]);
   const activeTeam = useAppStore((s) => s.activeTeam);
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const issuesLoaded = useIssueStore((s) => s.issuesLoaded);
@@ -78,6 +90,8 @@ export const TimelineView: React.FC = () => {
     container.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   };
 
+  if (issuesError) return <p role="alert" className="text-sm text-priority-urgent">{issuesError}</p>;
+
   if (!issuesLoaded || !cyclesLoaded) {
     return (
       <div className="flex flex-col gap-2">
@@ -86,6 +100,8 @@ export const TimelineView: React.FC = () => {
       </div>
     );
   }
+
+  if (filtered && !pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
 
   return (
     <div className="flex flex-col gap-4">

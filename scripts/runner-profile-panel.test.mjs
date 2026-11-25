@@ -25,7 +25,7 @@ for (const fresh of [false, true]) test(fresh ? 'fresh panel discovers applying 
   for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, value });
   const oldInterval = globalThis.setInterval; const oldClear = globalThis.clearInterval;
   let poll;
-  globalThis.setInterval = callback => { poll = callback; return 1; };
+  globalThis.setInterval = () => 1;
   globalThis.clearInterval = () => {};
   const snapshot = { version: 1, revision: 'a'.repeat(64), provider: 'codex', model: 'old-model', modelValid: true, models: ['old-model', 'new-model'], directories: [
     { repo: 'owner/repo', selected: 'old-dir', valid: true, candidates: [{ id: 'old-dir', alias: 'Checkout 1' }, { id: 'new-dir', alias: 'Checkout 2' }] },
@@ -39,6 +39,8 @@ for (const fresh of [false, true]) test(fresh ? 'fresh panel discovers applying 
   }
   const { RunnerProfilePanel } = load('../src/components/settings/RunnerProfilePanel.tsx', {
     '@/lib/firestore': { runnerProfile: async input => { if (input.op === 'request') { submitted = input; return {}; } reads.push(input); return response; } },
+    '@/lib/control-signals': { subscribeControlSignal: () => () => {} },
+    '@/lib/visible-signal': { visibleSignalRefresh: (_subscribe, refresh) => { poll = refresh; void refresh(true); return { refresh: () => {}, stop: () => {} }; } },
     '@/lib/runner-profile-state': load('../src/lib/runner-profile-state.ts'),
     '@/components/ui/Button': { Button: ({ children, disabled, onClick }) => React.createElement('button', { disabled, onClick }, children) },
   });

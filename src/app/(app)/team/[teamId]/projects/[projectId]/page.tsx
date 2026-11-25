@@ -74,6 +74,7 @@ export default function ProjectDetailPage({
         subtitle={`Proyecto (${percent}% completado)`}
         showViewToggle
         showFilterBar
+        scopeIssues={projectIssues}
       />
 
       <div className="flex-1 p-4 sm:p-6 overflow-y-auto flex flex-col gap-5 sm:gap-6">
@@ -220,7 +221,7 @@ export default function ProjectDetailPage({
           {activeView === 'list' ? (
             <IssueList issues={projectIssues} />
           ) : (
-            <IssueBoard />
+            <IssueBoard issues={projectIssues} />
           )}
         </div>
       </div>

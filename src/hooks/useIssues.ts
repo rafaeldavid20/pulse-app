@@ -18,7 +18,7 @@ import { useFilteredIssues } from './useFilteredIssues';
 export function useIssues(scopeIssues?: Issue[], alreadyFiltered = false) {
   const issues = useIssueStore((s) => s.issues);
   const activeTeam = useAppStore((s) => s.activeTeam);
-  const workspaceId = useAppStore((s) => s.activeWorkspace?.id);
+  const activeWorkspaceId = useAppStore((s) => s.activeWorkspace?.id);
 
   // Issues del equipo activo, sin aplicar todavía los filtros de la barra —
   // lo usan las páginas que necesitan el universo "sin filtrar" del equipo
@@ -52,7 +52,7 @@ export function useIssues(scopeIssues?: Issue[], alreadyFiltered = false) {
   /**
    * Los issues filtrados agrupados por épica, para las swimlanes del board.
    * La clave `''` junta a los que no cuelgan de ninguna épica; las épicas
-   * mismas no aparecen como items dentro de su propio grupo.
+   * mismas aparecen en su lane cuando coinciden con el filtro.
    */
   const issuesByEpic = useMemo(() => {
     const map = new Map<string, Issue[]>();
@@ -66,12 +66,14 @@ export function useIssues(scopeIssues?: Issue[], alreadyFiltered = false) {
   }, [sortedIssues, alreadyFiltered]);
 
   const epics = useMemo(
-    () =>
-      issues
-        .filter((i) => isEpic(i) && (!alreadyFiltered ? (!activeTeam || i.teamId === activeTeam.id) : i.workspaceId === workspaceId))
-        .map((epic) => ({ epic, children: descendantsOfEpic(issues, epic.id) }))
-        .sort((a, b) => a.epic.number - b.epic.number),
-    [issues, activeTeam, alreadyFiltered, workspaceId]
+    () => {
+      const workspaceIssues = issues.filter(i => !!activeWorkspaceId && i.workspaceId === activeWorkspaceId);
+      return workspaceIssues
+        .filter(i => isEpic(i) && (alreadyFiltered || !activeTeam || i.teamId === activeTeam.id))
+        .map(epic => ({ epic, children: descendantsOfEpic(workspaceIssues, epic.id) }))
+        .sort((a, b) => a.epic.number - b.epic.number);
+    },
+    [issues, activeTeam, activeWorkspaceId, alreadyFiltered]
   );
 
   return {
