@@ -59,7 +59,9 @@ function SavedViewEditor({ view }: { view: SavedView }) {
   }, [context, draft.query, draft.teamId, draft.ordering, issues, issuesLoaded, issuesError, catalogReady, catalogError, view.workspaceId]);
   const parsed = parse(draft.query);
   const hasOrder = parsed.ok && parsed.query.orderBy.length > 0;
-  const orderValue = draft.ordering.length === 1 ? `${draft.ordering[0].field}:${draft.ordering[0].direction}` : draft.ordering.length ? 'custom' : '';
+  const activeOrder = hasOrder ? parsed.query.orderBy : draft.ordering;
+  const orderKey = activeOrder.length === 1 ? `${activeOrder[0].field}:${activeOrder[0].direction}` : '';
+  const orderValue = !activeOrder.length ? '' : ['priority:asc', 'updated:desc', 'created:desc', 'estimate:desc'].includes(orderKey) ? orderKey : 'custom';
   const act = async (action: 'update' | 'create' | 'delete') => {
     if (action === 'delete' && !window.confirm('¿Eliminar esta vista?')) return;
     setBusy(true); setError('');
@@ -86,10 +88,16 @@ function SavedViewEditor({ view }: { view: SavedView }) {
           <label>Ámbito <select value={draft.teamId} onChange={e => setDraft({ ...draft, teamId: e.target.value })}><option value="">Workspace</option>{teams.filter(t => t.workspaceId === view.workspaceId).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
           <label>Agrupar <select value={draft.grouping} onChange={e => setDraft({ ...draft, grouping: e.target.value as SavedViewGrouping })}>{['none', 'status', 'assignee', 'priority', 'project', 'epic', 'cycle'].map(v => <option key={v} value={v} disabled={draft.display === 'board' && !['status', 'epic'].includes(v)}>{v}</option>)}</select></label>
           <label>Presentación <select value={draft.display} onChange={e => { const display = e.target.value as 'list' | 'board'; setDraft({ ...draft, display, grouping: display === 'board' && !['status', 'epic'].includes(draft.grouping) ? 'status' : draft.grouping }); }}><option value="list">Lista</option><option value="board">Board</option></select></label>
-          <label>Orden <select disabled={hasOrder} value={orderValue} onChange={e => { const [field, direction] = e.target.value.split(':'); if (field !== 'custom') setDraft({ ...draft, ordering: field ? [{ field, direction: direction as 'asc' | 'desc' }] : [] }); }}><option value="">Predeterminado</option>{orderValue === 'custom' && <option value="custom">Personalizado</option>}<option value="priority:asc">Prioridad</option><option value="updated:desc">Actualizado</option><option value="created:desc">Creado</option><option value="estimate:desc">Estimación</option></select></label>
+          <label>Orden <select disabled={!parsed.ok} value={orderValue} onChange={e => {
+            if (!parsed.ok || e.target.value === 'custom') return;
+            const [field, direction] = e.target.value.split(':');
+            const ordering = field ? [{ field, direction: direction as 'asc' | 'desc' }] : [];
+            if (hasOrder) setDraft({ ...draft, query: serialize({ ...parsed.query, orderBy: ordering.map(term => ({ ...term, start: 0, end: 0 })) }), ordering: [] });
+            else setDraft({ ...draft, ordering });
+          }}><option value="">Predeterminado</option>{orderValue === 'custom' && <option value="custom">Personalizado</option>}<option value="priority:asc">Prioridad</option><option value="updated:desc">Actualizado</option><option value="created:desc">Creado</option><option value="estimate:desc">Estimación</option></select></label>
           <label><input type="checkbox" checked={draft.shared} disabled={!!view.systemKey} onChange={e => setDraft({ ...draft, shared: e.target.checked })} /> Compartida</label>
         </div>
-        {hasOrder && <p className="text-xs text-tertiary">El ORDER BY de la consulta define el orden.</p>}
+        {hasOrder && <p className="text-xs text-tertiary">Cambiar el orden actualiza el ORDER BY de la consulta.</p>}
         <div className="flex flex-wrap gap-3 text-xs">
           {canEdit && <button type="button" disabled={busy || !dirty || !result?.ok || !draft.name.trim()} onClick={() => act('update')}>Guardar</button>}
           <button type="button" disabled={busy || (!dirty && savedVersion === view.updatedAt)} onClick={() => { const next = draftOf(view); setDraft(next); setSaved(next); setSavedVersion(view.updatedAt); setError(''); }}>Descartar</button>

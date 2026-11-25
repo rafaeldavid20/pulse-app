@@ -121,6 +121,8 @@ test('AuthGuard hides page data until membership is validated and old data store
     '@/hooks/useAuth': { useAuth: () => ({ user, loading: false }) },
     'next/navigation': { usePathname: () => pathname, useRouter: () => ({ push: noop }) },
     '@/lib/firebase': { auth: {} }, '@/lib/workspace-access': {}, '@/lib/firestore': {},
+    '@/stores/savedViewStore': { useSavedViewStore: { getState: () => ({ reset: noop, setViews: noop, setError: noop }) } },
+    '@/lib/saved-views': { subscribeSavedViews: noop },
     '@/hooks/useKeyboard': { useKeyboard: noop },
     '@/hooks/usePqlAgentCatalogSync': { usePqlAgentCatalogSync: noop },
     '@/components/brand/PulseMark': { PulseMark: () => null },

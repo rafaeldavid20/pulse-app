@@ -47,6 +47,37 @@ it('sends the loaded version and preserves the draft on a conflict', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
   expect((screen.getByLabelText('Nombre') as HTMLInputElement).value).toBe('Cambio ajeno');
 });
+it('changes the active ORDER BY, saves it, and restores it after reopening', async () => {
+  const original = { ...view, query: 'assignee = me() ORDER BY updated DESC, priority ASC', ordering: [{ field: 'created', direction: 'desc' as const }] };
+  useSavedViewStore.getState().setViews([original]);
+  action.mockImplementation(async (_action, data) => ({ ...original, ...data, updatedAt: '2024-02-01' }));
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  const order = screen.getByLabelText('Orden') as HTMLSelectElement;
+  expect(order.value).toBe('custom');
+  fireEvent.change(order, { target: { value: 'priority:asc' } });
+  expect((screen.getByLabelText('Consulta PQL') as HTMLTextAreaElement).value).toMatch(/ORDER BY priority(?: ASC)?/i);
+  expect((screen.getByLabelText('Consulta PQL') as HTMLTextAreaElement).value).not.toMatch(/updated DESC/i);
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Guardar' })); });
+  const sent = action.mock.calls[0][1];
+  expect(sent.ordering).toEqual([]);
+  expect(sent.query).toMatch(/ORDER BY priority(?: ASC)?/i);
+  cleanup();
+  useSavedViewStore.getState().setViews([{ ...original, ...sent, updatedAt: '2024-02-01' }]);
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  expect((screen.getByLabelText('Orden') as HTMLSelectElement).value).toBe('priority:asc');
+  fireEvent.change(screen.getByLabelText('Orden'), { target: { value: '' } });
+  expect((screen.getByLabelText('Consulta PQL') as HTMLTextAreaElement).value).not.toMatch(/ORDER BY/i);
+});
+it('changes the fallback order when the query has no ORDER BY', async () => {
+  useSavedViewStore.getState().setViews([{ ...view, ordering: [{ field: 'updated', direction: 'desc' }] }]);
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  expect((screen.getByLabelText('Orden') as HTMLSelectElement).value).toBe('updated:desc');
+  fireEvent.change(screen.getByLabelText('Orden'), { target: { value: 'created:desc' } });
+  action.mockImplementation(async (_action, data) => ({ ...view, ...data, updatedAt: '2024-02-01' }));
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Guardar' })); });
+  expect(action.mock.calls[0][1].ordering).toEqual([{ field: 'created', direction: 'desc' }]);
+  expect(action.mock.calls[0][1].query).toBe(view.query);
+});
 afterEach(cleanup);
 it('isolates the workspace and preserves an invalid draft without showing results', async () => {
   await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
