@@ -57,13 +57,12 @@ export function useIssues(scopeIssues?: Issue[], alreadyFiltered = false) {
   const issuesByEpic = useMemo(() => {
     const map = new Map<string, Issue[]>();
     sortedIssues.forEach((issue) => {
-      if (isEpic(issue) && !alreadyFiltered) return;
       const key = isEpic(issue) ? issue.id : issue.epicId ?? '';
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(issue);
     });
     return map;
-  }, [sortedIssues, alreadyFiltered]);
+  }, [sortedIssues]);
 
   const epics = useMemo(
     () => {
