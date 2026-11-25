@@ -14,13 +14,38 @@ vi.mock('@/hooks/usePqlContext', () => ({ usePqlContext: () => fixtureContext })
 vi.mock('@/lib/saved-views', () => ({ viewAction: (...args: unknown[]) => action(...args) }));
 vi.mock('@/components/layout/Header', () => ({ Header: ({ title }: { title: string }) => <header>{title}</header> }));
 vi.mock('@/components/issues/IssueList', () => ({ IssueList: ({ issues }: { issues: Issue[] }) => <div>{issues.map(i => <span key={i.id}>{i.identifier}</span>)}</div> }));
-vi.mock('@/components/issues/IssueBoard', () => ({ IssueBoard: () => <div>Board</div> }));
+vi.mock('@/components/issues/IssueBoard', () => ({ IssueBoard: ({ groupByOverride }: { groupByOverride: string }) => <div>Board: {groupByOverride}</div> }));
 const view: SavedView = { id: 'view-a', workspaceId: 'fixture', ownerId: 'user-a', name: 'Mi vista', query: 'assignee = me()', queryVersion: 1, display: 'list', shared: false, createdAt: '2024-01-01', updatedAt: '2024-01-01' };
 beforeEach(() => {
   action.mockReset(); push.mockReset();
   useAppStore.setState({ activeWorkspace: { id: 'fixture' } as Workspace, workspaceUserId: 'user-a', members: [], teams: [], workspaceCatalogReady: true, workspaceCatalogError: null });
   useSavedViewStore.getState().setViews([view]);
   useIssueStore.getState().setIssues([{ id: 'a', workspaceId: 'fixture', teamId: 'team-a', identifier: 'TES-1', assigneeId: 'user-a', status: 'todo', priority: 2, title: 'A', createdAt: '2024-01-01' }, { id: 'b', workspaceId: 'other', identifier: 'NO-1', assigneeId: 'user-a', status: 'todo', priority: 2, title: 'B', createdAt: '2024-01-01' }] as Issue[]);
+});
+it('restores supported board grouping and rejects incompatible legacy combinations', async () => {
+  useSavedViewStore.getState().setViews([{ ...view, display: 'board', grouping: 'epic' }]);
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  expect(screen.getByText('Board: epic')).toBeTruthy();
+  expect((screen.getByLabelText('Agrupar') as HTMLSelectElement).value).toBe('epic');
+  cleanup();
+  useSavedViewStore.getState().setViews([{ ...view, display: 'board', grouping: 'priority' }]);
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  expect(screen.getByRole('alert').textContent).toContain('agrupación incompatible');
+  expect(screen.queryByText(/Board:/)).toBeNull();
+  fireEvent.change(screen.getByLabelText('Agrupar'), { target: { value: 'status' } });
+  expect(screen.getByText('Board: status')).toBeTruthy();
+});
+it('sends the loaded version and preserves the draft on a conflict', async () => {
+  action.mockRejectedValue(new Error('La vista cambió desde que la abriste.'));
+  await act(async () => { render(<Suspense fallback="Cargando"><SavedViewPage params={Promise.resolve({ viewId: 'view-a' })} /></Suspense>); });
+  fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Mi borrador' } });
+  act(() => useSavedViewStore.getState().setViews([{ ...view, name: 'Cambio ajeno', updatedAt: '2024-02-01' }]));
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+  expect((await screen.findByRole('alert')).textContent).toContain('cambió');
+  expect(action.mock.calls[0][1].expectedUpdatedAt).toBe('2024-01-01');
+  expect((screen.getByLabelText('Nombre') as HTMLInputElement).value).toBe('Mi borrador');
+  fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+  expect((screen.getByLabelText('Nombre') as HTMLInputElement).value).toBe('Cambio ajeno');
 });
 afterEach(cleanup);
 it('isolates the workspace and preserves an invalid draft without showing results', async () => {

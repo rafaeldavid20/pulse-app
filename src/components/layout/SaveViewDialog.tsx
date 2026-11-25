@@ -14,6 +14,7 @@ export function SaveViewDialog({ close }: { close: () => void }) {
   const filters = useAppStore(s => s.filterState); const mode = useAppStore(s => s.filterMode);
   const query = useAppStore(s => s.pqlDraft); const sortBy = useAppStore(s => s.sortBy);
   const grouping = useAppStore(s => s.groupBy); const activeView = useAppStore(s => s.activeView);
+  const boardGrouping = useAppStore(s => s.boardGroupBy);
   const [name, setName] = useState(''); const [icon, setIcon] = useState('list');
   const [shared, setShared] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const save = async () => {
@@ -22,7 +23,7 @@ export function SaveViewDialog({ close }: { close: () => void }) {
     try {
       const source = queryWithRouteScope(mode === 'pql' ? query : filtersToPql(filters, sortBy), pathname);
       const teamId = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname)?.[1];
-      const result = await viewAction<SavedView>('create', { workspaceId, name, icon, query: source, grouping, display: activeView === 'board' ? 'board' : 'list', shared, ...(teamId ? { teamId } : {}) });
+      const result = await viewAction<SavedView>('create', { workspaceId, name, icon, query: source, grouping: activeView === 'board' ? boardGrouping : grouping, display: activeView === 'board' ? 'board' : 'list', shared, ...(teamId ? { teamId } : {}) });
       close(); router.push(`/views/${result.id}`);
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo guardar la vista.'); }
     finally { setBusy(false); }

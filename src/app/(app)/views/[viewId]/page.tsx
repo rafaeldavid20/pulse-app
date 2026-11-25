@@ -42,6 +42,7 @@ function SavedViewEditor({ view }: { view: SavedView }) {
   const context = usePqlContext();
   const [draft, setDraft] = useState(() => draftOf(view));
   const [saved, setSaved] = useState(() => draftOf(view));
+  const [savedVersion, setSavedVersion] = useState(view.updatedAt);
   const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const role = members.find(m => m.userId === actorId)?.role;
   const canEdit = actorId === view.ownerId || (!!view.systemKey && view.shared && (role === 'owner' || role === 'admin'));
@@ -68,8 +69,8 @@ function SavedViewEditor({ view }: { view: SavedView }) {
         const created = await viewAction<SavedView>('create', { workspaceId: view.workspaceId, ...payload({ ...draft, name: `${draft.name} · copia`.slice(0, 80), shared: false }) });
         router.push(`/views/${created.id}`); return;
       }
-      const updated = await viewAction<SavedView>('update', { id: view.id, ...payload(draft) });
-      const next = draftOf(updated); setDraft(next); setSaved(next);
+      const updated = await viewAction<SavedView>('update', { id: view.id, expectedUpdatedAt: savedVersion, ...payload(draft) });
+      const next = draftOf(updated); setDraft(next); setSaved(next); setSavedVersion(updated.updatedAt);
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo completar la acción.'); }
     finally { setBusy(false); }
   };
@@ -83,15 +84,15 @@ function SavedViewEditor({ view }: { view: SavedView }) {
         <div className="flex flex-wrap gap-4 text-xs">
           <label>Icono <select value={draft.icon} onChange={e => setDraft({ ...draft, icon: e.target.value })}>{['list', 'inbox', 'user', 'eye', 'flag', 'calendar', 'lock', 'zap'].map(icon => <option key={icon} value={icon}>{icon}</option>)}</select></label>
           <label>Ámbito <select value={draft.teamId} onChange={e => setDraft({ ...draft, teamId: e.target.value })}><option value="">Workspace</option>{teams.filter(t => t.workspaceId === view.workspaceId).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
-          <label>Agrupar <select value={draft.grouping} onChange={e => setDraft({ ...draft, grouping: e.target.value as SavedViewGrouping })}>{['none', 'status', 'assignee', 'priority', 'project', 'epic', 'cycle'].map(v => <option key={v} value={v}>{v}</option>)}</select></label>
-          <label>Presentación <select value={draft.display} onChange={e => setDraft({ ...draft, display: e.target.value as 'list' | 'board' })}><option value="list">Lista</option><option value="board">Board</option></select></label>
+          <label>Agrupar <select value={draft.grouping} onChange={e => setDraft({ ...draft, grouping: e.target.value as SavedViewGrouping })}>{['none', 'status', 'assignee', 'priority', 'project', 'epic', 'cycle'].map(v => <option key={v} value={v} disabled={draft.display === 'board' && !['status', 'epic'].includes(v)}>{v}</option>)}</select></label>
+          <label>Presentación <select value={draft.display} onChange={e => { const display = e.target.value as 'list' | 'board'; setDraft({ ...draft, display, grouping: display === 'board' && !['status', 'epic'].includes(draft.grouping) ? 'status' : draft.grouping }); }}><option value="list">Lista</option><option value="board">Board</option></select></label>
           <label>Orden <select disabled={hasOrder} value={orderValue} onChange={e => { const [field, direction] = e.target.value.split(':'); if (field !== 'custom') setDraft({ ...draft, ordering: field ? [{ field, direction: direction as 'asc' | 'desc' }] : [] }); }}><option value="">Predeterminado</option>{orderValue === 'custom' && <option value="custom">Personalizado</option>}<option value="priority:asc">Prioridad</option><option value="updated:desc">Actualizado</option><option value="created:desc">Creado</option><option value="estimate:desc">Estimación</option></select></label>
           <label><input type="checkbox" checked={draft.shared} disabled={!!view.systemKey} onChange={e => setDraft({ ...draft, shared: e.target.checked })} /> Compartida</label>
         </div>
         {hasOrder && <p className="text-xs text-tertiary">El ORDER BY de la consulta define el orden.</p>}
         <div className="flex flex-wrap gap-3 text-xs">
           {canEdit && <button type="button" disabled={busy || !dirty || !result?.ok || !draft.name.trim()} onClick={() => act('update')}>Guardar</button>}
-          <button type="button" disabled={busy || !dirty} onClick={() => { const next = draftOf(view); setDraft(next); setSaved(next); setError(''); }}>Descartar</button>
+          <button type="button" disabled={busy || (!dirty && savedVersion === view.updatedAt)} onClick={() => { const next = draftOf(view); setDraft(next); setSaved(next); setSavedVersion(view.updatedAt); setError(''); }}>Descartar</button>
           <button type="button" disabled={busy || !result?.ok || !draft.name.trim()} onClick={() => act('create')}>Guardar copia</button>
           {canEdit && <button type="button" disabled={busy} onClick={() => act('delete')}>Eliminar</button>}
         </div>
@@ -100,7 +101,7 @@ function SavedViewEditor({ view }: { view: SavedView }) {
       {issuesError || catalogError ? <p role="alert">{issuesError || catalogError}</p> : !issuesLoaded || !catalogReady ? <p role="status">Cargando issues y catálogos…</p>
         : result && !result.ok ? <p role="alert">Línea {result.diagnostic.line}, columna {result.diagnostic.column}: {result.diagnostic.message}</p>
         : result?.ok ? <><p role="status" className="text-xs text-secondary">{result.issues.length} resultados{draft.query.toLowerCase().includes('currentcycle()') && draft.teamId && !context.cycles.some(c => c.teamId === draft.teamId && c.status === 'active') ? ' · Este equipo no tiene un ciclo activo.' : ''}</p>
-          {draft.display === 'board' ? <IssueBoard issues={result.issues} alreadyFiltered groupByOverride={draft.grouping === 'epic' ? 'epic' : 'status'} /> : <IssueList issues={result.issues} alreadyFiltered groupByOverride={draft.grouping} />}</> : null}
+          {draft.display === 'board' && !['status', 'epic'].includes(draft.grouping) ? <p role="alert">Esta vista tiene una agrupación incompatible con el tablero. Elegí estado o épica, o cambiá a lista.</p> : draft.display === 'board' ? <IssueBoard issues={result.issues} alreadyFiltered groupByOverride={draft.grouping as 'status' | 'epic'} /> : <IssueList issues={result.issues} alreadyFiltered groupByOverride={draft.grouping} />}</> : null}
     </main>
   </div>;
 }
