@@ -20,13 +20,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('issue development recovery', () => {
+  it.each(['todo', 'in_progress'] as const)('allows requesting development from %s', async status => {
+    render(<DevelopmentSection issue={{ ...issue, status }} />);
+    const button = await screen.findByRole('button', { name: 'Trabajar con agente' });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(call.mock.calls.some(([code]) => code === 'issues.requestDevelopment')).toBe(true));
+  });
   it('keeps the action visible after a historical claim and labels QA rework independently of old marks', async () => {
     const rework = { ...issue, review: { state: 'changes_requested', attempt: 1, reworkDispatchedForAttempt: 1 } } as Issue;
     render(<DevelopmentSection issue={rework} />);
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Corregir findings' }) as HTMLButtonElement).disabled).toBe(false));
-    expect(screen.getByText(/mismos PRs/)).toBeTruthy();
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Corregir todos los hallazgos' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByText(/PR existentes/)).toBeTruthy();
     fireEvent.change(screen.getByLabelText('Indicaciones adicionales (opcional)'), { target: { value: ' Revisá ambos repos. ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Corregir findings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Corregir todos los hallazgos' }));
     await waitFor(() => expect(call.mock.calls.find(([code]) => code === 'issues.requestDevelopment')?.[1].comment).toBe('Revisá ambos repos.'));
   });
 
@@ -34,7 +41,7 @@ describe('issue development recovery', () => {
     let acknowledge!: (value: { jobId: string }) => void;
     call.mockImplementation((code: string) => code === 'issues.developmentStatus' ? Promise.resolve(server) : new Promise(resolve => { acknowledge = resolve; }));
     render(<DevelopmentSection issue={issue} />);
-    const button = await screen.findByRole('button', { name: 'Ejecutar desarrollo' });
+    const button = await screen.findByRole('button', { name: 'Trabajar con agente' });
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(button); fireEvent.click(button);
     expect(screen.getByRole('status').textContent).toMatch(/esperando confirmación/);
@@ -54,7 +61,7 @@ describe('issue development recovery', () => {
     first.unmount();
     server = { state: 'failed', available: true, active: false, mode: 'task', jobId: 'live-job' };
     render(<DevelopmentSection issue={issue} />);
-    await waitFor(() => expect((screen.getByRole('button', { name: 'Reintentar desarrollo' }) as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Reintentar con agente' }) as HTMLButtonElement).disabled).toBe(false));
   });
 
   it('preserves an uncertain request ID across reload and retries the same request', async () => {
@@ -96,6 +103,12 @@ describe('issue development recovery', () => {
     server = {state:'idle', available:true, active:false, mode:'handoff'};
     render(<DevelopmentSection issue={issue} />);
     expect(await screen.findByRole('button', {name:'Continuar traspaso'})).toBeTruthy();
+  });
+
+  it('warns when a prior self-check refers to commits not reflected in the PR', async () => {
+    server = { state: 'failed', available: true, active: false, mode: 'rework', unpublishedChanges: true };
+    render(<DevelopmentSection issue={{ ...issue, review: { state: 'changes_requested' } } as Issue} />);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/nueva ejecución puede no incluirlos/);
   });
 });
 

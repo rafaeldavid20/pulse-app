@@ -27,6 +27,7 @@ import { resolveRepo, describeRepoSource } from '@/lib/repo';
 import { useLiveQuery } from '@/hooks/useLiveQuery';
 import { assignExecutionAgent, createComment, createIssueBranch, listAgents, subscribeIssueComments, updateRealIssue } from '@/lib/firestore';
 import { SelectPopover } from '@/components/ui/SelectPopover';
+import Link from 'next/link';
 
 interface IssuePeekBodyProps {
   issue: Issue;
@@ -35,6 +36,7 @@ interface IssuePeekBodyProps {
   onOpenIssue: (id: string) => void;
   deleteIssue: (id: string) => void;
   onClose: () => void;
+  fullPage?: boolean;
 }
 
 /**
@@ -912,7 +914,7 @@ const ISSUE_ESTIMATES = [0, 1, 2, 3, 5, 8];
 /** Umbral en px para que un swipe hacia abajo del handle mobile cierre el panel. */
 const SWIPE_CLOSE_THRESHOLD = 90;
 
-const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue }) => {
+export const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIssue, deleteIssue, onClose, onOpenIssue, fullPage = false }) => {
   const projects = useProjectStore((s) => s.projects);
   const activeWorkspace = useAppStore((s) => s.activeWorkspace);
   const { user } = useAuth();
@@ -1048,8 +1050,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
     <div
       onAnimationEnd={() => setEntered(true)}
       className={cn(
-        'fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-surface border-l border-default shadow-2xl flex flex-col glass-panel',
-        !entered && 'animate-slide-in-right'
+        fullPage ? 'flex h-full w-full flex-col overflow-hidden bg-surface' : 'fixed inset-y-0 right-0 z-40 w-full max-w-xl bg-surface border-l border-default shadow-2xl flex flex-col glass-panel',
+        !fullPage && !entered && 'animate-slide-in-right'
       )}
       style={{
         transform: dragY ? `translateY(${dragY}px)` : undefined,
@@ -1057,7 +1059,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
       }}
     >
       {/* Drag Handle — solo mobile, gesto de swipe-down para cerrar */}
-      <div
+      {!fullPage && <div
         aria-hidden="true"
         onTouchStart={handleDragStart}
         onTouchMove={handleDragMove}
@@ -1065,7 +1067,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         className="sm:hidden flex items-center justify-center py-2 shrink-0 touch-none"
       >
         <div className="w-9 h-1 rounded-full bg-default" />
-      </div>
+      </div>}
 
       {/* Header Bar */}
       <div className="flex items-center justify-between px-5 py-3.5 border-b border-subtle bg-elevated">
@@ -1079,6 +1081,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
         </div>
 
         <div className="flex items-center gap-2">
+          {!fullPage && <Link href={`/issues/${encodeURIComponent(issue.id)}`} target="_blank" rel="noopener noreferrer" aria-label="Abrir issue en una pestaña nueva" title="Abrir en una pestaña nueva" className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded-md transition-colors"><ExternalLink className="w-4 h-4" /></Link>}
           <button
             onClick={() => {
               deleteIssue(issue.id);
@@ -1093,9 +1096,9 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
           <button
             onClick={onClose}
-            aria-label="Cerrar panel"
+            aria-label={fullPage ? 'Volver a Mis issues' : 'Cerrar panel'}
             className="p-1.5 text-secondary hover:text-primary hover:bg-hover rounded-md transition-colors"
-            title="Cerrar (Esc)"
+            title={fullPage ? 'Volver a Mis issues' : 'Cerrar (Esc)'}
           >
             <X className="w-4 h-4" />
           </button>
@@ -1103,7 +1106,7 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+      <div className={cn('flex-1 overflow-y-auto p-6 flex flex-col gap-6', fullPage && 'w-full max-w-5xl mx-auto')}>
         {/* Title Input — local draft, debounced 500ms before writing (see effect above) */}
         <input
           type="text"
@@ -1111,6 +1114,8 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
           onChange={(e) => { setTitleEdited(e.target.value !== issue.title); setTitleDraft(e.target.value); }}
           className="text-xl font-bold text-primary bg-transparent border-none outline-none focus:ring-0 p-0"
         />
+
+        <DevelopmentSection key={issue.id} issue={issue} />
 
         {/* Quick Property Pickers Grid */}
         <div className="grid grid-cols-2 gap-3 p-3.5 bg-elevated border border-default rounded-lg text-xs">
@@ -1288,7 +1293,6 @@ const IssuePeekBody: React.FC<IssuePeekBodyProps> = ({ issue, members, updateIss
 
         <AcceptanceCriteriaSection issue={issue} updateIssue={updateIssue} />
 
-        <DevelopmentSection key={issue.id} issue={issue} />
         {(issue.review || issue.status === 'in_review') && <QaReviewSection issue={issue} />}
 
         {/* Labels Section */}
