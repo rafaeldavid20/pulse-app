@@ -105,6 +105,13 @@ describe('issue development recovery', () => {
     expect(await screen.findByRole('button', {name:'Continuar traspaso'})).toBeTruthy();
   });
 
+  it('labels a returned QA review as rework when the server selects that mode', async () => {
+    server = { state: 'idle', available: true, active: false, mode: 'rework' };
+    render(<DevelopmentSection issue={{ ...issue, review: { state: 'pending' } } as Issue} />);
+    expect(await screen.findByRole('button', { name: 'Corregir todos los hallazgos' })).toBeTruthy();
+    expect(screen.getByLabelText('Indicaciones adicionales (opcional)')).toBeTruthy();
+  });
+
   it('warns when a prior self-check refers to commits not reflected in the PR', async () => {
     server = { state: 'failed', available: true, active: false, mode: 'rework', unpublishedChanges: true };
     render(<DevelopmentSection issue={{ ...issue, review: { state: 'changes_requested' } } as Issue} />);

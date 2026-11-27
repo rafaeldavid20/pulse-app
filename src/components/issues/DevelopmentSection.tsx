@@ -62,7 +62,8 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
       setBusy(false);
     }
   };
-  const view = developmentPresentation(status, busy, issue.review?.state === 'changes_requested');
+  const isRework = issue.review?.state === 'changes_requested' || status?.mode === 'rework';
+  const view = developmentPresentation(status, busy, isRework);
   const limit = budgetReason(status?.reason);
   return (
     <section aria-label="Desarrollo" className="flex flex-col gap-2 p-3 bg-elevated border border-default rounded-lg">
@@ -79,11 +80,11 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
       {status?.reason && <p className="text-xs text-secondary">{limit ? `Se alcanzó ${limit.description}.` : status.reason}</p>}
       {!status?.active && issue.agent?.blockedReason && issue.agent.blockedReason !== status?.reason && <p role="status" className="text-xs text-secondary">Último resultado: {issue.agent.blockedReason}</p>}
       {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
-      {issue.review?.state === 'changes_requested' && !status?.active && <label className="flex flex-col gap-1 text-xs text-secondary">
+      {isRework && !status?.active && <label className="flex flex-col gap-1 text-xs text-secondary">
         Indicaciones adicionales (opcional)
         <textarea value={comment} onChange={event => setComment(event.target.value)} maxLength={3700} rows={2} disabled={busy} className="w-full bg-surface border border-default rounded-md px-2 py-1.5 text-xs text-primary outline-none" />
       </label>}
-      {issue.review?.state === 'changes_requested' && <p className="text-xs text-secondary">El agente recibirá todos los hallazgos abiertos de QA y continuará los PR existentes. Si no puede terminar, revisá el diagnóstico antes de volver a intentar.</p>}
+      {isRework && <p className="text-xs text-secondary">El agente verificará todos los hallazgos de QA y continuará los PR existentes. Si no puede terminar, revisá el diagnóstico antes de volver a intentar.</p>}
       <a href="/settings/agentes" className="text-xs text-accent hover:underline">Ver diagnóstico de jobs, Runner y límites</a>
       {status?.jobId && <code className="text-[10px] text-tertiary">{status.jobId}</code>}
     </section>
