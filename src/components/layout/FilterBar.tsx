@@ -134,6 +134,7 @@ const OptionRow: React.FC<OptionRowProps> = ({ isChecked, onClick, children }) =
 
 export const FilterBar: React.FC = () => {
   const filterState = useAppStore((s) => s.filterState);
+  const filterMode = useAppStore((s) => s.filterMode);
   const setFilterState = useAppStore((s) => s.setFilterState);
   const resetFilters = useAppStore((s) => s.resetFilters);
   const groupBy = useAppStore((s) => s.groupBy);
@@ -177,7 +178,7 @@ export const FilterBar: React.FC = () => {
       ref={containerRef}
       className="flex flex-wrap items-center gap-2 border-b border-subtle bg-base px-4 sm:px-6 py-2"
     >
-      <FilterChip
+      {filterMode === 'filters' && <><FilterChip
         chipKey="status"
         label="Status"
         icon={<CircleDot className="w-3.5 h-3.5" />}
@@ -360,7 +361,7 @@ export const FilterBar: React.FC = () => {
           <X className="w-3 h-3" />
           Limpiar
         </button>
-      )}
+      )}</>}
 
       <div className="ml-auto flex items-center gap-2">
         {/* En board la agrupación la maneja el toggle Estado/Épica del Header:
@@ -382,7 +383,7 @@ export const FilterBar: React.FC = () => {
           </label>
         )}
 
-        <label className="flex items-center gap-1.5 text-xs text-tertiary">
+        {filterMode === 'filters' && <label className="flex items-center gap-1.5 text-xs text-tertiary">
           Ordenar
           <select
             value={sortBy}
@@ -395,7 +396,7 @@ export const FilterBar: React.FC = () => {
               </option>
             ))}
           </select>
-        </label>
+        </label>}
 
         {/* Densidad y columnas solo tienen efecto en IssueList: en board las
             filas son tarjetas, no tiene sentido ofrecerlas ahí. */}

@@ -122,6 +122,8 @@ test('AuthGuard hides page data until membership is validated and old data store
     'next/navigation': { usePathname: () => pathname, useRouter: () => ({ push: noop }) },
     '@/lib/firebase': { auth: {} }, '@/lib/workspace-access': {}, '@/lib/firestore': {},
     '@/hooks/useKeyboard': { useKeyboard: noop },
+    '@/hooks/usePqlAgentCatalogSync': { usePqlAgentCatalogSync: noop },
+    '@/components/brand/PulseMark': { PulseMark: () => null },
   };
   for (const name of ['Issue', 'Project', 'Label', 'Cycle', 'Notification']) {
     mocks[`@/stores/${name.toLowerCase()}Store`] = { [`use${name}Store`]: (select) => select({}) };
