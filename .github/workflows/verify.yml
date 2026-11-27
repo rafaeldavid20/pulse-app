@@ -8,23 +8,23 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     env:
-      PQL_BACKEND_ROOT: ${{ github.workspace }}/.pql-backend
+      PQL_BACKEND_ROOT: ${{ github.workspace }}/node_modules/.pql-backend
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with:
-          repository: rafaeldavid20/pulse-backend
-          ref: ${{ github.head_ref == 'pul/tes-145-pql-sync' && 'pul/tes-145-pql-mcp' || 'main' }}
-          path: .pql-backend
-          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - uses: actions/checkout@v4
+        with:
+          repository: rafaeldavid20/pulse-backend
+          ref: ${{ github.head_ref == 'pul/tes-144-saved-views' && 'pul/tes-144-saved-views' || github.head_ref == 'pul/tes-145-pql-sync' && 'pul/tes-145-pql-mcp' || 'main' }}
+          path: node_modules/.pql-backend
+          persist-credentials: false
       - run: npm run lint 2>&1 | tee -a verify-output.txt
       - run: npm test 2>&1 | tee -a verify-output.txt
       - run: npx tsc --noEmit 2>&1 | tee -a verify-output.txt
