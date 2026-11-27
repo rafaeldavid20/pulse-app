@@ -7,11 +7,19 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      PQL_BACKEND_ROOT: ${{ github.workspace }}/.pql-backend
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rafaeldavid20/pulse-backend
+          ref: ${{ github.head_ref == 'pul/tes-145-pql-sync' && 'pul/tes-145-pql-mcp' || 'main' }}
+          path: .pql-backend
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
