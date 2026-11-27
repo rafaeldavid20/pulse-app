@@ -81,7 +81,7 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
       {error && <p role="alert" className="text-xs text-priority-urgent">{error}</p>}
       {issue.review?.state === 'changes_requested' && !status?.active && <label className="flex flex-col gap-1 text-xs text-secondary">
         Indicaciones adicionales (opcional)
-        <textarea value={comment} onChange={event => setComment(event.target.value)} maxLength={4000} rows={2} disabled={busy} className="w-full bg-surface border border-default rounded-md px-2 py-1.5 text-xs text-primary outline-none" />
+        <textarea value={comment} onChange={event => setComment(event.target.value)} maxLength={3700} rows={2} disabled={busy} className="w-full bg-surface border border-default rounded-md px-2 py-1.5 text-xs text-primary outline-none" />
       </label>}
       {issue.review?.state === 'changes_requested' && <p className="text-xs text-secondary">El agente recibirá todos los hallazgos abiertos de QA y continuará los PR existentes. Si no puede terminar, revisá el diagnóstico antes de volver a intentar.</p>}
       <a href="/settings/agentes" className="text-xs text-accent hover:underline">Ver diagnóstico de jobs, Runner y límites</a>
