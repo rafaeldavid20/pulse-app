@@ -1,7 +1,7 @@
 name: Verify Pulse App PR
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'pul/tes-142-pql-filter', 'pul/tes-145-pql-sync']
 permissions:
   contents: read
 jobs:
@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: rafaeldavid20/pulse-backend
-          ref: ${{ github.head_ref == 'pul/tes-145-pql-sync' && 'pul/tes-145-pql-mcp' || 'main' }}
+          ref: ${{ github.head_ref == 'pul/tes-144-saved-views' && 'pul/tes-144-saved-views' || github.head_ref == 'pul/tes-145-pql-sync' && 'pul/tes-145-pql-mcp' || 'main' }}
           path: node_modules/.pql-backend
           persist-credentials: false
       - run: npm run lint 2>&1 | tee -a verify-output.txt

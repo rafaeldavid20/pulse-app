@@ -13,6 +13,8 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useLabelStore } from '@/stores/labelStore';
 import { useCycleStore } from '@/stores/cycleStore';
 import { useNotificationStore } from '@/stores/notificationStore';
+import { useSavedViewStore } from '@/stores/savedViewStore';
+import { subscribeSavedViews } from '@/lib/saved-views';
 import {
   subscribeUserWorkspaces,
   subscribeWorkspaceMembers,
@@ -163,6 +165,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     setWorkspaceCatalogReady(false);
     setWorkspaceCatalogError(null);
     useProjectStore.getState().resetProjects();
+    useSavedViewStore.getState().reset();
     setMembers([]);
     setTeams([]);
     setLabels([]);
@@ -238,6 +241,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
           subscribeWorkspaceProjects(workspaceId, value => { setProjects(value); catalogLoaded('projects'); }, clearOnError('projects', () => setProjects([]))),
           subscribeWorkspaceLabels(workspaceId, value => { setLabels(value); catalogLoaded('labels'); }, clearOnError('labels', () => setLabels([]))),
           subscribeWorkspaceCycles(workspaceId, value => { setCycles(value); catalogLoaded('cycles'); }, clearOnError('cycles', () => setCycles([]))),
+          subscribeSavedViews(workspaceId, userId, useSavedViewStore.getState().setViews, useSavedViewStore.getState().setError),
         );
       })
       .catch((error: unknown) => {

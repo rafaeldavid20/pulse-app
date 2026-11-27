@@ -28,12 +28,15 @@ interface IssueBoardProps {
   /** Universo acotado (p.ej. los issues de un ciclo). Sin esto, el board
    *  muestra todo el equipo activo, como en el resto de las vistas. */
   issues?: Issue[];
+  alreadyFiltered?: boolean;
+  groupByOverride?: 'status' | 'epic';
 }
 
-export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) => {
+export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues, alreadyFiltered = false, groupByOverride }) => {
   const pqlReady = usePqlReady();
-  const { issuesByStatus, issuesByEpic, epics } = useIssues(scopeIssues);
-  const boardGroupBy = useAppStore((s) => s.boardGroupBy);
+  const { issuesByStatus, issuesByEpic, epics } = useIssues(scopeIssues, alreadyFiltered);
+  const storeBoardGroupBy = useAppStore((s) => s.boardGroupBy);
+  const boardGroupBy = groupByOverride ?? storeBoardGroupBy;
   const setPeekIssueId = useIssueStore((s) => s.setPeekIssueId);
   const setSelectedIssueId = useIssueStore((s) => s.setSelectedIssueId);
   const updateIssue = useIssueStore((s) => s.updateIssue);
@@ -90,7 +93,7 @@ export const IssueBoard: React.FC<IssueBoardProps> = ({ issues: scopeIssues }) =
     );
   }
 
-  if (!pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
+  if (!alreadyFiltered && !pqlReady) return <p className="text-sm text-secondary" role="status">Esperando una consulta PQL válida.</p>;
 
   const toggleLane = (laneId: string) =>
     setCollapsedLanes((prev) =>

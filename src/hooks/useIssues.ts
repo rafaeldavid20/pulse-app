@@ -15,7 +15,7 @@ import { useFilteredIssues } from './useFilteredIssues';
  * `issues`, sin duplicar el resto del pipeline (filtros de la barra, orden,
  * agrupación por estado/épica).
  */
-export function useIssues(scopeIssues?: Issue[]) {
+export function useIssues(scopeIssues?: Issue[], alreadyFiltered = false) {
   const issues = useIssueStore((s) => s.issues);
   const activeTeam = useAppStore((s) => s.activeTeam);
   const activeWorkspaceId = useAppStore((s) => s.activeWorkspace?.id);
@@ -29,7 +29,7 @@ export function useIssues(scopeIssues?: Issue[]) {
     [issues, activeTeam, scopeIssues]
   );
 
-  const sortedIssues = useFilteredIssues(teamIssues);
+  const sortedIssues = useFilteredIssues(teamIssues, alreadyFiltered);
 
   // Group issues by status for Kanban Board
   const issuesByStatus = useMemo(() => {
@@ -68,11 +68,11 @@ export function useIssues(scopeIssues?: Issue[]) {
     () => {
       const workspaceIssues = issues.filter(i => !!activeWorkspaceId && i.workspaceId === activeWorkspaceId);
       return workspaceIssues
-        .filter((i) => isEpic(i) && (!activeTeam || i.teamId === activeTeam.id))
-        .map((epic) => ({ epic, children: descendantsOfEpic(workspaceIssues, epic.id) }))
+        .filter(i => isEpic(i) && (alreadyFiltered || !activeTeam || i.teamId === activeTeam.id))
+        .map(epic => ({ epic, children: descendantsOfEpic(workspaceIssues, epic.id) }))
         .sort((a, b) => a.epic.number - b.epic.number);
     },
-    [issues, activeTeam, activeWorkspaceId]
+    [issues, activeTeam, activeWorkspaceId, alreadyFiltered]
   );
 
   return {

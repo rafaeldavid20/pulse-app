@@ -10,7 +10,7 @@ import { usePqlContext } from './usePqlContext';
 import { usePqlAgentStatus } from './usePqlAgentStatus';
 
 /** The caller supplies an already scoped set; PQL cannot broaden that scope. */
-export function useFilteredIssues(issues: Issue[]): Issue[] {
+export function useFilteredIssues(issues: Issue[], alreadyFiltered = false): Issue[] {
   const workspaceId = useAppStore(s => s.activeWorkspace?.id);
   const filters = useAppStore(s => s.filterState);
   const sortBy = useAppStore(s => s.sortBy);
@@ -24,6 +24,7 @@ export function useFilteredIssues(issues: Issue[]): Issue[] {
   const agents = usePqlAgentStatus();
   const pathname = usePathname();
   return useMemo(() => {
+    if (alreadyFiltered) return issues;
     const routeTeam = /^\/team\/([^/]+)(?:\/|$)/.exec(pathname)?.[1];
     const scoped = workspaceId ? issues.filter(issue => issue.workspaceId === workspaceId && (!routeTeam || issue.teamId === routeTeam)) : [];
     if (mode === 'filters') return sortIssues(applyIssueFilters(scoped, filters), sortBy);
@@ -31,5 +32,5 @@ export function useFilteredIssues(issues: Issue[]): Issue[] {
     if (workspaceId !== context.workspaceId || (routeTeam && routeTeam !== context.teamId)) return [];
     const result = execute(query, scoped, { ...context, now: evaluatedAt });
     return result.ok ? result.issues : [];
-  }, [issues, workspaceId, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError, agents.ready]);
+  }, [issues, workspaceId, filters, sortBy, mode, query, context, scope, pathname, evaluatedAt, catalogReady, catalogError, agents.ready, alreadyFiltered]);
 }
