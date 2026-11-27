@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "node scripts/check-types-sync.mjs && eslint",
     "sync:types": "node scripts/sync-types.mjs",
+    "sync:pql": "node scripts/sync-pql.mjs",
+    "check:pql": "node scripts/sync-pql.mjs --check",
     "test": "vitest run"
   },
   "dependencies": {

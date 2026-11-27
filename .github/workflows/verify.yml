@@ -7,21 +7,60 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    env:
+      PQL_BACKEND_ROOT: ${{ github.workspace }}/node_modules/.pql-backend
     defaults:
       run:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - name: Resolve paired backend revision
+        id: pair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pair=$(node -p "require('./.github/pql-pair.json').backendPr")
+          frontend=$(node -p "require('./.github/pql-pair.json').frontendPr")
+          if [ "$frontend" = "${{ github.event.pull_request.number }}" ]; then
+            sha=$(gh api "repos/rafaeldavid20/pulse-backend/pulls/$pair" --jq .head.sha)
+          else
+            sha=$(gh api repos/rafaeldavid20/pulse-backend/commits/main --jq .sha)
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: rafaeldavid20/pulse-backend
+          ref: ${{ steps.pair.outputs.sha }}
+          path: node_modules/.pql-backend
+          persist-credentials: false
+      - name: Verify PQL across repositories
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKEND_SHA: ${{ steps.pair.outputs.sha }}
+          FRONTEND_PR: ${{ github.event.pull_request.number }}
+          FRONTEND_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node scripts/check-pql-pair.mjs
+          npm run check:pql 2>&1 | tee -a verify-output.txt
       - run: npm run lint 2>&1 | tee -a verify-output.txt
       - run: npm test 2>&1 | tee -a verify-output.txt
       - run: npx tsc --noEmit 2>&1 | tee -a verify-output.txt
       - run: node --test scripts/*.test.mjs 2>&1 | tee -a verify-output.txt
       - run: npx next build --webpack 2>&1 | tee -a verify-output.txt
+      - name: Recheck paired backend HEAD
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKEND_SHA: ${{ steps.pair.outputs.sha }}
+          FRONTEND_PR: ${{ github.event.pull_request.number }}
+          FRONTEND_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/check-pql-pair.mjs | tee -a verify-output.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
