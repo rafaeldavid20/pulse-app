@@ -116,6 +116,9 @@ describe('issue development recovery', () => {
     server = { state: 'failed', available: true, active: false, mode: 'rework', unpublishedChanges: true };
     render(<DevelopmentSection issue={{ ...issue, review: { state: 'changes_requested' } } as Issue} />);
     expect((await screen.findByRole('alert')).textContent).toMatch(/nueva ejecución puede no incluirlos/);
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Corregir todos los hallazgos' }));
+    expect(call.mock.calls.some(([code]) => code === 'issues.requestDevelopment')).toBe(false);
   });
 });
 

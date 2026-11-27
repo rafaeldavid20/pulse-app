@@ -41,6 +41,7 @@ export function DevelopmentSection({ issue }: { issue: Issue }) {
 
   const submit = async () => {
     if (submitting.current) return;
+    if (status?.unpublishedChanges && !window.confirm('Hay commits de una ejecución anterior que no figuran en los PR. La nueva ejecución puede comenzar sin ellos y volver a hacer ese trabajo. ¿Querés continuar?')) return;
     submitting.current = true;
     setBusy(true);
     setError(null);
