@@ -1,7 +1,7 @@
 name: Verify Pulse App PR
 on:
   pull_request:
-    branches: [main, 'pul/tes-142-pql-filter']
+    branches: [main, 'pul/tes-142-pql-filter', 'pul/tes-145-pql-sync']
 permissions:
   contents: read
 jobs:
