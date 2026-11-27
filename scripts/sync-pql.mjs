@@ -18,8 +18,7 @@ const frontendManifest = resolve(source, 'manifest.json');
 if (check) {
   if (!existsSync(frontendManifest) || readFileSync(frontendManifest, 'utf8') !== manifestText) throw new Error('PQL source differs from manifest; run npm run sync:pql.');
   if (!existsSync(resolve(backend, 'functions/src/common'))) {
-    console.warn('Backend checkout absent; source manifest verified, generated copy not checked.');
-    process.exit(0);
+    throw new Error('Backend checkout absent; set PQL_BACKEND_ROOT to the backend revision to verify cross-repository parity.');
   }
   if (!existsSync(target)) throw new Error('PQL generated backend directory is missing.');
   const generatedFiles = readdirSync(target).filter(name => name.endsWith('.ts')).sort();

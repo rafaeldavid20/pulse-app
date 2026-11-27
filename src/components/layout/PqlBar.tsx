@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { parse, resolve, tokenize, type Diagnostic } from '@/lib/pql';
+import { tokenize, type Diagnostic } from '@/lib/pql';
+import { validatePql } from '@/lib/pql-validation';
 import { filtersToPql, pqlToFilters } from '@/lib/pql-filter-conversion';
 import { completePql, type Suggestion } from '@/lib/pql-completion';
 import { usePqlContext } from '@/hooks/usePqlContext';
@@ -82,8 +83,7 @@ export function PqlBar({ issues = EMPTY_ISSUES }: { issues?: Issue[] }) {
     if (mode !== 'pql' || !loaded || error || !catalogReady || catalogError || !agents.ready || !context.workspaceId) return;
     const timer = window.setTimeout(() => {
       const evaluatedAt = new Date().toISOString();
-      const parsed = parse(draft);
-      const result = parsed.ok ? resolve(draft, parsed.query, { ...context, now: evaluatedAt }) : parsed;
+      const result = validatePql(draft, { ...context, now: evaluatedAt });
       if (!result.ok) setDiagnostic(result.diagnostic);
       else { setDiagnostic(null); setApplied(draft, `${context.workspaceId}:${context.actorId}:${pathname}`, evaluatedAt); }
     }, 200);
